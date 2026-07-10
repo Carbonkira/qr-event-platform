@@ -1,0 +1,13 @@
+# Claude Code's own session/tooling state — not part of the application
+.claude/
+
+# OS/editor cruft
+.DS_Store
+Thumbs.db
+
+# Playwright artifacts
+Front-end/test-results/
+Front-end/playwright-report/
+Front-end/blob-report/
+Front-end/playwright/.cache/
+Front-end/e2e/screenshots/

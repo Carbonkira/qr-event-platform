@@ -1,0 +1,117 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    @apply font-body text-slate-800 bg-surface-50;
+  }
+
+  ::selection {
+    @apply bg-brand-200 text-brand-900;
+  }
+  
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-surface-300 rounded-full;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-surface-300;
+  }
+}
+
+@layer components {
+  .glass {
+    @apply bg-white/70 backdrop-blur-xl border border-white/20;
+  }
+  
+  .glass-dark {
+    @apply bg-navy-900/80 backdrop-blur-xl border border-white/10;
+  }
+
+  .gradient-mesh {
+    background: 
+      radial-gradient(ellipse at 20% 50%, rgba(26, 68, 245, 0.08) 0%, transparent 50%),
+      radial-gradient(ellipse at 80% 20%, rgba(20, 184, 166, 0.06) 0%, transparent 50%),
+      radial-gradient(ellipse at 60% 80%, rgba(51, 102, 255, 0.04) 0%, transparent 50%);
+  }
+
+  .text-gradient {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-brand-600 to-accent-500;
+  }
+
+  .card-interactive {
+    @apply bg-white rounded-2xl border border-surface-200 shadow-card 
+           hover:shadow-card-hover hover:border-surface-300 
+           transition-all duration-300 ease-out;
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 
+           bg-brand-600 text-white font-semibold text-sm rounded-xl
+           hover:bg-brand-700 active:bg-brand-800
+           focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2
+           transition-all duration-200 shadow-sm hover:shadow-md
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 px-5 py-2.5
+           bg-white text-slate-700 font-semibold text-sm rounded-xl
+           border border-surface-200 
+           hover:bg-surface-50 hover:border-surface-300
+           focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2
+           transition-all duration-200;
+  }
+  
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2
+           text-slate-500 font-medium text-sm rounded-xl
+           hover:bg-surface-100 hover:text-slate-700
+           transition-all duration-200;
+  }
+
+  .input-field {
+    @apply w-full rounded-xl border border-surface-200 bg-white 
+           px-4 py-2.5 text-sm text-slate-800
+           placeholder:text-slate-400
+           focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent
+           transition-all duration-200;
+  }
+
+  .badge {
+    @apply inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold;
+  }
+
+  .sidebar-link {
+    @apply flex items-center gap-3 px-4 py-2.5 text-sm font-medium rounded-xl
+           transition-all duration-200;
+  }
+
+  .sidebar-link-active {
+    @apply bg-brand-600/15 text-brand-400 font-semibold;
+  }
+
+  .sidebar-link-inactive {
+    @apply text-slate-400 hover:text-white hover:bg-white/5;
+  }
+}
+
+@layer utilities {
+  .animate-stagger-1 { animation-delay: 0.1s; }
+  .animate-stagger-2 { animation-delay: 0.2s; }
+  .animate-stagger-3 { animation-delay: 0.3s; }
+  .animate-stagger-4 { animation-delay: 0.4s; }
+  .animate-stagger-5 { animation-delay: 0.5s; }
+}
