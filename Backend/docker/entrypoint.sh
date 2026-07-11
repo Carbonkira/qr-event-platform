@@ -1,10 +1,10 @@
 #!/bin/sh
 set -e
 
-# Render injects PORT at runtime, not build time - can't bake this into
-# the image. Running migrations on every boot is fine here (single
+# Render/Railway inject PORT at runtime, not build time - can't bake this
+# into the image. Running migrations on every boot is fine here (single
 # instance, no autoscaling), but skip it by removing this line if you'd
-# rather run `php artisan migrate --force` manually via Render's shell.
+# rather run `php artisan migrate --force` manually via the platform's shell.
 php artisan migrate --force
 
 # Only matters when FILESYSTEM_PUBLIC_DRIVER=local (S3/R2 URLs are already
@@ -15,4 +15,10 @@ php artisan migrate --force
 # after the first if this container's filesystem ever persists across restarts.
 [ -L public/storage ] || php artisan storage:link
 
-exec php artisan serve --host=0.0.0.0 --port="${PORT:-8000}"
+# nginx's own $uri/$document_root/etc use the same "$" syntax as envsubst -
+# scoping this to just '${PORT}' stops it from blanking those out too.
+envsubst '${PORT}' < /etc/nginx/conf.d/default.conf.template > /etc/nginx/conf.d/default.conf
+
+php-fpm -D
+
+exec nginx -g "daemon off;"
