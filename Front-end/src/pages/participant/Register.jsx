@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { ArrowLeft, User, Mail, Lock, Receipt, Ticket, Award, Send, Clock3, Upload, ImageDown, X, UserPlus, LogIn } from 'lucide-react'
+import { ArrowLeft, User, Mail, Lock, Receipt, Ticket, Award, Send, Clock3, Upload, ImageDown, X, UserPlus, LogIn, MailCheck, RefreshCw } from 'lucide-react'
 import { Btn, Input, Toggle, Card } from '../../components/ui'
 import { useEvent, useOrganization } from '../../hooks/useApi'
 import { registerForEvent, walkInForEvent } from '../../api/resources'
@@ -14,18 +14,23 @@ export default function Register() {
   const [searchParams] = useSearchParams()
   const isWalkIn = searchParams.get('walkIn') === '1'
   const navigate = useNavigate()
-  const { user, authReady, login, createAccount, addToast } = useApp()
+  const { user, authReady, login, createAccount, refreshUser, resendVerificationEmail, addToast } = useApp()
   const { data: event, loading } = useEvent(slug)
   const { data: org } = useOrganization()
 
   // Registering for an event doubles as creating an account (see
   // AuthController::register) - "account" comes first unless the visitor
-  // is already logged in, in which case it's skipped entirely.
-  const [step, setStep] = useState('account') // account | form | payment
+  // is already logged in, in which case it's skipped entirely. An unverified
+  // account gets routed through "verify" first - the register endpoint
+  // requires a verified email, and a brand-new account has no way to be
+  // verified yet seconds after signing up.
+  const [step, setStep] = useState('account') // account | verify | form | payment
   const [accountMode, setAccountMode] = useState('create') // create | login
   const [accountForm, setAccountForm] = useState({ name: '', email: '', password: '' })
   const [accountErrors, setAccountErrors] = useState({})
   const [accountLoading, setAccountLoading] = useState(false)
+  const [resending, setResending] = useState(false)
+  const [checkingVerified, setCheckingVerified] = useState(false)
 
   const [form, setForm] = useState({ name: '', email: '', customData: {}, needsCertificate: false })
   const [paymentRef, setPaymentRef] = useState('')
@@ -39,9 +44,29 @@ export default function Register() {
   useEffect(() => {
     if (user && step === 'account') {
       setForm(f => ({ ...f, name: f.name || user.name, email: f.email || user.email }))
-      setStep('form')
+      setStep(user.emailVerifiedAt ? 'form' : 'verify')
     }
   }, [user, step])
+
+  const resend = async () => {
+    setResending(true)
+    try { await resendVerificationEmail(); addToast('Verification email sent!', 'success') }
+    catch (err) { addToast(err.message || 'Could not resend right now', 'error') }
+    finally { setResending(false) }
+  }
+
+  const checkVerified = async () => {
+    setCheckingVerified(true)
+    try {
+      const fresh = await refreshUser()
+      if (fresh.emailVerifiedAt) setStep('form')
+      else addToast("Still not verified — click the link in your email first", 'error')
+    } catch (err) {
+      addToast(err.message || 'Could not check verification status', 'error')
+    } finally {
+      setCheckingVerified(false)
+    }
+  }
 
   useEffect(() => {
     if (isWalkIn && event && !ranWalkIn.current) {
@@ -160,6 +185,18 @@ export default function Register() {
             <Input label="Password" type="password" value={accountForm.password} onChange={setAccountField('password')} icon={Lock} placeholder="••••••••" error={accountErrors.password?.[0]} required />
             <Btn type="submit" variant="accent" size="lg" full icon={accountMode === 'create' ? UserPlus : LogIn} loading={accountLoading}>{accountMode === 'create' ? 'Create Account & Continue' : 'Log In & Continue'}</Btn>
           </form>
+        )}
+
+        {step === 'verify' && (
+          <div className="text-center py-2">
+            <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-4"><MailCheck size={26} className="text-[#1a1a2e]" /></div>
+            <h3 className="font-bold text-[16px] mb-1">Check your inbox</h3>
+            <p className="text-[13px] text-slate-500 mb-6">We sent a verification link to <b className="text-slate-700">{user?.email}</b>. Click it, then continue below.</p>
+            <div className="space-y-2">
+              <Btn variant="accent" size="lg" full loading={checkingVerified} onClick={checkVerified}>I've verified — Continue</Btn>
+              <Btn variant="secondary" size="lg" full icon={RefreshCw} loading={resending} onClick={resend}>Resend email</Btn>
+            </div>
+          </div>
         )}
 
         {step === 'form' && (

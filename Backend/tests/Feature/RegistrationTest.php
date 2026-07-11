@@ -38,6 +38,8 @@ class RegistrationTest extends TestCase
         Mail::fake();
         $event = $this->makeEvent();
         $user = User::create(['name' => 'Ana', 'email' => 'ana@example.com', 'password' => bcrypt('password123')]);
+        // email_verified_at isn't mass-assignable (see User::$fillable).
+        $user->forceFill(['email_verified_at' => now()])->save();
         Sanctum::actingAs($user);
 
         $response = $this->postJson("/api/events/{$event->id}/register", ['name' => 'Ana', 'email' => 'ana@example.com'])
@@ -45,6 +47,17 @@ class RegistrationTest extends TestCase
 
         $this->assertSame($user->id, $response->json('userId'));
         Mail::assertQueued(\App\Mail\RegistrationConfirmedMail::class);
+    }
+
+    public function test_an_unverified_account_cannot_register_for_an_event(): void
+    {
+        Mail::fake();
+        $event = $this->makeEvent();
+        $unverified = User::create(['name' => 'Ana', 'email' => 'ana@example.com', 'password' => bcrypt('password123')]);
+        Sanctum::actingAs($unverified);
+
+        $this->postJson("/api/events/{$event->id}/register", ['name' => 'Ana', 'email' => 'ana@example.com'])
+            ->assertForbidden();
     }
 
     public function test_walk_in_check_in_does_not_require_authentication(): void

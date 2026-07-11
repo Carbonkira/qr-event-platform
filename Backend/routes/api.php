@@ -65,7 +65,7 @@ Route::middleware('auth:sanctum')->group(function () {
         ->middleware('throttle:10,1');
     Route::post('/events/upload-image', [EventController::class, 'uploadImage'])
         ->middleware('throttle:20,1');
-    Route::post('/events', [EventController::class, 'store']);
+    Route::post('/events', [EventController::class, 'store'])->middleware('verified');
     Route::put('/events/{event}', [EventController::class, 'update']);
     Route::delete('/events/{event}', [EventController::class, 'destroy']);
     Route::post('/events/{event}/approve', [EventController::class, 'approve']);
@@ -81,7 +81,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // fire an unbounded number of registrations/imports per minute.
     Route::middleware('throttle:30,1')->group(function () {
         // Pre-event registration requires an account (see RegistrationController::store).
-        Route::post('/events/{event}/register', [RegistrationController::class, 'store']);
+        Route::post('/events/{event}/register', [RegistrationController::class, 'store'])->middleware('verified');
         Route::post('/events/{event}/registrations', [RegistrationController::class, 'addGuest']);
         Route::post('/events/{event}/registrations/import', [RegistrationController::class, 'importCsv']);
     });

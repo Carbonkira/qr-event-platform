@@ -15,7 +15,20 @@ class EventTest extends TestCase
 
     private function makeUser(string $email = 'organizer@example.com'): User
     {
-        return User::create(['name' => 'Organizer', 'email' => $email, 'password' => bcrypt('password123')]);
+        $user = User::create(['name' => 'Organizer', 'email' => $email, 'password' => bcrypt('password123')]);
+        // email_verified_at isn't mass-assignable (see User::$fillable).
+        $user->forceFill(['email_verified_at' => now()])->save();
+
+        return $user;
+    }
+
+    public function test_an_unverified_account_cannot_create_an_event(): void
+    {
+        $unverified = User::create(['name' => 'Unverified', 'email' => 'unverified@example.com', 'password' => bcrypt('password123')]);
+        Sanctum::actingAs($unverified);
+
+        $this->postJson('/api/events', ['title' => 'My Draft Event', 'saveAsDraft' => true])
+            ->assertForbidden();
     }
 
     public function test_a_draft_can_be_saved_with_only_a_title(): void

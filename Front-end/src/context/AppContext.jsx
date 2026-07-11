@@ -55,6 +55,15 @@ export function AppProvider({ children }) {
     return u
   }, [])
 
+  // Pulls fresh /auth/me state - needed after the user clicks the
+  // verification link in another tab, since nothing else updates
+  // `user.emailVerifiedAt` in this tab on its own.
+  const refreshUser = useCallback(async () => {
+    const u = await api.me()
+    setUser(u)
+    return u
+  }, [])
+
   const resendVerificationEmail = useCallback(() => api.resendVerificationEmail(), [])
 
   const addToast = useCallback((message, type = 'success', duration = 3500) => {
@@ -69,7 +78,7 @@ export function AppProvider({ children }) {
 
   return (
     <AppContext.Provider value={{
-      user, authReady, login, createAccount, logout, updateProfile, resendVerificationEmail,
+      user, authReady, login, createAccount, logout, updateProfile, refreshUser, resendVerificationEmail,
       toasts, addToast, removeToast,
     }}>
       {children}
