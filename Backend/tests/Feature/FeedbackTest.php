@@ -4,7 +4,9 @@ namespace Tests\Feature;
 
 use App\Models\Event;
 use App\Models\Registration;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
 class FeedbackTest extends TestCase
@@ -73,5 +75,39 @@ class FeedbackTest extends TestCase
         ])->assertCreated();
         $this->assertFalse($second->json('isHighlighted'));
         $this->assertSame('⭐ Top Reviewer', $second->json('badge'));
+    }
+
+    public function test_feedback_index_only_shows_feedback_for_events_the_organizer_owns(): void
+    {
+        $owner = User::create(['name' => 'Owner', 'email' => 'owner@example.com', 'password' => bcrypt('password123')]);
+        $stranger = User::create(['name' => 'Stranger', 'email' => 'stranger@example.com', 'password' => bcrypt('password123')]);
+
+        $ownedEvent = Event::create(['title' => 'Owned', 'status' => 'approved', 'slug' => 'owned-'.uniqid(), 'user_id' => $owner->id]);
+        $ownedReg = $ownedEvent->registrations()->create(['name' => 'A', 'email' => 'a@example.com', 'qr_code' => 'QR-A']);
+        $ownedEvent->feedback()->create(['registration_id' => $ownedReg->id, 'q1' => 5, 'q2' => 5, 'q3' => 5, 'q4' => 5, 'q5' => 5]);
+
+        $othersEvent = Event::create(['title' => 'Others', 'status' => 'approved', 'slug' => 'others-'.uniqid(), 'user_id' => $stranger->id]);
+        $othersReg = $othersEvent->registrations()->create(['name' => 'B', 'email' => 'b@example.com', 'qr_code' => 'QR-B']);
+        $othersEvent->feedback()->create(['registration_id' => $othersReg->id, 'q1' => 3, 'q2' => 3, 'q3' => 3, 'q4' => 3, 'q5' => 3]);
+
+        Sanctum::actingAs($owner);
+        $response = $this->getJson('/api/feedback')->assertOk();
+
+        $this->assertCount(1, $response->json());
+        $this->assertSame($ownedEvent->id, $response->json('0.eventId'));
+    }
+
+    public function test_feedback_index_shows_everything_to_an_admin(): void
+    {
+        $admin = User::create(['name' => 'Admin', 'email' => 'admin@example.com', 'password' => bcrypt('password123')]);
+        $admin->forceFill(['role' => 'admin'])->save();
+        $owner = User::create(['name' => 'Owner', 'email' => 'owner@example.com', 'password' => bcrypt('password123')]);
+
+        $event = Event::create(['title' => 'Owned', 'status' => 'approved', 'slug' => 'owned-'.uniqid(), 'user_id' => $owner->id]);
+        $reg = $event->registrations()->create(['name' => 'A', 'email' => 'a@example.com', 'qr_code' => 'QR-A']);
+        $event->feedback()->create(['registration_id' => $reg->id, 'q1' => 5, 'q2' => 5, 'q3' => 5, 'q4' => 5, 'q5' => 5]);
+
+        Sanctum::actingAs($admin);
+        $this->getJson('/api/feedback')->assertOk()->assertJsonCount(1);
     }
 }

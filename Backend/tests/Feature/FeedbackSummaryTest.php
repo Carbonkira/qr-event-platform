@@ -84,6 +84,19 @@ class FeedbackSummaryTest extends TestCase
         $this->postJson("/api/events/{$event->id}/feedback-summary")->assertStatus(503);
     }
 
+    public function test_a_stranger_cannot_view_someone_elses_feedback_summary(): void
+    {
+        $owner = User::create(['name' => 'Owner', 'email' => 'owner@example.com', 'password' => bcrypt('password123')]);
+        $event = Event::create([
+            'title' => 'Owned Event', 'status' => 'approved', 'slug' => 'owned-event-'.uniqid(), 'user_id' => $owner->id,
+            'type' => 'Meetup', 'venue' => 'Venue', 'date' => '2026-08-01',
+            'start_time' => '10:00', 'end_time' => '12:00', 'capacity' => 50,
+        ]);
+
+        $this->actingAsOrganizer();
+        $this->postJson("/api/events/{$event->id}/feedback-summary")->assertForbidden();
+    }
+
     public function test_feedback_summary_calls_gemini_and_caches_the_result(): void
     {
         $event = $this->makeEventWithRegistration();

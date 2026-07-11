@@ -91,6 +91,14 @@ class FeedbackController extends Controller
             $query->where('event_id', $data['event_id']);
         }
 
+        // Scoped to events the requester owns unless they're an admin -
+        // previously any authenticated account could see feedback for any
+        // event, including other organizers' events.
+        if (! $request->user()->isAdmin()) {
+            $ownedEventIds = Event::where(fn ($q) => $q->where('user_id', $request->user()->id)->orWhereNull('user_id'))->pluck('id');
+            $query->whereIn('event_id', $ownedEventIds);
+        }
+
         return response()->json($query->get());
     }
 }

@@ -6,32 +6,51 @@ use App\Http\Controllers\Controller;
 use App\Models\Event;
 use App\Models\Feedback;
 use App\Models\Registration;
+use Illuminate\Http\Request;
 
 class AnalyticsController extends Controller
 {
     /**
      * Mirrors the mock's getAnalytics() shape exactly (App.jsx:127-131),
      * including its camelCase keys, so the ported frontend can consume it
-     * without remapping.
+     * without remapping. Scoped to events the requester owns unless they're
+     * an admin - previously every count here was global, so any account
+     * (including a pure attendee) saw every other organizer's numbers,
+     * including "pendingApprovals" for events that weren't theirs.
      */
-    public function index()
+    public function index(Request $request)
     {
-        $totalRegistrations = Registration::count();
-        $totalAttended = Registration::where('attended', true)->count();
-        $totalFeedback = Feedback::count();
+        $isAdmin = $request->user()->isAdmin();
+        $ownedEventIds = Event::where(fn ($q) => $q->where('user_id', $request->user()->id)->orWhereNull('user_id'))->pluck('id');
+
+        $registrations = Registration::query();
+        $feedback = Feedback::query();
+        $events = Event::query();
+        $pending = Event::where('status', 'pending');
+
+        if (! $isAdmin) {
+            $registrations->whereIn('event_id', $ownedEventIds);
+            $feedback->whereIn('event_id', $ownedEventIds);
+            $events->whereIn('id', $ownedEventIds);
+            $pending->whereIn('id', $ownedEventIds);
+        }
+
+        $totalRegistrations = (clone $registrations)->count();
+        $totalAttended = (clone $registrations)->where('attended', true)->count();
+        $totalFeedback = (clone $feedback)->count();
 
         $avgSatisfaction = 0;
         if ($totalFeedback > 0) {
             // Average of each feedback row's own (q1+q2+q3+q4+q5)/5, then
             // averaged across all rows - matches the mock's reduce() exactly.
-            $sumOfPerRowAverages = Feedback::query()
+            $sumOfPerRowAverages = (clone $feedback)
                 ->selectRaw('SUM((q1 + q2 + q3 + q4 + q5) / 5.0) as total')
                 ->value('total');
             $avgSatisfaction = $sumOfPerRowAverages / $totalFeedback;
         }
 
         return response()->json([
-            'totalEvents' => Event::where('status', 'approved')->count(),
+            'totalEvents' => (clone $events)->where('status', 'approved')->count(),
             'totalRegistrations' => $totalRegistrations,
             'totalAttended' => $totalAttended,
             'attendanceRate' => $totalRegistrations > 0
@@ -42,7 +61,7 @@ class AnalyticsController extends Controller
                 ? (string) round(($totalFeedback / $totalAttended) * 100)
                 : '0',
             'avgSatisfaction' => number_format($avgSatisfaction, 1),
-            'pendingApprovals' => Event::where('status', 'pending')->count(),
+            'pendingApprovals' => $pending->count(),
         ]);
     }
 }

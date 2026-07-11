@@ -58,14 +58,26 @@ class EventController extends Controller
     }
 
     /**
-     * Admin listing: every event regardless of status/visibility, matching
-     * the mock's getEvents() (App.jsx:80). Eager-loads tasks so the admin
-     * event detail page's checklist section (Front-end/src/pages/admin/
+     * Organizer listing: every status/visibility, but scoped to events the
+     * requester actually owns - admins still see everything (they need
+     * org-wide visibility for approvals). Confirmed in live testing this
+     * was previously wide open: any authenticated account, including one
+     * that had only ever registered for an event, could see every other
+     * organizer's events/data here. Eager-loads tasks so the admin event
+     * detail page's checklist section (Front-end/src/pages/admin/
      * EventDetail.jsx) has data without a second request.
      */
-    public function adminIndex()
+    public function adminIndex(Request $request)
     {
-        return response()->json(Event::with('tasks')->orderByDesc('created_at')->get());
+        $query = Event::with('tasks')->orderByDesc('created_at');
+
+        if (! $request->user()->isAdmin()) {
+            // Legacy events with no owner stay visible to everyone, matching
+            // authorizeOwner()'s existing "editable by anyone" fallback below.
+            $query->where(fn ($q) => $q->where('user_id', $request->user()->id)->orWhereNull('user_id'));
+        }
+
+        return response()->json($query->get());
     }
 
     /**

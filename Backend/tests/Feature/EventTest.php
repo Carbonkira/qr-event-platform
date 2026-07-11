@@ -22,6 +22,31 @@ class EventTest extends TestCase
         return $user;
     }
 
+    public function test_admin_index_only_shows_events_the_organizer_owns(): void
+    {
+        $owner = $this->makeUser('owner@example.com');
+        $stranger = $this->makeUser('stranger@example.com');
+        Event::create(['title' => 'Mine', 'status' => 'approved', 'slug' => 'mine-'.uniqid(), 'user_id' => $owner->id]);
+        Event::create(['title' => 'Theirs', 'status' => 'approved', 'slug' => 'theirs-'.uniqid(), 'user_id' => $stranger->id]);
+        Event::create(['title' => 'Legacy', 'status' => 'approved', 'slug' => 'legacy-'.uniqid(), 'user_id' => null]);
+
+        Sanctum::actingAs($owner);
+        $titles = collect($this->getJson('/api/admin/events')->assertOk()->json())->pluck('title')->all();
+
+        $this->assertEqualsCanonicalizing(['Mine', 'Legacy'], $titles);
+    }
+
+    public function test_admin_index_shows_everything_to_an_admin(): void
+    {
+        $admin = $this->makeUser('admin@example.com');
+        $admin->forceFill(['role' => 'admin'])->save();
+        $owner = $this->makeUser('owner@example.com');
+        Event::create(['title' => 'Mine', 'status' => 'approved', 'slug' => 'mine-'.uniqid(), 'user_id' => $owner->id]);
+
+        Sanctum::actingAs($admin);
+        $this->getJson('/api/admin/events')->assertOk()->assertJsonCount(1);
+    }
+
     public function test_public_listing_sorts_by_distance_when_coordinates_are_given(): void
     {
         // Manila
