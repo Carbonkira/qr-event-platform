@@ -214,7 +214,7 @@ export default function EventDetail() {
   return (
     <div className="space-y-5">
       <div className="flex items-center gap-3">
-        <button onClick={() => navigate('/organizer')} className="p-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-50"><ArrowLeft size={16} /></button>
+        <button onClick={() => navigate('/my-events')} className="p-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-50"><ArrowLeft size={16} /></button>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-0.5">
             <Badge color={STATUS_COLOR[event.status] || 'slate'} size="xs">{event.status}</Badge>

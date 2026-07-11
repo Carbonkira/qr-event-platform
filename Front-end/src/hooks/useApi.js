@@ -29,8 +29,8 @@ export function useAsync(fn, deps = []) {
 export function usePublicEvents(params = {}) {
   return useAsync(() => api.getPublicEvents(params), [JSON.stringify(params)])
 }
-export function useAdminEvents() {
-  return useAsync(() => api.getAdminEvents(), [])
+export function useAdminEvents(enabled = true) {
+  return useAsync(() => (enabled ? api.getAdminEvents() : Promise.resolve([])), [enabled])
 }
 export function useEvent(slug) {
   return useAsync(() => (slug ? api.getEvent(slug) : Promise.resolve(null)), [slug])
@@ -44,8 +44,8 @@ export function useMyRegistrations(enabled = true) {
 export function useFeedback(eventId) {
   return useAsync(() => api.getFeedback(eventId), [eventId])
 }
-export function useAnalytics() {
-  return useAsync(() => api.getAnalytics(), [])
+export function useAnalytics(enabled = true) {
+  return useAsync(() => (enabled ? api.getAnalytics() : Promise.resolve(null)), [enabled])
 }
 export function useOrganization() {
   return useAsync(() => api.getOrganization(), [])

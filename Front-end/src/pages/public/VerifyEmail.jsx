@@ -35,7 +35,7 @@ export default function VerifyEmail() {
         <p className="text-[13px] text-slate-500 mb-6">We sent a verification link to {email ? <b className="text-slate-700">{email}</b> : 'your email'}. Click it to verify your account — you can keep using the app in the meantime.</p>
         <div className="space-y-2">
           <Btn variant="secondary" size="lg" full icon={RefreshCw} loading={resending} onClick={resend}>Resend email</Btn>
-          <Btn variant="accent" size="lg" full onClick={() => navigate('/organizer')}>Go to Dashboard</Btn>
+          <Btn variant="accent" size="lg" full onClick={() => navigate('/my-events')}>Go to My Events</Btn>
         </div>
       </Card>
     </div>

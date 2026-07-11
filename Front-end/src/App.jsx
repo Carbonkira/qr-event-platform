@@ -1,9 +1,9 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { CheckCircle2, AlertCircle } from 'lucide-react'
 import { AppProvider, useApp } from './context/AppContext'
 import ProtectedRoute from './components/layout/ProtectedRoute'
-import PublicShell from './components/layout/PublicShell'
-import OrgShell from './components/layout/OrgShell'
+import AppShell from './components/layout/AppShell'
+import ManageLayout from './components/layout/ManageLayout'
 
 import Home from './pages/public/Home'
 import EventDetail from './pages/public/EventDetail'
@@ -18,12 +18,10 @@ import Register from './pages/participant/Register'
 import Confirm from './pages/participant/Confirm'
 import Pass from './pages/participant/Pass'
 import FindPass from './pages/participant/FindPass'
-import MyTickets from './pages/participant/MyTickets'
 import ParticipantFeedback from './pages/participant/Feedback'
 import FeedbackDone from './pages/participant/FeedbackDone'
 
-import Dashboard from './pages/admin/Dashboard'
-import Events from './pages/admin/Events'
+import MyEvents from './pages/MyEvents'
 import AdminEventDetail from './pages/admin/EventDetail'
 import EditEvent from './pages/admin/EditEvent'
 import AdminFeedback from './pages/admin/Feedback'
@@ -68,13 +66,13 @@ function NotFound() {
   return <div className="min-h-screen flex items-center justify-center text-slate-400 text-sm">Page not found.</div>
 }
 
-function AppShell() {
+function AppRoutes() {
   return (
     <div style={{ fontFamily: "'Inter',system-ui,sans-serif" }} className="min-h-screen bg-[#fafafa] text-slate-800">
       <GlobalStyles />
       <Toasts />
       <Routes>
-        <Route element={<PublicShell />}>
+        <Route element={<AppShell />}>
           <Route index element={<Home />} />
           <Route path="events/:slug" element={<EventDetail />} />
           <Route path="events/:slug/register" element={<Register />} />
@@ -83,25 +81,29 @@ function AppShell() {
           <Route path="feedback/:regId" element={<ParticipantFeedback />} />
           <Route path="feedback/:regId/done" element={<FeedbackDone />} />
           <Route path="find-pass" element={<FindPass />} />
-          <Route path="my-tickets" element={<MyTickets />} />
           <Route path="login" element={<Login />} />
           <Route path="forgot-password" element={<ForgotPassword />} />
           <Route path="reset-password" element={<ResetPassword />} />
           <Route path="organizer/register" element={<RegisterOrganizer />} />
           <Route path="organizer/verify-email" element={<VerifyEmail />} />
           <Route path="email-verified" element={<EmailVerified />} />
-        </Route>
 
-        <Route path="organizer" element={<ProtectedRoute><OrgShell /></ProtectedRoute>}>
-          <Route index element={<Dashboard />} />
-          <Route path="events" element={<Events />} />
-          <Route path="events/:id" element={<AdminEventDetail />} />
-          <Route path="events/:id/edit" element={<EditEvent />} />
-          <Route path="feedback" element={<AdminFeedback />} />
-          <Route path="reports" element={<Reports />} />
-          <Route path="templates" element={<Templates />} />
-          <Route path="profile" element={<Profile />} />
-          <Route path="approvals" element={<Approvals />} />
+          {/* Old links/bookmarks - kept working, redirected to their new home. */}
+          <Route path="my-tickets" element={<Navigate to="/my-events" replace />} />
+          <Route path="profile" element={<Navigate to="/organizer/profile" replace />} />
+
+          <Route path="my-events" element={<ProtectedRoute><MyEvents /></ProtectedRoute>} />
+
+          <Route path="organizer" element={<ProtectedRoute><ManageLayout /></ProtectedRoute>}>
+            <Route index element={<Navigate to="/my-events" replace />} />
+            <Route path="events/:id" element={<AdminEventDetail />} />
+            <Route path="events/:id/edit" element={<EditEvent />} />
+            <Route path="feedback" element={<AdminFeedback />} />
+            <Route path="reports" element={<Reports />} />
+            <Route path="templates" element={<Templates />} />
+            <Route path="profile" element={<Profile />} />
+            <Route path="approvals" element={<Approvals />} />
+          </Route>
         </Route>
 
         <Route path="*" element={<NotFound />} />
@@ -114,7 +116,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <AppProvider>
-        <AppShell />
+        <AppRoutes />
       </AppProvider>
     </BrowserRouter>
   )

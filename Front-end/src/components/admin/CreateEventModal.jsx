@@ -34,7 +34,7 @@ const blankForm = () => ({
 const STEPS = ['Details', 'Settings', 'Registration']
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024 // 5MB — matches the backend's own limit
 
-// 3-step event creation wizard, rendered once globally by OrgShell. On
+// 3-step event creation wizard, rendered once globally by AppShell. On
 // success it navigates to the new event's detail page — that page fetches
 // fresh data on mount, so no page-specific list-refresh wiring is needed.
 export default function CreateEventModal({ open, onClose, toast, onCreated }) {

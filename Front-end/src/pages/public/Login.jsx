@@ -1,11 +1,12 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Mail, Lock, LogIn } from 'lucide-react'
 import { Btn, Input, Card } from '../../components/ui'
 import { useApp } from '../../context/AppContext'
 
 export default function Login() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const { login, addToast } = useApp()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -16,7 +17,7 @@ export default function Login() {
     setLoading(true)
     try {
       await login(email, password)
-      navigate('/organizer')
+      navigate(searchParams.get('next') || '/my-events')
     } catch (err) {
       addToast(err.message, 'error')
     } finally {
@@ -27,8 +28,8 @@ export default function Login() {
   return (
     <div className="max-w-md mx-auto px-5 py-16">
       <Card className="p-8">
-        <h1 className="text-xl font-extrabold mb-1">Organizer Login</h1>
-        <p className="text-[13px] text-slate-500 mb-6">Sign in to manage your events.</p>
+        <h1 className="text-xl font-extrabold mb-1">Log In</h1>
+        <p className="text-[13px] text-slate-500 mb-6">Sign in to your account.</p>
         <form onSubmit={submit} className="space-y-4">
           <Input label="Email" type="email" icon={Mail} value={email} onChange={e => setEmail(e.target.value)} placeholder="you@organization.com" required />
           <Input label="Password" type="password" icon={Lock} value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" required />
@@ -38,7 +39,7 @@ export default function Login() {
           <Link to="/forgot-password" className="font-semibold text-[#1a1a2e] hover:text-[#e94560]">Forgot your password?</Link>
         </p>
         <p className="text-[13px] text-slate-500 text-center mt-2">
-          New organizer? <Link to="/organizer/register" className="font-semibold text-[#1a1a2e] hover:text-[#e94560]">Register here</Link>
+          New here? <Link to="/organizer/register" className="font-semibold text-[#1a1a2e] hover:text-[#e94560]">Create an account</Link>
         </p>
       </Card>
     </div>
