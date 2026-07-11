@@ -10,7 +10,7 @@ import { Card, Badge, Btn, Input, Toggle, KPI, PriceTag, StarRating, Modal } fro
 import EventScannerPanel from '../../components/admin/EventScannerPanel'
 import AiSummaryCard from '../../components/admin/AiSummaryCard'
 import { useAdminEvents, useRegistrations, useFeedback } from '../../hooks/useApi'
-import { addTask, toggleTask, verifyPayment, updateRegistration, deleteRegistration, addGuest, duplicateEvent, submitEvent, importGuestsCsv, promoteRegistration } from '../../api/resources'
+import { addTask, toggleTask, verifyPayment, updateRegistration, deleteRegistration, addGuest, duplicateEvent, submitEvent, completeEvent, importGuestsCsv, promoteRegistration } from '../../api/resources'
 import { useApp } from '../../context/AppContext'
 import { cn, fmtDate, fmtDateLong, fmtTime, locale } from '../../lib/utils'
 
@@ -175,6 +175,19 @@ export default function EventDetail() {
     }
   }
 
+  const onCompleteEvent = async () => {
+    setWorkflowLoading(true)
+    try {
+      await completeEvent(event.id)
+      addToast('Event marked completed', 'success')
+      refetch()
+    } catch (err) {
+      addToast(err.message || 'Failed to mark event completed', 'error')
+    } finally {
+      setWorkflowLoading(false)
+    }
+  }
+
   const exportGuests = () => {
     let csv = `Name,Email,Status,Check-in,Needs Cert,Feedback,Payment Ref,Payment Status\n`
     regs.forEach(r => { csv += `"${r.name}","${r.email}","${r.attended ? 'Checked in' : 'Registered'}","${r.checkInTime || ''}","${r.needsCertificate ? 'Yes' : 'No'}","${r.feedbackSubmitted ? 'Yes' : 'No'}","${r.paymentRef || ''}","${r.paymentStatus || 'n/a'}"\n` })
@@ -213,6 +226,7 @@ export default function EventDetail() {
         {isOwner && <Btn variant="secondary" size="sm" icon={Pencil} onClick={() => navigate(`/organizer/events/${event.id}/edit`)}>Edit</Btn>}
         <Btn variant="secondary" size="sm" icon={CopyIcon} loading={workflowLoading} onClick={onDuplicate}>Duplicate</Btn>
         {isOwner && event.status === 'draft' && <Btn variant="primary" size="sm" icon={Send} loading={workflowLoading} onClick={onSubmitForApproval}>Submit for approval</Btn>}
+        {isOwner && event.status === 'approved' && <Btn variant="primary" size="sm" icon={CheckCircle2} loading={workflowLoading} onClick={onCompleteEvent}>Mark Completed</Btn>}
         <Btn variant="secondary" size="sm" icon={ScanLine} onClick={() => setTab('scanner')}>Scan</Btn>
         <Btn variant="primary" size="sm" icon={Download} onClick={exportReport}>Report</Btn>
       </div>

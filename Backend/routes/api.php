@@ -71,6 +71,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/events/{event}/approve', [EventController::class, 'approve']);
     Route::post('/events/{event}/reject', [EventController::class, 'reject']);
     Route::post('/events/{event}/submit', [EventController::class, 'submit']);
+    Route::post('/events/{event}/complete', [EventController::class, 'complete']);
     Route::post('/events/{event}/duplicate', [EventController::class, 'duplicate']);
     Route::post('/events/{event}/tasks', [EventController::class, 'addTask']);
     Route::patch('/events/{event}/tasks/{task}', [EventController::class, 'toggleTask']);

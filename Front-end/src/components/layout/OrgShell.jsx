@@ -4,7 +4,7 @@ import { BarChart3, Hourglass, MessageSquare, FileText, ClipboardList, Building2
 import { Btn } from '../ui'
 import { cn } from '../../lib/utils'
 import { useApp } from '../../context/AppContext'
-import { useAnalytics, useOrganization } from '../../hooks/useApi'
+import { useAnalytics } from '../../hooks/useApi'
 import CreateEventModal from '../admin/CreateEventModal'
 
 // Scanning, editing, guests, checklist, and reporting all now live inside
@@ -26,7 +26,6 @@ export default function OrgShell() {
   const location = useLocation()
   const navigate = useNavigate()
   const { user, logout, addToast, resendVerificationEmail } = useApp()
-  const { data: org } = useOrganization()
   const { data: analytics } = useAnalytics()
   const [createOpen, setCreateOpen] = useState(false)
   const [resending, setResending] = useState(false)
@@ -64,8 +63,8 @@ export default function OrgShell() {
         </nav>
         <div className="p-3 border-t border-white/10">
           <div className="flex items-center gap-2.5 px-2 py-2 mb-1">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#e94560] to-[#6d28d9] flex items-center justify-center text-white font-bold text-[13px]">{org?.name?.[0] || '·'}</div>
-            <div className="min-w-0"><p className="text-[12px] font-semibold text-white truncate">{org?.name || 'Organization'}</p><p className="text-[10px] text-slate-400 truncate">{org?.organizedBy}</p></div>
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#e94560] to-[#6d28d9] flex items-center justify-center text-white font-bold text-[13px]">{user?.name?.[0]?.toUpperCase() || '·'}</div>
+            <div className="min-w-0"><p className="text-[12px] font-semibold text-white truncate">{user?.name || 'Account'}</p><p className="text-[10px] text-slate-400 truncate">{user?.email}</p></div>
           </div>
           <button onClick={onExit} className="w-full flex items-center gap-2.5 px-3.5 py-2 rounded-xl text-[12px] text-slate-400 hover:text-white hover:bg-white/5"><LogOut size={15} />Exit to public site</button>
         </div>

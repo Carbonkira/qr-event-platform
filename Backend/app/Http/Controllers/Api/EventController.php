@@ -231,6 +231,22 @@ class EventController extends Controller
     }
 
     /**
+     * Lets the organizer close out an event once it's actually over, rather
+     * than waiting on the date/end-time to pass - useful for wrapping early,
+     * fixing a wrong end time, or just not waiting on the scheduler.
+     */
+    public function complete(Request $request, Event $event)
+    {
+        $this->authorizeOwner($request, $event);
+
+        abort_unless($event->status === 'approved', 422, 'Only approved events can be marked completed.');
+
+        $event->update(['status' => 'completed']);
+
+        return response()->json($event);
+    }
+
+    /**
      * Clones an event as a new draft - lets an organizer reuse a recurring
      * event's whole setup (venue, custom fields, pricing, checklist...)
      * instead of rebuilding it from scratch in the wizard.

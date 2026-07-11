@@ -72,6 +72,9 @@ export function rejectEvent(id) {
 export function submitEvent(id) {
   return api.post(`/events/${id}/submit`)
 }
+export function completeEvent(id) {
+  return api.post(`/events/${id}/complete`)
+}
 export function duplicateEvent(id) {
   return api.post(`/events/${id}/duplicate`)
 }

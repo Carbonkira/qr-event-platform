@@ -108,6 +108,37 @@ class EventTest extends TestCase
         $this->assertSame('draft', $response->json('status'));
     }
 
+    public function test_the_owner_can_mark_an_approved_event_completed(): void
+    {
+        $owner = $this->makeUser('owner@example.com');
+        $event = Event::create(['title' => 'Wrapped Up', 'status' => 'approved', 'user_id' => $owner->id, 'slug' => 'wrapped-up']);
+
+        Sanctum::actingAs($owner);
+        $this->postJson("/api/events/{$event->id}/complete")
+            ->assertOk()
+            ->assertJsonPath('status', 'completed');
+    }
+
+    public function test_a_stranger_cannot_mark_someone_elses_event_completed(): void
+    {
+        $owner = $this->makeUser('owner@example.com');
+        $stranger = $this->makeUser('stranger@example.com');
+        $event = Event::create(['title' => 'Owned Event', 'status' => 'approved', 'user_id' => $owner->id, 'slug' => 'owned-event']);
+
+        Sanctum::actingAs($stranger);
+        $this->postJson("/api/events/{$event->id}/complete")->assertForbidden();
+        $this->assertSame('approved', $event->fresh()->status);
+    }
+
+    public function test_a_pending_event_cannot_be_marked_completed(): void
+    {
+        $owner = $this->makeUser('owner@example.com');
+        $event = Event::create(['title' => 'Not Yet Approved', 'status' => 'pending', 'user_id' => $owner->id, 'slug' => 'not-yet-approved']);
+
+        Sanctum::actingAs($owner);
+        $this->postJson("/api/events/{$event->id}/complete")->assertStatus(422);
+    }
+
     public function test_generate_description_requires_authentication(): void
     {
         $this->postJson('/api/events/generate-description', ['title' => 'My Event'])
