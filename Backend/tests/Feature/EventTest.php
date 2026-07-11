@@ -153,6 +153,37 @@ class EventTest extends TestCase
             && str_contains($request->url(), 'key=test-key'));
     }
 
+    public function test_upload_image_requires_authentication(): void
+    {
+        $file = \Illuminate\Http\UploadedFile::fake()->image('banner.jpg');
+
+        $this->postJson('/api/events/upload-image', ['image' => $file])->assertUnauthorized();
+    }
+
+    public function test_upload_image_requires_an_actual_image(): void
+    {
+        Sanctum::actingAs($this->makeUser());
+        $file = \Illuminate\Http\UploadedFile::fake()->create('notes.txt', 10);
+
+        $this->postJson('/api/events/upload-image', ['image' => $file])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['image']);
+    }
+
+    public function test_upload_image_stores_the_file_and_returns_a_url(): void
+    {
+        \Illuminate\Support\Facades\Storage::fake('public');
+        Sanctum::actingAs($this->makeUser());
+        $file = \Illuminate\Http\UploadedFile::fake()->image('banner.jpg', 1200, 600);
+
+        $response = $this->postJson('/api/events/upload-image', ['image' => $file])->assertOk();
+
+        $url = $response->json('url');
+        $this->assertNotEmpty($url);
+        $storedPath = \Illuminate\Support\Str::after(parse_url($url, PHP_URL_PATH), '/storage/');
+        \Illuminate\Support\Facades\Storage::disk('public')->assertExists($storedPath);
+    }
+
     public function test_only_an_admin_can_approve_or_reject_an_event_even_its_own_creator_cannot(): void
     {
         $organizer = $this->makeUser('organizer@example.com');

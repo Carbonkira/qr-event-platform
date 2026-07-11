@@ -62,6 +62,8 @@ Route::middleware('auth:sanctum')->group(function () {
     // write endpoint since it has a real per-call cost, not just abuse risk.
     Route::post('/events/generate-description', [EventController::class, 'generateDescription'])
         ->middleware('throttle:10,1');
+    Route::post('/events/upload-image', [EventController::class, 'uploadImage'])
+        ->middleware('throttle:20,1');
     Route::post('/events', [EventController::class, 'store']);
     Route::put('/events/{event}', [EventController::class, 'update']);
     Route::delete('/events/{event}', [EventController::class, 'destroy']);

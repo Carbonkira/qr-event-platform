@@ -48,6 +48,12 @@ export async function generateEventDescription(title, type, industry) {
   const { description } = await api.post('/events/generate-description', { title, type, industry })
   return description
 }
+export async function uploadEventImage(file) {
+  const form = new FormData()
+  form.append('image', file)
+  const { url } = await api.post('/events/upload-image', form)
+  return url
+}
 export function updateEvent(id, payload) {
   return api.put(`/events/${id}`, payload)
 }

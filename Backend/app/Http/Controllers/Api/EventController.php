@@ -7,6 +7,7 @@ use App\Models\Event;
 use App\Models\TaskTemplate;
 use App\Services\Gemini;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -82,6 +83,26 @@ class EventController extends Controller
         PROMPT;
 
         return response()->json(['description' => Gemini::generate($prompt, 512)]);
+    }
+
+    /**
+     * Cover/pubmat image upload for the event wizard - event.image has
+     * always just been a URL string (organizers could already paste a link
+     * to an image hosted elsewhere), so this doesn't touch the Event model
+     * at all: it stores the file on the "public" disk (the same one
+     * payment screenshots use - swap to R2/S3 there and this follows for
+     * free) and hands back a URL the frontend drops into that same field.
+     * No event needs to exist yet, same reasoning as generateDescription.
+     */
+    public function uploadImage(Request $request)
+    {
+        $request->validate([
+            'image' => ['required', 'image', 'max:5120'], // 5MB, matches the payment-screenshot limit
+        ]);
+
+        $path = $request->file('image')->store('event-images', 'public');
+
+        return response()->json(['url' => Storage::disk('public')->url($path)]);
     }
 
     public function store(Request $request)

@@ -4,11 +4,11 @@ import {
   X, Check, ChevronLeft, ChevronRight, Send, Wand2, MapPin, MapPinned,
   Image as ImageIcon, AlertCircle, Ticket, DollarSign, UserCheck, Lock, Award,
   MessageSquare, Instagram, Linkedin, Facebook, Globe, Shield, User, Mail,
-  Plus, Tag, Trash2, Hourglass,
+  Plus, Tag, Trash2, Hourglass, Upload,
 } from 'lucide-react'
 import { Modal, Btn, Input, Select, Textarea, Toggle, Badge } from '../ui'
 import LocationPicker from '../shared/LocationPicker'
-import { createEvent, generateEventDescription } from '../../api/resources'
+import { createEvent, generateEventDescription, uploadEventImage } from '../../api/resources'
 import { useTaskTemplates } from '../../hooks/useApi'
 import { cn } from '../../lib/utils'
 
@@ -32,6 +32,7 @@ const blankForm = () => ({
 })
 
 const STEPS = ['Details', 'Settings', 'Registration']
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024 // 5MB — matches the backend's own limit
 
 // 3-step event creation wizard, rendered once globally by OrgShell. On
 // success it navigates to the new event's detail page — that page fetches
@@ -46,6 +47,7 @@ export default function CreateEventModal({ open, onClose, toast, onCreated }) {
   const [loading, setLoading] = useState(false)
   const [genLoading, setGenLoading] = useState(false)
   const [imgError, setImgError] = useState('')
+  const [imgUploading, setImgUploading] = useState(false)
   const [errors, setErrors] = useState({})
 
   useEffect(() => { if (open) { setForm(blankForm()); setStep(1); setImgError(''); setErrors({}) } }, [open])
@@ -79,6 +81,23 @@ export default function CreateEventModal({ open, onClose, toast, onCreated }) {
     }
     img.onerror = () => setImgError("Couldn't load that image URL")
     img.src = url
+  }
+
+  const onImageFile = async (file) => {
+    if (!file) return
+    if (!file.type.startsWith('image/')) { toast?.('Please upload an image', 'error'); return }
+    if (file.size > MAX_IMAGE_BYTES) { toast?.('Image must be under 5MB', 'error'); return }
+    setImgUploading(true)
+    setImgError('')
+    try {
+      const url = await uploadEventImage(file)
+      up('image', url)
+      checkImage(url)
+    } catch (err) {
+      toast?.(err.message || 'Failed to upload image', 'error')
+    } finally {
+      setImgUploading(false)
+    }
   }
 
   // No hyphen/underscore in the id: it doubles as a customData dictionary
@@ -185,9 +204,24 @@ export default function CreateEventModal({ open, onClose, toast, onCreated }) {
               <Input label="End" value={form.endTime} onChange={e => up('endTime', e.target.value)} type="time" />
             </div>
             <div>
-              <Input label="Cover / Pubmat Image URL" value={form.image} onChange={e => { up('image', e.target.value); checkImage(e.target.value) }} icon={ImageIcon} placeholder="https://… (1200×600 recommended)" hint="Recommended: 2:1 landscape, min 800px wide, for crisp pubmats" />
-              {imgError && <p className="text-[11px] text-amber-600 mt-1 flex items-center gap-1"><AlertCircle size={11} />{imgError}</p>}
-              {form.image && !imgError && <div className="mt-2 rounded-lg overflow-hidden border border-slate-200 aspect-[2/1] bg-slate-50"><img src={form.image} alt="preview" className="w-full h-full object-cover" onError={e => e.target.style.display = 'none'} /></div>}
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-[12px] font-semibold text-slate-600">Cover / Pubmat Image</label>
+                {form.image && <button type="button" onClick={() => { up('image', ''); setImgError('') }} className="text-[11px] font-semibold text-rose-500 hover:text-rose-600 flex items-center gap-1"><X size={11} />Remove</button>}
+              </div>
+              {form.image ? (
+                <div className="rounded-lg overflow-hidden border border-slate-200 aspect-[2/1] bg-slate-50">
+                  <img src={form.image} alt="preview" className="w-full h-full object-cover" onError={e => e.target.style.display = 'none'} />
+                </div>
+              ) : (
+                <label className={cn('flex flex-col items-center justify-center gap-2 py-8 rounded-xl border-2 border-dashed cursor-pointer transition-all', imgUploading ? 'border-slate-200 bg-slate-50 opacity-60' : 'border-slate-200 hover:border-slate-300 bg-slate-50')}>
+                  {imgUploading ? <span className="w-5 h-5 border-2 border-slate-300 border-t-[#1a1a2e] rounded-full animate-spin" /> : <Upload size={22} className="text-slate-400" />}
+                  <span className="text-[12px] font-semibold text-slate-500">{imgUploading ? 'Uploading…' : 'Tap to upload a cover image'}</span>
+                  <span className="text-[10px] text-slate-400">JPG or PNG, max 5MB · 2:1 landscape recommended</span>
+                  <input type="file" accept="image/*" className="hidden" disabled={imgUploading} onChange={e => onImageFile(e.target.files?.[0])} />
+                </label>
+              )}
+              {imgError && <p className="text-[11px] text-amber-600 mt-1.5 flex items-center gap-1"><AlertCircle size={11} />{imgError}</p>}
+              <Input value={form.image} onChange={e => { up('image', e.target.value); checkImage(e.target.value) }} icon={ImageIcon} placeholder="…or paste an image URL instead" hint="Recommended: 2:1 landscape, min 800px wide, for crisp pubmats" />
             </div>
             <Input label="Capacity" value={form.capacity} onChange={e => up('capacity', e.target.value)} type="number" error={errors.capacity} required />
           </div>
