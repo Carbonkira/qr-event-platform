@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { Html5QrcodeScanner } from 'html5-qrcode'
-import { CheckCircle2, AlertTriangle, XCircle, Hash } from 'lucide-react'
+import { Html5Qrcode } from 'html5-qrcode'
+import { CheckCircle2, AlertTriangle, XCircle, Hash, Camera, CameraOff } from 'lucide-react'
 import { Card, Btn, Input } from '../ui'
 import { scanAttendance } from '../../api/resources'
 
@@ -14,8 +14,15 @@ export default function EventScannerPanel({ eventId, checkedInCount, totalCount,
   const [manualCode, setManualCode] = useState('')
   const [checking, setChecking] = useState(false)
   const [history, setHistory] = useState([])
-  const scannerRef = useRef(null)
   const busyRef = useRef(false)
+
+  const [cameras, setCameras] = useState([])
+  const [selectedCameraId, setSelectedCameraId] = useState('')
+  const [scanning, setScanning] = useState(false)
+  const [starting, setStarting] = useState(false)
+  const [cameraError, setCameraError] = useState(null)
+  const html5QrcodeRef = useRef(null)
+  const elementId = `qr-reader-${eventId}`
 
   const recordResult = (data, qr) => {
     setResult(data)
@@ -37,15 +44,49 @@ export default function EventScannerPanel({ eventId, checkedInCount, totalCount,
   }
 
   useEffect(() => {
-    const scanner = new Html5QrcodeScanner(`qr-reader-${eventId}`, { fps: 10, qrbox: 250 }, false)
-    scanner.render(
-      (decodedText) => handleScan(decodedText),
-      () => {} // ignore per-frame scan errors, expected while searching
-    )
-    scannerRef.current = scanner
-    return () => { scanner.clear().catch(() => {}) }
+    html5QrcodeRef.current = new Html5Qrcode(elementId)
+
+    Html5Qrcode.getCameras()
+      .then(devices => {
+        setCameras(devices)
+        if (devices.length) setSelectedCameraId(devices[0].id)
+      })
+      .catch(err => setCameraError(err?.message || "Couldn't list cameras — check that camera permission is allowed for this site."))
+
+    return () => {
+      const instance = html5QrcodeRef.current
+      if (instance?.isScanning) instance.stop().then(() => instance.clear()).catch(() => {})
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [eventId])
+
+  // Html5QrcodeScanner (the library's own bundled UI, used previously) swallows
+  // getUserMedia failures internally with no visible feedback - clicking
+  // "Start Scanning" would just silently do nothing (confirmed in production).
+  // Html5Qrcode.start() returns a real promise, so failures land here instead.
+  const startScanning = async () => {
+    if (!selectedCameraId) { setCameraError('No camera selected.'); return }
+    setStarting(true)
+    setCameraError(null)
+    try {
+      await html5QrcodeRef.current.start(
+        selectedCameraId,
+        { fps: 10, qrbox: 250 },
+        (decodedText) => handleScan(decodedText),
+        () => {} // ignore per-frame scan errors, expected while searching
+      )
+      setScanning(true)
+    } catch (err) {
+      setCameraError(err?.message || 'Could not start the camera.')
+    } finally {
+      setStarting(false)
+    }
+  }
+
+  const stopScanning = async () => {
+    try { await html5QrcodeRef.current.stop() } catch { /* already stopped */ }
+    setScanning(false)
+  }
 
   const handleManualSubmit = async (e) => {
     e.preventDefault()
@@ -79,7 +120,27 @@ export default function EventScannerPanel({ eventId, checkedInCount, totalCount,
       <div className="grid lg:grid-cols-2 gap-5">
         <Card className="p-5">
           <p className="font-bold text-[14px] mb-3">Camera scan</p>
-          <div id={`qr-reader-${eventId}`} className="rounded-xl overflow-hidden" />
+          <div id={elementId} className="rounded-xl overflow-hidden" />
+          {cameraError && (
+            <p className="text-[12px] text-rose-600 bg-rose-50 border border-rose-200 rounded-lg px-3 py-2 mt-3">{cameraError}</p>
+          )}
+          {!scanning ? (
+            <div className="flex items-center gap-2 mt-3">
+              <select
+                value={selectedCameraId}
+                onChange={e => setSelectedCameraId(e.target.value)}
+                disabled={cameras.length === 0}
+                className="flex-1 min-w-0 px-3 py-2 rounded-xl border border-slate-200 bg-white text-[13px] outline-none disabled:opacity-50"
+              >
+                {cameras.length === 0
+                  ? <option>No cameras found</option>
+                  : cameras.map(c => <option key={c.id} value={c.id}>{c.label || c.id}</option>)}
+              </select>
+              <Btn variant="primary" size="sm" icon={Camera} loading={starting} disabled={cameras.length === 0} onClick={startScanning}>Start Scanning</Btn>
+            </div>
+          ) : (
+            <Btn variant="secondary" size="sm" icon={CameraOff} full className="mt-3" onClick={stopScanning}>Stop Scanning</Btn>
+          )}
         </Card>
 
         <Card className="p-5">
