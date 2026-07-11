@@ -36,7 +36,8 @@ RUN composer install --no-dev --optimize-autoloader --no-interaction \
 COPY docker/nginx.conf.template /etc/nginx/conf.d/default.conf.template
 COPY docker/php-fpm-pool.conf /usr/local/etc/php-fpm.d/zz-pool.conf
 COPY docker/entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+COPY docker/worker-start.sh /worker-start.sh
+RUN chmod +x /entrypoint.sh /worker-start.sh
 
 # CMD (not ENTRYPOINT) deliberately - a platform's "custom start command"
 # setting replaces CMD, not ENTRYPOINT, so the queue-worker service can
