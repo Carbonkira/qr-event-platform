@@ -77,7 +77,7 @@ export default function AppShell() {
             <span className="font-extrabold text-[17px] tracking-tight hidden sm:block">QRMeets</span>
           </Link>
 
-          <nav className="flex items-center gap-1 flex-1 justify-center overflow-x-auto">
+          <nav className="flex items-center gap-1 flex-1 justify-center min-w-0">
             <Link to="/" className={navLinkClass(location.pathname === '/')}>Explore</Link>
             <Link to="/my-events" className={navLinkClass(location.pathname.startsWith('/my-events'))}>My Events</Link>
             {canManage && (
