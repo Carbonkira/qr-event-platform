@@ -3,9 +3,13 @@
 return [
 
     // 'log' by default - writes emails to storage/logs/laravel.log instead
-    // of sending them, so the app runs with zero mail setup. Set MAIL_MAILER
-    // to 'smtp' (see .env.example) and fill in real credentials to go live -
-    // any SMTP-speaking provider (Mailgun, SES, Postmark, Gmail) works.
+    // of sending them, so the app runs with zero mail setup. For production,
+    // set MAIL_MAILER=resend (see .env.example) - this hits Resend's HTTPS
+    // API rather than opening a raw SMTP socket. That's not a style choice:
+    // 'smtp' with Resend's own host/port genuinely failed in production
+    // (Railway timed out connecting to ssl://smtp.resend.com:465) - lots of
+    // PaaS hosts block or throttle outbound SMTP ports to fight spam abuse
+    // from ephemeral containers, but a plain HTTPS request is never blocked.
     'default' => env('MAIL_MAILER', 'log'),
 
     'mailers' => [
@@ -16,6 +20,11 @@ return [
         'array' => [
             'transport' => 'array',
         ],
+        'resend' => [
+            'transport' => 'resend',
+        ],
+        // Kept for any provider that only offers SMTP - works fine on hosts
+        // that don't block those ports, which Railway does not consistently.
         'smtp' => [
             'transport' => 'smtp',
             'scheme' => env('MAIL_SCHEME'),
