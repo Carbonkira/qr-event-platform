@@ -22,6 +22,30 @@ class EventTest extends TestCase
         return $user;
     }
 
+    public function test_public_listing_sorts_by_distance_when_coordinates_are_given(): void
+    {
+        // Manila
+        Event::create(['title' => 'Near', 'status' => 'approved', 'is_private' => false, 'slug' => 'near', 'lat' => 14.5995, 'lng' => 120.9842]);
+        // Cebu, further from the Manila point we'll query with below
+        Event::create(['title' => 'Far', 'status' => 'approved', 'is_private' => false, 'slug' => 'far', 'lat' => 10.3157, 'lng' => 123.8854]);
+        // No coordinates set - should sort last, not be excluded
+        Event::create(['title' => 'No Coordinates', 'status' => 'approved', 'is_private' => false, 'slug' => 'no-coords']);
+
+        $response = $this->getJson('/api/events?lat=14.5995&lng=120.9842')->assertOk();
+
+        $titles = collect($response->json())->pluck('title')->all();
+        $this->assertSame(['Near', 'Far', 'No Coordinates'], $titles);
+        $this->assertEquals(0.0, $response->json('0.distanceKm'));
+        $this->assertNull($response->json('2.distanceKm'));
+    }
+
+    public function test_public_listing_ignores_invalid_coordinates(): void
+    {
+        Event::create(['title' => 'Some Event', 'status' => 'approved', 'is_private' => false, 'slug' => 'some-event']);
+
+        $this->getJson('/api/events?lat=999&lng=999')->assertStatus(422);
+    }
+
     public function test_an_unverified_account_cannot_create_an_event(): void
     {
         $unverified = User::create(['name' => 'Unverified', 'email' => 'unverified@example.com', 'password' => bcrypt('password123')]);

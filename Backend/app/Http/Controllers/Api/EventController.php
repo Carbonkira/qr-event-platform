@@ -16,16 +16,45 @@ class EventController extends Controller
 {
     /**
      * Public listing: approved + public events only, matching the mock's
-     * getPublicEvents() (App.jsx:82).
+     * getPublicEvents() (App.jsx:82). Optionally sorted by real distance
+     * from the visitor's browser-reported coordinates - events with no
+     * lat/lng (organizer skipped the map picker) sort last rather than
+     * being excluded, since they're still valid events.
      */
-    public function index()
+    public function index(Request $request)
     {
+        $data = $request->validate([
+            'lat' => ['sometimes', 'nullable', 'numeric', 'between:-90,90'],
+            'lng' => ['sometimes', 'nullable', 'numeric', 'between:-180,180'],
+        ]);
+
         $events = Event::where('status', 'approved')
             ->where('is_private', false)
             ->orderByDesc('created_at')
             ->get();
 
+        if (! empty($data['lat']) && ! empty($data['lng'])) {
+            $events = $events->each(function ($event) use ($data) {
+                if ($event->lat !== null && $event->lng !== null) {
+                    $event->distance_km = round(
+                        $this->haversineKm((float) $data['lat'], (float) $data['lng'], (float) $event->lat, (float) $event->lng),
+                        1
+                    );
+                }
+            })->sortBy(fn ($event) => $event->distance_km ?? INF)->values();
+        }
+
         return response()->json($events);
+    }
+
+    private function haversineKm(float $lat1, float $lng1, float $lat2, float $lng2): float
+    {
+        $earthRadiusKm = 6371;
+        $dLat = deg2rad($lat2 - $lat1);
+        $dLng = deg2rad($lng2 - $lng1);
+        $a = sin($dLat / 2) ** 2 + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * sin($dLng / 2) ** 2;
+
+        return $earthRadiusKm * 2 * atan2(sqrt($a), sqrt(1 - $a));
     }
 
     /**

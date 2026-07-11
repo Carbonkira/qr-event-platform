@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Calendar, Clock, MapPin, Users, Search, MapPinned, Sparkles } from 'lucide-react'
+import { Calendar, Clock, MapPin, Users, Search, MapPinned, Sparkles, LocateFixed } from 'lucide-react'
 import { Card, Badge, PriceTag } from '../../components/ui'
 import { cn, fmtDate, fmtTime, monthDay, locale } from '../../lib/utils'
 import { usePublicEvents } from '../../hooks/useApi'
@@ -8,7 +8,23 @@ import { usePublicEvents } from '../../hooks/useApi'
 export default function Home() {
   const [q, setQ] = useState('')
   const [filter, setFilter] = useState('upcoming')
-  const { data: all, loading } = usePublicEvents()
+  // 'idle' | 'locating' | 'granted' | 'denied' | 'unsupported' - falls back
+  // to the timezone-based `locale` guess (see lib/utils) whenever real
+  // coordinates aren't available, rather than blocking the page on it.
+  const [geoStatus, setGeoStatus] = useState('idle')
+  const [coords, setCoords] = useState(null)
+
+  useEffect(() => {
+    if (!navigator.geolocation) { setGeoStatus('unsupported'); return }
+    setGeoStatus('locating')
+    navigator.geolocation.getCurrentPosition(
+      (pos) => { setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude }); setGeoStatus('granted') },
+      () => setGeoStatus('denied'),
+      { timeout: 8000, maximumAge: 5 * 60 * 1000 }
+    )
+  }, [])
+
+  const { data: all, loading } = usePublicEvents(coords ? { lat: coords.lat, lng: coords.lng } : {})
   const events0 = all || []
   const now = new Date()
 
@@ -25,7 +41,11 @@ export default function Home() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-7">
         <div>
           <h1 className="text-2xl font-extrabold tracking-tight">Events</h1>
-          <p className="text-[13px] text-slate-500 mt-0.5 flex items-center gap-1.5"><MapPinned size={13} />Happening near {locale.city} {locale.flag}</p>
+          {geoStatus === 'granted' ? (
+            <p className="text-[13px] text-slate-500 mt-0.5 flex items-center gap-1.5"><LocateFixed size={13} className="text-[#0f9d8f]" />Sorted by distance from you</p>
+          ) : (
+            <p className="text-[13px] text-slate-500 mt-0.5 flex items-center gap-1.5"><MapPinned size={13} />Happening near {locale.city} {locale.flag}</p>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <div className="relative flex-1 sm:flex-none">
@@ -46,7 +66,7 @@ export default function Home() {
           <div className="flex items-center gap-2 mb-3">
             <Sparkles size={15} className="text-[#e94560]" />
             <p className="text-[13px] font-bold text-slate-700">Suggested for you</p>
-            <span className="text-[11px] text-slate-400">· based on your location</span>
+            <span className="text-[11px] text-slate-400">· {geoStatus === 'granted' ? 'nearest to you' : 'recently added'}</span>
           </div>
           <div className="grid sm:grid-cols-3 gap-4">
             {suggested.map(e => <SuggestCard key={e.id} event={e} />)}
@@ -97,6 +117,7 @@ function SuggestCard({ event }) {
         <div className="p-3">
           <p className="text-[13px] font-bold text-slate-800 line-clamp-2 leading-snug">{event.title}</p>
           <p className="text-[11px] text-slate-500 mt-1.5 flex items-center gap-1"><Calendar size={10} />{fmtDate(event.date)} · {fmtTime(event.startTime)}</p>
+          {event.distanceKm != null && <p className="text-[11px] text-[#0f9d8f] font-semibold mt-1 flex items-center gap-1"><LocateFixed size={10} />{event.distanceKm} km away</p>}
         </div>
       </Card>
     </Link>
@@ -115,7 +136,7 @@ function EventRow({ event }) {
           <h3 className="font-bold text-[16px] text-slate-800 leading-snug line-clamp-2">{event.title}</h3>
           <div className="mt-2 space-y-1">
             <p className="text-[12px] text-slate-500 flex items-center gap-1.5"><Clock size={12} />{fmtTime(event.startTime)} – {fmtTime(event.endTime)}</p>
-            <p className="text-[12px] text-slate-500 flex items-center gap-1.5"><MapPin size={12} />{event.venue}</p>
+            <p className="text-[12px] text-slate-500 flex items-center gap-1.5"><MapPin size={12} />{event.venue}{event.distanceKm != null && <span className="text-[#0f9d8f] font-semibold"> · {event.distanceKm} km away</span>}</p>
             <p className="text-[12px] text-slate-400 flex items-center gap-1.5"><Users size={12} />{event.registrations_count ?? 0} going · by {event.organizedBy}</p>
           </div>
         </div>
