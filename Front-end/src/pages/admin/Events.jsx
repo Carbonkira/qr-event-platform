@@ -1,22 +1,18 @@
-import { Link, useOutletContext } from 'react-router-dom'
-import { Plus, Calendar } from 'lucide-react'
-import { Card, Badge, Btn, PriceTag } from '../../components/ui'
+import { Link } from 'react-router-dom'
+import { Calendar } from 'lucide-react'
+import { Card, Badge, PriceTag } from '../../components/ui'
 import { useAdminEvents } from '../../hooks/useApi'
 import { fmtDate } from '../../lib/utils'
 
 const STATUS_COLOR = { draft: 'slate', pending: 'amber', approved: 'green', rejected: 'rose', completed: 'slate' }
 
 export default function Events() {
-  const { openCreate } = useOutletContext()
   const { data, loading } = useAdminEvents()
   const events = data || []
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between">
-        <div><h1 className="text-2xl font-extrabold">Events</h1><p className="text-[13px] text-slate-500">All events across your organization</p></div>
-        <Btn variant="accent" icon={Plus} onClick={openCreate}>Create Event</Btn>
-      </div>
+      <div><h1 className="text-2xl font-extrabold">Events</h1><p className="text-[13px] text-slate-500">All events across your organization</p></div>
 
       <Card className="overflow-hidden">
         {loading ? (

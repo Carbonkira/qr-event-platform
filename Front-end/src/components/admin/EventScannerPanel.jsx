@@ -66,7 +66,7 @@ export default function EventScannerPanel({ eventId, checkedInCount, totalCount,
 
   return (
     <div className="space-y-5">
-      <Card className="p-5 bg-[#1a1a2e] text-white">
+      <Card className="p-5 !bg-[#1a1a2e] text-white">
         <div className="flex items-center justify-between mb-3">
           <div><p className="text-[11px] text-slate-300 uppercase tracking-wide font-bold">Live check-in</p><p className="text-3xl font-extrabold mt-1">{checkedInCount}<span className="text-slate-400 text-lg"> / {totalCount}</span></p></div>
           <div className="text-right"><p className="text-2xl font-extrabold text-emerald-400">{pct.toFixed(0)}%</p><p className="text-[11px] text-slate-400">checked in</p></div>

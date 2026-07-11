@@ -1,6 +1,6 @@
 import { useNavigate, useOutletContext } from 'react-router-dom'
-import { Users, CheckCircle2, MessageSquare, Star, Calendar, Hourglass, ChevronRight, Plus } from 'lucide-react'
-import { Card, Badge, Btn, KPI, PriceTag } from '../../components/ui'
+import { Users, CheckCircle2, MessageSquare, Star, Calendar, Hourglass, ChevronRight } from 'lucide-react'
+import { Card, Badge, KPI, PriceTag } from '../../components/ui'
 import { useAdminEvents, useAnalytics } from '../../hooks/useApi'
 import { fmtDate, locale } from '../../lib/utils'
 
@@ -20,10 +20,7 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div><h1 className="text-2xl font-extrabold">Dashboard</h1><p className="text-[13px] text-slate-500">Your events at a glance · {locale.flag} {locale.city}</p></div>
-        <Btn variant="accent" icon={Plus} onClick={openCreate}>Create Event</Btn>
-      </div>
+      <div><h1 className="text-2xl font-extrabold">Dashboard</h1><p className="text-[13px] text-slate-500">Your events at a glance · {locale.flag} {locale.city}</p></div>
 
       {a.pendingApprovals > 0 && (
         <Card className="p-4 flex items-center gap-3 bg-amber-50 border-amber-200" hover onClick={() => navigate('/organizer/approvals')}>
