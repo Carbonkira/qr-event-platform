@@ -443,7 +443,7 @@ export default function EventDetail() {
           </div>
           <div className="p-4 rounded-xl bg-[#1a1a2e] text-white">
             <p className="text-[12px] font-bold mb-1 flex items-center gap-1.5"><MapPinned size={13} />Locale metrics for HQ</p>
-            <p className="text-[12px] text-slate-300">{locale.city}, {locale.region}, {locale.country} {locale.flag} · Attendance {regs.length ? ((att.length / regs.length) * 100).toFixed(1) : 0}% · Feedback {att.length ? ((fb.length / att.length) * 100).toFixed(1) : 0}%</p>
+            <p className="text-[12px] text-slate-300">{locale.city}, {locale.region}, {locale.country} · Attendance {regs.length ? ((att.length / regs.length) * 100).toFixed(1) : 0}% · Feedback {att.length ? ((fb.length / att.length) * 100).toFixed(1) : 0}%</p>
           </div>
         </Card>
       )}

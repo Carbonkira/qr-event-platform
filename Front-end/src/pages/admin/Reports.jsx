@@ -60,7 +60,7 @@ export default function Reports() {
 
       <Card className="p-5 !bg-[#1a1a2e] text-white">
         <p className="text-[13px] font-bold mb-1 flex items-center gap-1.5"><MapPinned size={14} />Locale metrics for HQ</p>
-        <p className="text-[12px] text-slate-300">{locale.city}, {locale.region}, {locale.country} {locale.flag} · Overall attendance {analytics?.attendanceRate ?? 0}% · Avg satisfaction {analytics?.avgSatisfaction ?? 0}/5 · {analytics?.totalFeedback ?? 0} reviews</p>
+        <p className="text-[12px] text-slate-300">{locale.city}, {locale.region}, {locale.country} · Overall attendance {analytics?.attendanceRate ?? 0}% · Avg satisfaction {analytics?.avgSatisfaction ?? 0}/5 · {analytics?.totalFeedback ?? 0} reviews</p>
       </Card>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

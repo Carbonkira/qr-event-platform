@@ -32,7 +32,7 @@ export default function MyEvents() {
     <div className="max-w-5xl mx-auto px-5 py-8">
       <div className="mb-6">
         <h1 className="text-2xl font-extrabold tracking-tight">My Events</h1>
-        <p className="text-[13px] text-slate-500 mt-0.5">Everything you're attending and hosting · {locale.flag} {locale.city}</p>
+        <p className="text-[13px] text-slate-500 mt-0.5">Everything you're attending and hosting · {locale.city}</p>
       </div>
 
       <div className="flex items-center gap-2 mb-7">

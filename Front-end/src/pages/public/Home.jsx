@@ -44,7 +44,7 @@ export default function Home() {
           {geoStatus === 'granted' ? (
             <p className="text-[13px] text-slate-500 mt-0.5 flex items-center gap-1.5"><LocateFixed size={13} className="text-[#0f9d8f]" />Sorted by distance from you</p>
           ) : (
-            <p className="text-[13px] text-slate-500 mt-0.5 flex items-center gap-1.5"><MapPinned size={13} />Happening near {locale.city} {locale.flag}</p>
+            <p className="text-[13px] text-slate-500 mt-0.5 flex items-center gap-1.5"><MapPinned size={13} />Happening near {locale.city}</p>
           )}
         </div>
         <div className="flex items-center gap-2">
