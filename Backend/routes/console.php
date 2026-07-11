@@ -11,3 +11,4 @@ Artisan::command('inspire', function () {
 // Requires a real cron entry running `php artisan schedule:run` every minute
 // in production (see the deployment guide) - nothing fires this on its own.
 Schedule::command('events:send-reminders')->hourly();
+Schedule::command('events:mark-completed')->hourly();
