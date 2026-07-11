@@ -4,7 +4,7 @@ use Illuminate\Support\Facades\Facade;
 
 return [
 
-    'name' => env('APP_NAME', 'QR Event Platform'),
+    'name' => env('APP_NAME', 'QRMeets'),
 
     'env' => env('APP_ENV', 'production'),
 

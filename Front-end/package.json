@@ -1,8 +1,8 @@
 {
-  "name": "qr-event-platform",
+  "name": "qrmeets",
   "version": "1.0.0",
   "private": true,
-  "description": "This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.",
+  "description": "QRMeets - QR-based event registration, check-in, and feedback platform.",
   "license": "ISC",
   "author": "",
   "type": "module",

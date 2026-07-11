@@ -1,7 +1,7 @@
 {
-    "name": "qr-event-platform/backend",
+    "name": "qrmeets/backend",
     "type": "project",
-    "description": "QR Event Platform API backend (Laravel 11 + PostgreSQL + Sanctum + Gemini-powered AI descriptions/feedback summaries).",
+    "description": "QRMeets API backend (Laravel 11 + PostgreSQL + Sanctum + Gemini-powered AI descriptions/feedback summaries).",
     "keywords": ["laravel", "framework", "api"],
     "license": "MIT",
     "require": {

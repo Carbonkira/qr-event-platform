@@ -1,8 +1,8 @@
-# QR Event Platform — Backend
+# QRMeets — Backend
 
-Laravel 11 + PostgreSQL + Sanctum API for the QR event/attendance platform
+Laravel 11 + PostgreSQL + Sanctum API for the QRMeets event/attendance platform
 (event creation, participant registration with QR codes, check-in scanning,
-feedback collection, and an AI-generated feedback summary via the Anthropic
+feedback collection, and an AI-generated feedback summary via the Gemini
 API). Hand-written to match the plan at
 `../` project root (see the approved plan doc for the full spec).
 

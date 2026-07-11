@@ -28,7 +28,7 @@ const toICSDate = (date, time) => {
   return `${d.getFullYear()}${pad2(d.getMonth() + 1)}${pad2(d.getDate())}T${pad2(+h)}${pad2(+m)}00`
 }
 export function downloadICS(event) {
-  const ics = `BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//QR-Attend//EN\nBEGIN:VEVENT\nUID:${event.id}@qr-attend\nDTSTAMP:${toICSDate(event.date, event.startTime)}\nDTSTART:${toICSDate(event.date, event.startTime)}\nDTEND:${toICSDate(event.date, event.endTime || event.startTime)}\nSUMMARY:${event.title}\nDESCRIPTION:${(event.description || '').replace(/\n/g, ' ')}\nLOCATION:${event.venue}, ${event.location}\nEND:VEVENT\nEND:VCALENDAR`
+  const ics = `BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//QRMeets//EN\nBEGIN:VEVENT\nUID:${event.id}@qrmeets.net\nDTSTAMP:${toICSDate(event.date, event.startTime)}\nDTSTART:${toICSDate(event.date, event.startTime)}\nDTEND:${toICSDate(event.date, event.endTime || event.startTime)}\nSUMMARY:${event.title}\nDESCRIPTION:${(event.description || '').replace(/\n/g, ' ')}\nLOCATION:${event.venue}, ${event.location}\nEND:VEVENT\nEND:VCALENDAR`
   const blob = new Blob([ics], { type: 'text/calendar' })
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `${event.slug}.ics`; a.click()
 }

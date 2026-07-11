@@ -48,7 +48,7 @@ export default function OrgShell() {
       <aside className="w-60 bg-[#1a1a2e] flex flex-col sticky top-0 h-screen flex-shrink-0">
         <div className="px-5 h-16 flex items-center gap-2 border-b border-white/10">
           <div className="w-8 h-8 rounded-lg bg-[#e94560] flex items-center justify-center"><QrCode size={17} className="text-white" /></div>
-          <span className="font-extrabold text-white text-[15px]">QR-Attend</span>
+          <span className="font-extrabold text-white text-[15px]">QRMeets</span>
         </div>
         <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
           {NAV_ITEMS.filter(item => !item.adminOnly || user?.role === 'admin').map(({ icon: Icon, label, path, badgeKey }) => {
