@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
   ArrowLeft, Pencil, ScanLine, Download, Lock, Hourglass, Copy, Check, X,
@@ -8,6 +8,7 @@ import {
 } from 'lucide-react'
 import { Card, Badge, Btn, Input, Toggle, KPI, PriceTag, StarRating, Modal } from '../../components/ui'
 import EventScannerPanel from '../../components/admin/EventScannerPanel'
+import AiSummaryCard from '../../components/admin/AiSummaryCard'
 import { useAdminEvents, useRegistrations, useFeedback } from '../../hooks/useApi'
 import { addTask, toggleTask, verifyPayment, updateRegistration, deleteRegistration, addGuest, duplicateEvent, submitEvent, importGuestsCsv, promoteRegistration } from '../../api/resources'
 import { useApp } from '../../context/AppContext'
@@ -30,6 +31,13 @@ export default function EventDetail() {
 
   const [tab, setTab] = useState('overview')
   const [newTask, setNewTask] = useState('')
+  // Optimistic overlay for the checklist - toggling a task used to wait on
+  // both the write request and a full admin-events refetch before the
+  // checkbox visually moved, which read as unresponsive/buggy and invited
+  // impatient double-clicks that flipped a task right back off.
+  const [localTasks, setLocalTasks] = useState(null)
+  const [pendingTaskIds, setPendingTaskIds] = useState(() => new Set())
+  useEffect(() => { setLocalTasks(event?.tasks || null) }, [event?.tasks])
   const [guestSearch, setGuestSearch] = useState('')
   const [guestFilter, setGuestFilter] = useState('all')
   const [proofModal, setProofModal] = useState(null)
@@ -42,7 +50,7 @@ export default function EventDetail() {
   if (!event) return <div className="text-center py-20 text-slate-400 text-[13px]">Loading event…</div>
 
   const att = regs.filter(r => r.attended)
-  const tasks = event.tasks || []
+  const tasks = localTasks ?? (event.tasks || [])
   const done = tasks.filter(t => t.done).length
   const avg = fb.length ? (fb.reduce((s, f) => s + (f.q1 + f.q2 + f.q3 + f.q4 + f.q5) / 5, 0) / fb.length).toFixed(1) : '—'
   const highlighted = fb.filter(f => f.isHighlighted)
@@ -50,12 +58,44 @@ export default function EventDetail() {
   const tabs = ['overview', 'checklist', 'guests', 'scanner', ...(event.pricing === 'paid' ? ['payments'] : []), 'feedback', 'report']
 
   const onToggleTask = async (taskId) => {
-    try { await toggleTask(event.id, taskId); refetch() } catch (err) { addToast(err.message || 'Failed to update task', 'error') }
+    if (pendingTaskIds.has(taskId)) return
+    setPendingTaskIds(ids => new Set(ids).add(taskId))
+    setLocalTasks(ts => (ts || []).map(t => t.id === taskId ? { ...t, done: !t.done } : t))
+    try {
+      await toggleTask(event.id, taskId)
+      refetch()
+    } catch (err) {
+      setLocalTasks(ts => (ts || []).map(t => t.id === taskId ? { ...t, done: !t.done } : t))
+      addToast(err.message || 'Failed to update task', 'error')
+    } finally {
+      setPendingTaskIds(ids => { const next = new Set(ids); next.delete(taskId); return next })
+    }
   }
   const onAddTask = async () => {
     if (!newTask.trim()) return
     try { await addTask(event.id, newTask.trim()); setNewTask(''); refetch() }
     catch (err) { addToast(err.message || 'Failed to add task', 'error') }
+  }
+
+  const csvEscape = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`
+  const downloadFeedbackCsv = () => {
+    const qLabels = ['Check-in experience', 'Event organization', 'Content quality', 'Venue & facilities', 'Overall satisfaction']
+    const header = ['Name', 'Email', ...qLabels, 'Average', 'Comment', 'Submitted'].map(csvEscape).join(',')
+    const rows = fb.map(f => {
+      const average = ((f.q1 + f.q2 + f.q3 + f.q4 + f.q5) / 5).toFixed(1)
+      const cells = [
+        f.registration?.name || '', f.registration?.email || '',
+        f.q1, f.q2, f.q3, f.q4, f.q5, average, f.comment || '',
+        f.createdAt ? new Date(f.createdAt).toLocaleString() : '',
+      ]
+      return cells.map(csvEscape).join(',')
+    })
+    const blob = new Blob([[header, ...rows].join('\n')], { type: 'text/csv' })
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob)
+    a.download = `${event.slug || event.id}-feedback.csv`
+    a.click()
+    URL.revokeObjectURL(a.href)
   }
   const onVerifyPayment = async (regId, approved) => {
     try { await verifyPayment(regId, approved); refetchRegs(); addToast(approved ? 'Payment verified' : 'Payment rejected', approved ? 'success' : 'info') }
@@ -219,7 +259,7 @@ export default function EventDetail() {
           </div>
           <div className="space-y-2 mb-4">
             {tasks.map(t => (
-              <button key={t.id} onClick={() => onToggleTask(t.id)} className={cn('w-full flex items-center gap-3 p-3 rounded-xl border text-left transition-all', t.done ? 'bg-emerald-50 border-emerald-200' : 'bg-white border-slate-200 hover:border-slate-300')}>
+              <button key={t.id} disabled={pendingTaskIds.has(t.id)} onClick={() => onToggleTask(t.id)} className={cn('w-full flex items-center gap-3 p-3 rounded-xl border text-left transition-all disabled:opacity-60', t.done ? 'bg-emerald-50 border-emerald-200' : 'bg-white border-slate-200 hover:border-slate-300')}>
                 {t.done ? <CheckSquare size={17} className="text-emerald-500" /> : <Square size={17} className="text-slate-300" />}
                 <span className={cn('text-[13px] flex-1', t.done ? 'line-through text-emerald-700' : 'text-slate-700')}>{t.label}</span>
               </button>
@@ -346,6 +386,10 @@ export default function EventDetail() {
 
       {tab === 'feedback' && (
         <div className="space-y-3">
+          <div className="flex justify-end">
+            <Btn variant="secondary" size="sm" icon={Download} onClick={downloadFeedbackCsv} disabled={fb.length === 0}>Download CSV</Btn>
+          </div>
+          <AiSummaryCard eventId={event.id} />
           {highlighted.length > 0 && (
             <Card className="p-5 bg-amber-50 border-amber-200">
               <p className="text-[13px] font-bold text-amber-800 mb-3 flex items-center gap-1.5"><Star size={14} />Important comments ({highlighted.length})</p>
@@ -362,7 +406,7 @@ export default function EventDetail() {
           {fb.map(f => { const av = ((f.q1 + f.q2 + f.q3 + f.q4 + f.q5) / 5).toFixed(1); const extraQuestions = (event.feedbackQuestions || []).slice(5); return (
             <Card key={f.id} className="p-4">
               <div className="flex items-center justify-between mb-2">
-                <div><p className="text-[12px] font-semibold">{f.badge || 'Attendee'}</p><p className="text-[10px] text-slate-400">{new Date(f.submittedAt).toLocaleDateString()}</p></div>
+                <div><p className="text-[12px] font-semibold">{f.badge || 'Feedback'}</p><p className="text-[10px] text-slate-400">{fmtDate(f.createdAt)}</p></div>
                 <StarRating size={15} value={Math.round(av)} readonly />
               </div>
               {f.comment && <p className="text-[12px] text-slate-600">{f.comment}</p>}

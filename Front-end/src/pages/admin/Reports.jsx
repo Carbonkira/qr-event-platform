@@ -58,7 +58,7 @@ export default function Reports() {
     <div className="space-y-5">
       <div><h1 className="text-2xl font-extrabold">Reports</h1><p className="text-[13px] text-slate-500">Attendance and feedback across all events</p></div>
 
-      <Card className="p-5 bg-[#1a1a2e] text-white">
+      <Card className="p-5 !bg-[#1a1a2e] text-white">
         <p className="text-[13px] font-bold mb-1 flex items-center gap-1.5"><MapPinned size={14} />Locale metrics for HQ</p>
         <p className="text-[12px] text-slate-300">{locale.city}, {locale.region}, {locale.country} {locale.flag} · Overall attendance {analytics?.attendanceRate ?? 0}% · Avg satisfaction {analytics?.avgSatisfaction ?? 0}/5 · {analytics?.totalFeedback ?? 0} reviews</p>
       </Card>

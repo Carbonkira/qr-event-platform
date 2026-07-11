@@ -7,6 +7,7 @@ use App\Mail\RegistrationConfirmedMail;
 use App\Models\Event;
 use App\Models\Registration;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 
 class RegistrationController extends Controller
@@ -126,7 +127,14 @@ class RegistrationController extends Controller
             'payment_screenshot' => $screenshotPath,
         ], $overrides));
 
-        Mail::to($registration->email)->queue(new RegistrationConfirmedMail($registration));
+        // A broken mail config (e.g. a missing RESEND_API_KEY) must never
+        // fail the registration itself - the confirmation email is a nice
+        // to have, not a condition of successfully signing up.
+        try {
+            Mail::to($registration->email)->queue(new RegistrationConfirmedMail($registration));
+        } catch (\Throwable $e) {
+            Log::error('Failed to queue registration confirmation email', ['registration_id' => $registration->id, 'error' => $e->getMessage()]);
+        }
 
         return $registration;
     }
