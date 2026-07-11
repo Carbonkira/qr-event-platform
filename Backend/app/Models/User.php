@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Notifications\ResetPasswordNotification;
+use App\Notifications\VerifyEmailNotification;
 use Illuminate\Auth\MustVerifyEmail as MustVerifyEmailTrait;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -68,5 +69,15 @@ class User extends Authenticatable implements MustVerifyEmail
         $url = "{$frontend}/reset-password?token={$token}&email=".urlencode($this->email);
 
         $this->notify(new ResetPasswordNotification($url));
+    }
+
+    /**
+     * Overrides the MustVerifyEmail trait's default only to swap in the
+     * queued notification below - everything else (signed URL, mail
+     * content) is unchanged from Laravel's own VerifyEmail.
+     */
+    public function sendEmailVerificationNotification(): void
+    {
+        $this->notify(new VerifyEmailNotification);
     }
 }

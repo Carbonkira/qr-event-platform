@@ -4,7 +4,8 @@ namespace Tests\Feature;
 
 use App\Models\User;
 use App\Notifications\ResetPasswordNotification;
-use Illuminate\Auth\Notifications\VerifyEmail;
+use App\Notifications\VerifyEmailNotification;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
@@ -32,7 +33,20 @@ class AuthTest extends TestCase
         $this->assertNotNull($user);
         $this->assertNull($user->email_verified_at);
 
-        Notification::assertSentTo($user, VerifyEmail::class);
+        Notification::assertSentTo($user, VerifyEmailNotification::class);
+    }
+
+    /**
+     * Regression test: both of these used to send synchronously during the
+     * request that triggered them (register/resend-verification,
+     * forgot-password) - if the SMTP endpoint is ever slow or unreachable,
+     * that hung the request itself instead of just delaying an
+     * already-queued job. Confirmed in production, not theoretical.
+     */
+    public function test_email_verification_and_password_reset_notifications_are_queued(): void
+    {
+        $this->assertInstanceOf(ShouldQueue::class, new VerifyEmailNotification);
+        $this->assertInstanceOf(ShouldQueue::class, new ResetPasswordNotification('https://example.com'));
     }
 
     public function test_login_succeeds_with_correct_credentials(): void
