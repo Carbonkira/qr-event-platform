@@ -18,6 +18,18 @@ export function AppProvider({ children }) {
       .finally(() => setAuthReady(true))
   }, [])
 
+  // client.js fires this the moment any request comes back 401 with a token
+  // attached - i.e. this session's been revoked, most often because the
+  // same account logged in somewhere else (see AuthController::login's
+  // single-session policy). Clearing `user` here is what actually kicks
+  // this tab back to the login screen instead of leaving it looking live
+  // while every request silently fails.
+  useEffect(() => {
+    const onSessionRevoked = () => setUser(null)
+    window.addEventListener('auth:session-revoked', onSessionRevoked)
+    return () => window.removeEventListener('auth:session-revoked', onSessionRevoked)
+  }, [])
+
   const login = useCallback(async (email, password) => {
     const u = await api.login(email, password)
     setUser(u)
@@ -37,6 +49,12 @@ export function AppProvider({ children }) {
     setUser(null)
   }, [])
 
+  const updateProfile = useCallback(async (payload) => {
+    const u = await api.updateProfile(payload)
+    setUser(u)
+    return u
+  }, [])
+
   const resendVerificationEmail = useCallback(() => api.resendVerificationEmail(), [])
 
   const addToast = useCallback((message, type = 'success', duration = 3500) => {
@@ -51,7 +69,7 @@ export function AppProvider({ children }) {
 
   return (
     <AppContext.Provider value={{
-      user, authReady, login, createAccount, logout, resendVerificationEmail,
+      user, authReady, login, createAccount, logout, updateProfile, resendVerificationEmail,
       toasts, addToast, removeToast,
     }}>
       {children}

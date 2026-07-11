@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Facades\URL;
+use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
 class AuthTest extends TestCase
@@ -47,6 +48,39 @@ class AuthTest extends TestCase
     {
         $this->assertInstanceOf(ShouldQueue::class, new VerifyEmailNotification);
         $this->assertInstanceOf(ShouldQueue::class, new ResetPasswordNotification('https://example.com'));
+    }
+
+    public function test_logging_in_again_revokes_the_previous_session(): void
+    {
+        // Checked via the database directly, not by re-authenticating with
+        // the old token in the same test: Sanctum's request guard caches
+        // its resolved user for the test's lifetime, so a second real HTTP
+        // call with a stale token would misleadingly still "work" here
+        // regardless of whether the token row was actually deleted.
+        $user = User::create(['name' => 'Test User', 'email' => 'test@example.com', 'password' => bcrypt('password123')]);
+
+        $this->postJson('/api/auth/login', ['email' => 'test@example.com', 'password' => 'password123'])->assertOk();
+        $this->assertSame(1, $user->tokens()->count());
+        $firstTokenId = $user->tokens()->first()->id;
+
+        $this->postJson('/api/auth/login', ['email' => 'test@example.com', 'password' => 'password123'])->assertOk();
+
+        $this->assertSame(1, $user->tokens()->count());
+        $this->assertNotSame($firstTokenId, $user->tokens()->first()->id);
+    }
+
+    public function test_logout_revokes_every_session_not_just_the_current_one(): void
+    {
+        $user = User::create(['name' => 'Test User', 'email' => 'test@example.com', 'password' => bcrypt('password123')]);
+        // Bypass login's own single-session revocation so there are
+        // genuinely two live tokens to prove logout clears both.
+        $tokenA = $user->createToken('api')->plainTextToken;
+        $user->createToken('api');
+        $this->assertSame(2, $user->tokens()->count());
+
+        $this->withHeader('Authorization', "Bearer {$tokenA}")->postJson('/api/auth/logout')->assertOk();
+
+        $this->assertSame(0, $user->tokens()->count());
     }
 
     public function test_login_succeeds_with_correct_credentials(): void
@@ -100,6 +134,72 @@ class AuthTest extends TestCase
 
         $this->assertTrue(Hash::check('new-password123', $user->fresh()->password));
         $this->assertCount(0, $user->fresh()->tokens);
+    }
+
+    public function test_update_profile_requires_authentication(): void
+    {
+        $this->putJson('/api/auth/me', ['name' => 'New Name'])->assertUnauthorized();
+    }
+
+    public function test_can_update_name_and_institution_without_touching_password(): void
+    {
+        $user = User::create(['name' => 'Old Name', 'email' => 'test@example.com', 'password' => bcrypt('password123')]);
+        Sanctum::actingAs($user);
+
+        $this->putJson('/api/auth/me', ['name' => 'New Name', 'institution' => 'Ateneo'])
+            ->assertOk()
+            ->assertJsonPath('name', 'New Name')
+            ->assertJsonPath('institution', 'Ateneo');
+
+        $this->assertTrue(Hash::check('password123', $user->fresh()->password));
+    }
+
+    public function test_changing_password_requires_the_correct_current_password(): void
+    {
+        $user = User::create(['name' => 'Test User', 'email' => 'test@example.com', 'password' => bcrypt('password123')]);
+        Sanctum::actingAs($user);
+
+        $this->putJson('/api/auth/me', ['current_password' => 'wrong', 'password' => 'new-password123'])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['currentPassword']);
+
+        $this->assertTrue(Hash::check('password123', $user->fresh()->password));
+    }
+
+    public function test_changing_password_with_the_correct_current_password_succeeds(): void
+    {
+        $user = User::create(['name' => 'Test User', 'email' => 'test@example.com', 'password' => bcrypt('password123')]);
+        Sanctum::actingAs($user);
+
+        $this->putJson('/api/auth/me', ['current_password' => 'password123', 'password' => 'new-password123'])
+            ->assertOk();
+
+        $this->assertTrue(Hash::check('new-password123', $user->fresh()->password));
+    }
+
+    public function test_changing_email_re_locks_verification_and_queues_a_new_verification_email(): void
+    {
+        Notification::fake();
+        $user = User::create(['name' => 'Test User', 'email' => 'old@example.com', 'password' => bcrypt('password123'), 'email_verified_at' => now()]);
+        Sanctum::actingAs($user);
+
+        $this->putJson('/api/auth/me', ['email' => 'new@example.com'])->assertOk();
+
+        $user->refresh();
+        $this->assertSame('new@example.com', $user->email);
+        $this->assertNull($user->email_verified_at);
+        Notification::assertSentTo($user, VerifyEmailNotification::class);
+    }
+
+    public function test_cannot_update_email_to_one_already_taken_by_another_account(): void
+    {
+        User::create(['name' => 'Other', 'email' => 'taken@example.com', 'password' => bcrypt('password123')]);
+        $user = User::create(['name' => 'Test User', 'email' => 'test@example.com', 'password' => bcrypt('password123')]);
+        Sanctum::actingAs($user);
+
+        $this->putJson('/api/auth/me', ['email' => 'taken@example.com'])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['email']);
     }
 
     public function test_email_verification_link_marks_the_account_verified_and_redirects(): void

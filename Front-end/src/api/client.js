@@ -44,6 +44,15 @@ async function request(path, { method = 'GET', body, params } = {}) {
   const data = await res.json().catch(() => null)
 
   if (!res.ok) {
+    // A 401 on a request that carried a token means that token's been
+    // revoked server-side (e.g. this account logged in somewhere else -
+    // see AuthController::login's single-session policy) - clear it and
+    // let AppContext react, rather than leaving the tab silently useless
+    // with every subsequent call failing the same way.
+    if (res.status === 401 && token) {
+      setToken(null)
+      window.dispatchEvent(new Event('auth:session-revoked'))
+    }
     throw new ApiError(data?.message || `Request failed (${res.status})`, res.status, data?.errors)
   }
   return data

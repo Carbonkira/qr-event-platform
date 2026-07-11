@@ -61,6 +61,11 @@ class AuthController extends Controller
             ]);
         }
 
+        // Only one active session per account - logging in somewhere new
+        // signs out every other device/browser this account was logged
+        // into, rather than letting tokens pile up indefinitely.
+        $user->tokens()->delete();
+
         $token = $user->createToken('api')->plainTextToken;
 
         return response()->json([
@@ -69,9 +74,14 @@ class AuthController extends Controller
         ]);
     }
 
+    /**
+     * Deletes every token for this account, not just the one used to make
+     * this request - logging out from one place signs out everywhere,
+     * consistent with the single-active-session policy in login().
+     */
     public function logout(Request $request)
     {
-        $request->user()->currentAccessToken()->delete();
+        $request->user()->tokens()->delete();
 
         return response()->json(['message' => 'Logged out.']);
     }
@@ -79,6 +89,57 @@ class AuthController extends Controller
     public function me(Request $request)
     {
         return response()->json($request->user());
+    }
+
+    /**
+     * Lets an account edit its own name/email/institution and, optionally,
+     * its password (current_password required to change it - not to save
+     * the rest of the form, so touching your name doesn't force you to
+     * re-type your password). Changing the email re-locks verification,
+     * matching how a brand-new account starts out unverified, and queues a
+     * fresh verification email to the new address.
+     */
+    public function updateProfile(Request $request)
+    {
+        $user = $request->user();
+
+        $data = $request->validate([
+            'name' => ['sometimes', 'string', 'max:255'],
+            'email' => ['sometimes', 'string', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user->id)],
+            'institution' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'current_password' => ['required_with:password', 'string'],
+            'password' => ['sometimes', 'string', 'min:8'],
+        ]);
+
+        if (array_key_exists('password', $data)) {
+            if (! Hash::check($data['current_password'], $user->password)) {
+                throw ValidationException::withMessages([
+                    'current_password' => ['The current password is incorrect.'],
+                ]);
+            }
+            $user->password = Hash::make($data['password']);
+        }
+
+        if (array_key_exists('name', $data)) {
+            $user->name = $data['name'];
+        }
+        if (array_key_exists('institution', $data)) {
+            $user->institution = $data['institution'];
+        }
+
+        $emailChanged = array_key_exists('email', $data) && $data['email'] !== $user->email;
+        if ($emailChanged) {
+            $user->email = $data['email'];
+            $user->email_verified_at = null;
+        }
+
+        $user->save();
+
+        if ($emailChanged) {
+            $user->sendEmailVerificationNotification();
+        }
+
+        return response()->json($user);
     }
 
     /**

@@ -30,6 +30,9 @@ export async function logout() {
 export function me() {
   return api.get('/auth/me')
 }
+export function updateProfile(payload) {
+  return api.put('/auth/me', payload)
+}
 
 // ─── Events ───
 export function getPublicEvents(params) {
