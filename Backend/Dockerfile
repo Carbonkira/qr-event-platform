@@ -5,10 +5,13 @@
 # changes.
 FROM php:8.2-cli
 
-RUN apt-get update && apt-get install -y \
-        libpq-dev libzip-dev libpng-dev libonig-dev \
-    && docker-php-ext-install pdo_pgsql pgsql zip gd bcmath \
-    && rm -rf /var/lib/apt/lists/*
+# install-php-extensions (mlocati) fetches prebuilt binaries instead of
+# compiling from source - docker-php-ext-install compiling gd in particular
+# was taking 30+ minutes on Railway's builder (vs ~10s locally with cached
+# layers), to the point of looking hung. This is the standard fix.
+ADD https://github.com/mlocati/docker-php-extension-installer/releases/latest/download/install-php-extensions /usr/local/bin/
+RUN chmod +x /usr/local/bin/install-php-extensions \
+    && install-php-extensions pdo_pgsql pgsql zip gd bcmath
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
