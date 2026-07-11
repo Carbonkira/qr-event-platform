@@ -30,6 +30,20 @@ class RegistrationController extends Controller
             'payment_screenshot' => ['sometimes', 'nullable', 'image', 'max:5120'], // 5MB, matches the frontend's own limit
         ]);
 
+        // Re-registering (double submit, revisiting the register page after
+        // already signing up) used to create a second Registration row with
+        // its own QR code - each independently scannable, silently inflating
+        // attendance for what's really one person. Confirmed in live
+        // testing: a single attendee's repeat registrations accounted for
+        // 3 of 5 "unique" check-ins at one test event.
+        $existing = Registration::where('event_id', $event->id)
+            ->where('user_id', $request->user()->id)
+            ->first();
+
+        if ($existing) {
+            return response()->json($existing, 200);
+        }
+
         $registration = $this->createRegistration($event, $data, $request, [
             'user_id' => $request->user()->id,
             'is_walk_in' => false,

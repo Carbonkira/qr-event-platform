@@ -49,6 +49,25 @@ class RegistrationTest extends TestCase
         Mail::assertQueued(\App\Mail\RegistrationConfirmedMail::class);
     }
 
+    public function test_registering_twice_with_the_same_account_returns_the_existing_registration(): void
+    {
+        Mail::fake();
+        $event = $this->makeEvent();
+        $user = User::create(['name' => 'Ana', 'email' => 'ana@example.com', 'password' => bcrypt('password123')]);
+        $user->forceFill(['email_verified_at' => now()])->save();
+        Sanctum::actingAs($user);
+
+        $first = $this->postJson("/api/events/{$event->id}/register", ['name' => 'Ana', 'email' => 'ana@example.com'])
+            ->assertCreated();
+
+        $second = $this->postJson("/api/events/{$event->id}/register", ['name' => 'Ana', 'email' => 'ana@example.com'])
+            ->assertOk();
+
+        $this->assertSame($first->json('id'), $second->json('id'));
+        $this->assertSame($first->json('qrCode'), $second->json('qrCode'));
+        $this->assertSame(1, Registration::where('event_id', $event->id)->where('user_id', $user->id)->count());
+    }
+
     public function test_an_unverified_account_cannot_register_for_an_event(): void
     {
         Mail::fake();
