@@ -8,6 +8,10 @@ export function AppProvider({ children }) {
   const [user, setUser] = useState(null) // { id, name, email, institution, role }
   const [authReady, setAuthReady] = useState(false)
   const [toasts, setToasts] = useState([])
+  const [coords, setCoords] = useState(null)
+  const [place, setPlace] = useState(null) // { city, country } - reverse-geocoded, best-effort
+  // 'idle' | 'locating' | 'granted' | 'denied' | 'unsupported'
+  const [locationStatus, setLocationStatus] = useState('idle')
 
   // On mount, if a token is stored, restore the session by asking the API who it is.
   useEffect(() => {
@@ -16,6 +20,32 @@ export function AppProvider({ children }) {
       .then(setUser)
       .catch(() => setToken(null))
       .finally(() => setAuthReady(true))
+  }, [])
+
+  // Requested once per app load here (not per-page, which is what used to
+  // trigger a fresh browser permission prompt every time Explore mounted).
+  // Reverse geocoding uses OSM Nominatim - free, no API key/setup required,
+  // matching this app's "no key = still works" convention elsewhere.
+  useEffect(() => {
+    if (!navigator.geolocation) { setLocationStatus('unsupported'); return }
+    setLocationStatus('locating')
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const { latitude, longitude } = pos.coords
+        setCoords({ lat: latitude, lng: longitude })
+        setLocationStatus('granted')
+        try {
+          const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}`, { headers: { 'Accept-Language': 'en' } })
+          const data = await res.json()
+          const city = data.address?.city || data.address?.town || data.address?.municipality || data.address?.county
+          if (city || data.address?.country) setPlace({ city, country: data.address?.country })
+        } catch {
+          // best-effort - just skip showing a place name if this fails
+        }
+      },
+      () => setLocationStatus('denied'),
+      { timeout: 8000, maximumAge: 10 * 60 * 1000 }
+    )
   }, [])
 
   // client.js fires this the moment any request comes back 401 with a token
@@ -80,6 +110,7 @@ export function AppProvider({ children }) {
     <AppContext.Provider value={{
       user, authReady, login, createAccount, logout, updateProfile, refreshUser, resendVerificationEmail,
       toasts, addToast, removeToast,
+      coords, place, locationStatus,
     }}>
       {children}
     </AppContext.Provider>

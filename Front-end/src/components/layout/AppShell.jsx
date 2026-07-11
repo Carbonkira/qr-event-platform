@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { QrCode, Plus, ChevronDown, LogOut, MailWarning, Hourglass, MessageSquare, FileText, ClipboardList, User as UserIcon } from 'lucide-react'
 import { Btn } from '../ui'
-import { cn, locale } from '../../lib/utils'
+import { cn } from '../../lib/utils'
 import { useApp } from '../../context/AppContext'
 import { useAdminEvents, useAnalytics } from '../../hooks/useApi'
 import CreateEventModal from '../admin/CreateEventModal'
@@ -28,7 +28,7 @@ const MANAGE_ITEMS = [
 export default function AppShell() {
   const location = useLocation()
   const navigate = useNavigate()
-  const { user, logout, addToast, resendVerificationEmail } = useApp()
+  const { user, logout, addToast, resendVerificationEmail, place } = useApp()
   const { data: ownEvents } = useAdminEvents(!!user)
   const { data: analytics } = useAnalytics(!!user)
   const [createOpen, setCreateOpen] = useState(false)
@@ -129,7 +129,7 @@ export default function AppShell() {
       <div className="animate-fade"><Outlet context={{ openCreate: onCreateClick, toast: addToast }} /></div>
 
       <footer className="max-w-5xl mx-auto px-5 py-8 mt-10 border-t border-slate-200/60 flex flex-col sm:flex-row items-center justify-between gap-3">
-        <p className="text-[12px] text-slate-400">QRMeets · Event attendance & feedback, automated · {locale.city}, {locale.country}</p>
+        <p className="text-[12px] text-slate-400">QRMeets · Event attendance & feedback, automated{place?.city ? ` · ${place.city}${place.country ? `, ${place.country}` : ''}` : ''}</p>
         <p className="text-[12px] text-slate-400">© {new Date().getFullYear()} QRMeets</p>
       </footer>
 

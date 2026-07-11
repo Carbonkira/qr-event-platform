@@ -1,28 +1,15 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Calendar, Clock, MapPin, Users, Search, MapPinned, Sparkles, LocateFixed } from 'lucide-react'
 import { Card, Badge, PriceTag } from '../../components/ui'
-import { cn, fmtDate, fmtTime, monthDay, locale } from '../../lib/utils'
+import { cn, fmtDate, fmtTime, monthDay } from '../../lib/utils'
 import { usePublicEvents } from '../../hooks/useApi'
+import { useApp } from '../../context/AppContext'
 
 export default function Home() {
   const [q, setQ] = useState('')
   const [filter, setFilter] = useState('upcoming')
-  // 'idle' | 'locating' | 'granted' | 'denied' | 'unsupported' - falls back
-  // to the timezone-based `locale` guess (see lib/utils) whenever real
-  // coordinates aren't available, rather than blocking the page on it.
-  const [geoStatus, setGeoStatus] = useState('idle')
-  const [coords, setCoords] = useState(null)
-
-  useEffect(() => {
-    if (!navigator.geolocation) { setGeoStatus('unsupported'); return }
-    setGeoStatus('locating')
-    navigator.geolocation.getCurrentPosition(
-      (pos) => { setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude }); setGeoStatus('granted') },
-      () => setGeoStatus('denied'),
-      { timeout: 8000, maximumAge: 5 * 60 * 1000 }
-    )
-  }, [])
+  const { coords, place, locationStatus: geoStatus } = useApp()
 
   const { data: all, loading } = usePublicEvents(coords ? { lat: coords.lat, lng: coords.lng } : {})
   const events0 = all || []
@@ -41,10 +28,12 @@ export default function Home() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-7">
         <div>
           <h1 className="text-2xl font-extrabold tracking-tight">Events</h1>
-          {geoStatus === 'granted' ? (
+          {geoStatus === 'granted' && place?.city ? (
+            <p className="text-[13px] text-slate-500 mt-0.5 flex items-center gap-1.5"><LocateFixed size={13} className="text-[#0f9d8f]" />Sorted by distance from {place.city}</p>
+          ) : geoStatus === 'granted' ? (
             <p className="text-[13px] text-slate-500 mt-0.5 flex items-center gap-1.5"><LocateFixed size={13} className="text-[#0f9d8f]" />Sorted by distance from you</p>
           ) : (
-            <p className="text-[13px] text-slate-500 mt-0.5 flex items-center gap-1.5"><MapPinned size={13} />Happening near {locale.city}</p>
+            <p className="text-[13px] text-slate-500 mt-0.5 flex items-center gap-1.5"><MapPinned size={13} />Discover upcoming events</p>
           )}
         </div>
         <div className="flex items-center gap-2">

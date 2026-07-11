@@ -4,7 +4,7 @@ import { CheckCircle2, Users, Calendar, Hourglass, ChevronRight, Star } from 'lu
 import { Card, Badge, KPI, PriceTag } from '../components/ui'
 import { useApp } from '../context/AppContext'
 import { useAdminEvents, useAnalytics, useMyRegistrations } from '../hooks/useApi'
-import { cn, fmtDate, fmtTime, locale } from '../lib/utils'
+import { cn, fmtDate, fmtTime } from '../lib/utils'
 
 const STATUS_COLOR = { draft: 'slate', pending: 'amber', approved: 'green', rejected: 'rose', completed: 'slate' }
 
@@ -14,7 +14,7 @@ const STATUS_COLOR = { draft: 'slate', pending: 'amber', approved: 'green', reje
 export default function MyEvents() {
   const navigate = useNavigate()
   const { openCreate } = useOutletContext()
-  const { user } = useApp()
+  const { user, place } = useApp()
   const [tab, setTab] = useState('attending')
 
   const { data: regsData } = useMyRegistrations(!!user)
@@ -32,7 +32,7 @@ export default function MyEvents() {
     <div className="max-w-5xl mx-auto px-5 py-8">
       <div className="mb-6">
         <h1 className="text-2xl font-extrabold tracking-tight">My Events</h1>
-        <p className="text-[13px] text-slate-500 mt-0.5">Everything you're attending and hosting · {locale.city}</p>
+        <p className="text-[13px] text-slate-500 mt-0.5">Everything you're attending and hosting{place?.city ? ` · ${place.city}` : ''}</p>
       </div>
 
       <div className="flex items-center gap-2 mb-7">
