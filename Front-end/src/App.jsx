@@ -15,6 +15,7 @@ import ManageLayout from './components/layout/ManageLayout'
 import Home from './pages/public/Home'
 
 const EventDetail = lazy(() => import('./pages/public/EventDetail'))
+const OrgDirectory = lazy(() => import('./pages/public/OrgDirectory'))
 const OrgPublic = lazy(() => import('./pages/public/OrgPublic'))
 const DiscussionThread = lazy(() => import('./pages/public/DiscussionThread'))
 const Login = lazy(() => import('./pages/public/Login'))
@@ -89,6 +90,7 @@ function AppRoutes() {
         <Route element={<AppShell />}>
           <Route index element={<Home />} />
           <Route path="events/:slug" element={<EventDetail />} />
+          <Route path="organizations" element={<OrgDirectory />} />
           <Route path="org/:slug" element={<OrgPublic />} />
           <Route path="org/:slug/discussion/:threadId" element={<DiscussionThread />} />
           <Route path="events/:slug/register" element={<Register />} />

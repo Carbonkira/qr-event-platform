@@ -36,4 +36,23 @@ class PublicOrgPageTest extends TestCase
     {
         $this->getJson('/api/org/does-not-exist')->assertNotFound();
     }
+
+    public function test_directory_only_lists_organizations_with_a_real_public_event(): void
+    {
+        $owner = User::create(['name' => 'Owner', 'email' => 'owner@example.com', 'password' => bcrypt('password123')]);
+        $active = Organization::create(['name' => 'Acme Robotics', 'slug' => 'acme-robotics']);
+        $empty = Organization::create(['name' => 'Empty Org', 'slug' => 'empty-org']);
+        $privateOnly = Organization::create(['name' => 'Private Only', 'slug' => 'private-only']);
+
+        Event::create(['title' => 'Upcoming', 'status' => 'approved', 'is_private' => false, 'date' => now()->addWeek()->toDateString(), 'slug' => 'upcoming', 'user_id' => $owner->id, 'organization_id' => $active->id]);
+        Event::create(['title' => 'Private', 'status' => 'approved', 'is_private' => true, 'date' => now()->addWeek()->toDateString(), 'slug' => 'private', 'user_id' => $owner->id, 'organization_id' => $privateOnly->id]);
+
+        $response = $this->getJson('/api/orgs')->assertOk();
+
+        $names = collect($response->json())->pluck('name');
+        $this->assertTrue($names->contains('Acme Robotics'));
+        $this->assertFalse($names->contains('Empty Org'));
+        $this->assertFalse($names->contains('Private Only'));
+        $this->assertSame(1, collect($response->json())->firstWhere('name', 'Acme Robotics')['upcomingEventsCount']);
+    }
 }

@@ -93,6 +93,7 @@ export default function AppShell() {
           <nav className="flex items-center gap-1 flex-1 justify-center min-w-0">
             <Link to="/" className={navLinkClass(location.pathname === '/')}>Explore</Link>
             <Link to="/my-events" className={navLinkClass(location.pathname.startsWith('/my-events'))}>My Events</Link>
+            <Link to="/organizations" className={navLinkClass(location.pathname.startsWith('/organizations') || location.pathname.startsWith('/org/'))}>Organizations</Link>
             {user && (
               <Link to="/connections" className={cn(navLinkClass(location.pathname.startsWith('/connections')), 'flex items-center gap-1.5')}>
                 <Users2 size={14} />Connections

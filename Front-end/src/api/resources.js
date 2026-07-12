@@ -222,6 +222,9 @@ export function acceptInvite(token) {
 export function getPublicOrg(slug) {
   return api.get(`/org/${slug}`)
 }
+export function getOrgDirectory() {
+  return api.get('/orgs')
+}
 
 // ─── Discussion boards (per-organization) ───
 export function getDiscussionThreads(orgId) {

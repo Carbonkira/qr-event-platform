@@ -47,6 +47,26 @@ class OrgController extends Controller
      * approved, non-private events are shown here, same visibility rule as
      * EventController::index's public listing.
      */
+    /**
+     * Public directory - lets anyone browse organizations the way they'd
+     * browse events, not just land on one via a direct /org/:slug link.
+     * Only orgs with at least one real public event are listed, so a stub
+     * org someone created and never used doesn't clutter the directory.
+     */
+    public function directory()
+    {
+        $organizations = Organization::whereHas('events', function ($query) {
+            $query->where('status', 'approved')->where('is_private', false);
+        })
+            ->withCount(['events as upcoming_events_count' => function ($query) {
+                $query->where('status', 'approved')->where('is_private', false)->where('date', '>=', now()->toDateString());
+            }])
+            ->orderBy('name')
+            ->get();
+
+        return response()->json($organizations);
+    }
+
     public function showPublic(Organization $organization)
     {
         $events = $organization->events()
