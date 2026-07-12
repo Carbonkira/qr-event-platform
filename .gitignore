@@ -1,4 +1,4 @@
-# Claude Code's own session/tooling state — not part of the application
+# not part of the application because we used gemini
 .claude/
 
 # OS/editor cruft
