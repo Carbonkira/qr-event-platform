@@ -20,7 +20,7 @@ RUN apt-get update && apt-get install -y nginx gettext-base \
 # layers), to the point of looking hung. This is the standard fix.
 ADD https://github.com/mlocati/docker-php-extension-installer/releases/latest/download/install-php-extensions /usr/local/bin/
 RUN chmod +x /usr/local/bin/install-php-extensions \
-    && install-php-extensions pdo_pgsql pgsql zip gd bcmath
+    && install-php-extensions pdo_pgsql pgsql zip gd bcmath opcache
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
@@ -35,6 +35,7 @@ RUN composer install --no-dev --optimize-autoloader --no-interaction \
 # runs envsubst scoped to just '${PORT}' to avoid that.
 COPY docker/nginx.conf.template /etc/nginx/conf.d/default.conf.template
 COPY docker/php-fpm-pool.conf /usr/local/etc/php-fpm.d/zz-pool.conf
+COPY docker/opcache.ini /usr/local/etc/php/conf.d/zz-opcache.ini
 COPY docker/entrypoint.sh /entrypoint.sh
 COPY docker/worker-start.sh /worker-start.sh
 RUN chmod +x /entrypoint.sh /worker-start.sh

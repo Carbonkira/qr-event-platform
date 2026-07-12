@@ -7,6 +7,17 @@ set -e
 # rather run `php artisan migrate --force` manually via the platform's shell.
 php artisan migrate --force
 
+# Never run at build time - config:cache bakes in the actual env() values,
+# and Railway only injects real env vars at container boot, not during the
+# Docker build. Run here instead of on every request, which is what was
+# happening before this existed: Laravel re-parsing every config/*.php file
+# and recompiling every Blade view from scratch on every single API call.
+# Safe for this app - no env() calls outside config/*.php, and every route
+# uses a [Controller::class, 'method'] reference rather than a closure.
+php artisan config:cache
+php artisan route:cache
+php artisan view:cache
+
 # Only matters when FILESYSTEM_PUBLIC_DRIVER=local (S3/R2 URLs are already
 # absolute and don't go through this) - without it, anything on the
 # "public" disk (payment screenshots, event cover images) 404s even
