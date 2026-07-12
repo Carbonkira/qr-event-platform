@@ -41,6 +41,9 @@ export function useRegistrations(eventId) {
 export function useMyRegistrations(enabled = true) {
   return useAsync(() => (enabled ? api.getMyRegistrations() : Promise.resolve([])), [enabled])
 }
+export function useRegistration(id) {
+  return useAsync(() => (id ? api.getRegistration(id) : Promise.resolve(null)), [id])
+}
 export function useFeedback(eventId) {
   return useAsync(() => api.getFeedback(eventId), [eventId])
 }

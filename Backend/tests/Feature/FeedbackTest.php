@@ -16,13 +16,26 @@ class FeedbackTest extends TestCase
 
     private function makeRegistration(array $eventOverrides = []): Registration
     {
+        // Feedback only opens once an event is completed - see
+        // FeedbackController::store() - so every test that submits feedback
+        // through the endpoint needs a completed event by default.
         $event = Event::create(array_merge([
-            'title' => 'Test Event', 'status' => 'approved', 'slug' => 'test-event-'.uniqid(),
+            'title' => 'Test Event', 'status' => 'completed', 'slug' => 'test-event-'.uniqid(),
             'type' => 'Meetup', 'venue' => 'Venue', 'date' => '2026-08-01',
             'start_time' => '10:00', 'end_time' => '12:00', 'capacity' => 50,
         ], $eventOverrides));
 
         return $event->registrations()->create(['name' => 'Attendee', 'email' => 'attendee@example.com', 'qr_code' => 'QR-TEST-001']);
+    }
+
+    public function test_feedback_cannot_be_submitted_before_the_event_is_completed(): void
+    {
+        $registration = $this->makeRegistration(['status' => 'approved']);
+
+        $this->postJson("/api/events/{$registration->event_id}/feedback", [
+            'registrationId' => $registration->id,
+            'q1' => 5, 'q2' => 5, 'q3' => 5, 'q4' => 5, 'q5' => 5,
+        ])->assertStatus(422);
     }
 
     public function test_all_five_core_ratings_are_required(): void

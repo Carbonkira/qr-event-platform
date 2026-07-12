@@ -223,16 +223,21 @@ export default function EventDetail() {
     }
   }
 
+  // Feedback is required before a certificate goes out - "Needs Cert" alone
+  // used to just mean "requested one at signup," with no signal on whether
+  // they've actually earned it yet.
+  const certStatus = (r) => !r.needsCertificate ? 'N/A' : r.feedbackSubmitted ? 'Eligible' : 'Awaiting feedback'
+
   const exportGuests = () => {
-    let csv = `Name,Email,Status,Check-in,Needs Cert,Feedback,Payment Ref,Payment Status\n`
-    regs.forEach(r => { csv += `"${r.name}","${r.email}","${r.attended ? 'Checked in' : 'Registered'}","${r.checkInTime || ''}","${r.needsCertificate ? 'Yes' : 'No'}","${r.feedbackSubmitted ? 'Yes' : 'No'}","${r.paymentRef || ''}","${r.paymentStatus || 'n/a'}"\n` })
+    let csv = `Name,Email,Status,Check-in,Certificate,Feedback,Payment Ref,Payment Status\n`
+    regs.forEach(r => { csv += `"${r.name}","${r.email}","${r.attended ? 'Checked in' : 'Registered'}","${r.checkInTime || ''}","${certStatus(r)}","${r.feedbackSubmitted ? 'Yes' : 'No'}","${r.paymentRef || ''}","${r.paymentStatus || 'n/a'}"\n` })
     downloadCsv(csv, `guests-${event.slug}.csv`)
     addToast('Guest list exported!', 'success')
   }
 
   const exportReport = () => {
-    let csv = `POST-EVENT REPORT\n${event.title}\n\nDate,${fmtDateLong(event.date)}\nVenue,${event.venue}\nLocation,${event.location}\nOrganized by,${event.organizedBy}\nLocale,${locale.city} (${locale.region}, ${locale.country})\n\nMETRICS\nRegistered,${regs.length}\nAttended,${att.length}\nAttendance Rate,${regs.length ? ((att.length / regs.length) * 100).toFixed(1) : 0}%\nFeedback,${fb.length}\nAvg Satisfaction,${avg}\nCertificates needed,${regs.filter(r => r.needsCertificate && r.attended).length}\n\nATTENDANCE\nName,Email,Check-in,Needs Cert,Feedback\n`
-    regs.forEach(r => { csv += `"${r.name}","${r.email}","${r.checkInTime || ''}","${r.needsCertificate ? 'Yes' : 'No'}","${r.feedbackSubmitted ? 'Yes' : 'No'}"\n` })
+    let csv = `POST-EVENT REPORT\n${event.title}\n\nDate,${fmtDateLong(event.date)}\nVenue,${event.venue}\nLocation,${event.location}\nOrganized by,${event.organizedBy}\nLocale,${locale.city} (${locale.region}, ${locale.country})\n\nMETRICS\nRegistered,${regs.length}\nAttended,${att.length}\nAttendance Rate,${regs.length ? ((att.length / regs.length) * 100).toFixed(1) : 0}%\nFeedback,${fb.length}\nAvg Satisfaction,${avg}\nCertificates eligible,${regs.filter(r => r.needsCertificate && r.feedbackSubmitted).length}\nCertificates awaiting feedback,${regs.filter(r => r.needsCertificate && !r.feedbackSubmitted).length}\n\nATTENDANCE\nName,Email,Check-in,Certificate,Feedback\n`
+    regs.forEach(r => { csv += `"${r.name}","${r.email}","${r.checkInTime || ''}","${certStatus(r)}","${r.feedbackSubmitted ? 'Yes' : 'No'}"\n` })
     downloadCsv(csv, `report-${event.slug}.csv`)
     addToast('Report downloaded!', 'success')
   }
@@ -356,7 +361,9 @@ export default function EventDetail() {
                   {r.waitlisted && <Badge color="violet" size="xs"><ListPlus size={9} />Waitlist</Badge>}
                   {r.paymentStatus === 'pending' && <Badge color="amber" size="xs"><Clock3 size={9} />Pay?</Badge>}
                   {r.paymentStatus === 'verified' && <Badge color="green" size="xs"><Check size={9} />Paid</Badge>}
-                  {r.needsCertificate && <Badge color="violet" size="xs"><Award size={9} />Cert</Badge>}
+                  {r.needsCertificate && (r.feedbackSubmitted
+                    ? <Badge color="violet" size="xs"><Award size={9} />Cert eligible</Badge>
+                    : <Badge color="amber" size="xs"><Award size={9} />Cert - awaiting feedback</Badge>)}
                   {r.attended ? <Badge color="green" size="xs"><CheckCircle2 size={9} />In</Badge> : <Badge color="slate" size="xs">Not in</Badge>}
                   {r.feedbackSubmitted && <Badge color="amber" size="xs"><Star size={9} />FB</Badge>}
                 </div>
@@ -476,7 +483,7 @@ export default function EventDetail() {
         <Card className="p-6">
           <div className="flex items-center justify-between mb-5"><div><h3 className="font-extrabold text-[16px]">Post-Event Report</h3><p className="text-[12px] text-slate-400">Summary for HQ reporting</p></div><Btn variant="primary" icon={Download} onClick={exportReport}>Download CSV</Btn></div>
           <div className="grid sm:grid-cols-2 gap-2.5 mb-5">
-            {[['Event', event.title], ['Date', fmtDate(event.date)], ['Venue', event.venue], ['Locale', `${event.location} · ${locale.region}`], ['Registered', regs.length], ['Attended', `${att.length} (${regs.length ? ((att.length / regs.length) * 100).toFixed(0) : 0}%)`], ['Certificates', regs.filter(r => r.needsCertificate && r.attended).length], ['Feedback', fb.length], ['Avg Satisfaction', avg]].map(([k, v]) => (
+            {[['Event', event.title], ['Date', fmtDate(event.date)], ['Venue', event.venue], ['Locale', `${event.location} · ${locale.region}`], ['Registered', regs.length], ['Attended', `${att.length} (${regs.length ? ((att.length / regs.length) * 100).toFixed(0) : 0}%)`], ['Certificates eligible', regs.filter(r => r.needsCertificate && r.feedbackSubmitted).length], ['Feedback', fb.length], ['Avg Satisfaction', avg]].map(([k, v]) => (
               <div key={k} className="p-3 rounded-lg bg-slate-50 border border-slate-200"><p className="text-[10px] font-bold text-slate-400 uppercase">{k}</p><p className="text-[13px] font-semibold text-slate-700 mt-0.5">{String(v)}</p></div>
             ))}
           </div>

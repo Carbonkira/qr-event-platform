@@ -24,6 +24,23 @@ class RegistrationTest extends TestCase
         ], $overrides));
     }
 
+    public function test_a_registration_can_be_fetched_publicly_by_its_own_id_with_live_event_status(): void
+    {
+        $event = $this->makeEvent(['status' => 'approved']);
+        $registration = $event->registrations()->create(['name' => 'Attendee', 'email' => 'attendee@example.com', 'qr_code' => 'QR-1', 'attended' => false]);
+
+        $response = $this->getJson("/api/registrations/{$registration->id}")->assertOk();
+        $this->assertSame('approved', $response->json('event.status'));
+        $this->assertFalse($response->json('attended'));
+
+        $event->update(['status' => 'completed']);
+        $registration->update(['attended' => true]);
+
+        $response = $this->getJson("/api/registrations/{$registration->id}")->assertOk();
+        $this->assertSame('completed', $response->json('event.status'));
+        $this->assertTrue($response->json('attended'));
+    }
+
     public function test_registering_for_an_event_requires_authentication(): void
     {
         Mail::fake();

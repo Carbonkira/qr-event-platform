@@ -401,6 +401,18 @@ class RegistrationController extends Controller
         return response()->json($registrations);
     }
 
+    /**
+     * Public, keyed only by the registration's own (unguessable) id - same
+     * security model as qr.png below. Lets the Pass page fetch live status
+     * (attended, feedback_submitted, the event's current status) instead of
+     * only ever showing whatever was true at the moment of registration,
+     * which is all a plain /pass/:regId link previously had to go on.
+     */
+    public function show(Registration $registration)
+    {
+        return response()->json($registration->load('event'));
+    }
+
     public function verifyPayment(Request $request, Registration $registration)
     {
         $data = $request->validate([

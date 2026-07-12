@@ -139,6 +139,9 @@ export function getMyRegistrations() {
 export function findPassesByEmail(email) {
   return api.get('/pass/lookup', { email })
 }
+export function getRegistration(id) {
+  return api.get(`/registrations/${id}`)
+}
 export function verifyPayment(registrationId, approved) {
   return api.post(`/registrations/${registrationId}/verify-payment`, { approved })
 }

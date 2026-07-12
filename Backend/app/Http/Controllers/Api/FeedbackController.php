@@ -40,6 +40,8 @@ class FeedbackController extends Controller
             'custom_answers' => ['sometimes', 'nullable', 'array'],
         ]);
 
+        abort_unless($event->status === 'completed', 422, 'Feedback opens once the event has wrapped up.');
+
         $registration = Registration::where('id', $data['registration_id'])
             ->where('event_id', $event->id)
             ->firstOrFail();
