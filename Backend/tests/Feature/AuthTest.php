@@ -155,7 +155,14 @@ class AuthTest extends TestCase
 
         $this->postJson('/api/auth/login', [
             'email' => 'test@example.com', 'password' => 'wrong',
-        ])->assertUnprocessable();
+        ])->assertUnprocessable()->assertJsonValidationErrors(['password']);
+    }
+
+    public function test_login_with_an_unregistered_email_reports_the_error_on_the_email_field(): void
+    {
+        $this->postJson('/api/auth/login', [
+            'email' => 'nope@example.com', 'password' => 'whatever',
+        ])->assertUnprocessable()->assertJsonValidationErrors(['email']);
     }
 
     public function test_a_token_older_than_the_configured_expiration_is_rejected(): void
@@ -185,18 +192,24 @@ class AuthTest extends TestCase
         $this->withHeader('Authorization', "Bearer {$token}")->getJson('/api/auth/me')->assertUnauthorized();
     }
 
-    public function test_forgot_password_sends_reset_link_and_never_reveals_whether_the_email_exists(): void
+    public function test_forgot_password_sends_a_reset_link_for_a_known_email(): void
     {
         Notification::fake();
         $user = User::create(['name' => 'Test User', 'email' => 'test@example.com', 'password' => bcrypt('password123')]);
 
-        $known = $this->postJson('/api/auth/forgot-password', ['email' => 'test@example.com']);
-        $unknown = $this->postJson('/api/auth/forgot-password', ['email' => 'nobody@example.com']);
+        $this->postJson('/api/auth/forgot-password', ['email' => 'test@example.com'])->assertOk();
 
-        $known->assertOk();
-        $unknown->assertOk();
-        $this->assertSame($known->json('message'), $unknown->json('message'));
         Notification::assertSentTo($user, ResetPasswordNotification::class);
+    }
+
+    public function test_forgot_password_reports_an_unregistered_email_without_sending_anything(): void
+    {
+        Notification::fake();
+
+        $this->postJson('/api/auth/forgot-password', ['email' => 'nobody@example.com'])
+            ->assertUnprocessable()->assertJsonValidationErrors(['email']);
+
+        Notification::assertNothingSent();
     }
 
     public function test_reset_password_with_a_valid_token_changes_the_password_and_revokes_tokens(): void

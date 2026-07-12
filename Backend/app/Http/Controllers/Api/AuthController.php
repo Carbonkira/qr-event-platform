@@ -70,9 +70,23 @@ class AuthController extends Controller
 
         $user = User::where('email', $data['email'])->first();
 
-        if (! $user || ! Hash::check($data['password'], $user->password)) {
+        // Deliberately not the same generic message for both cases anymore:
+        // a wrong password on a real account now says so specifically, so
+        // people who mistype their password get a clearer signal than "your
+        // credentials are wrong" without knowing which part. This does mean
+        // the response shape reveals whether an email is registered - the
+        // login endpoint is already rate-limited (see routes/api.php's
+        // throttle:10,1 on this route), which is treated as the primary
+        // defense against that being scraped for account enumeration.
+        if (! $user) {
             throw ValidationException::withMessages([
-                'email' => ['The provided credentials are incorrect.'],
+                'email' => ['No account found with that email.'],
+            ]);
+        }
+
+        if (! Hash::check($data['password'], $user->password)) {
+            throw ValidationException::withMessages([
+                'password' => ['Password incorrect.'],
             ]);
         }
 
@@ -211,8 +225,13 @@ class AuthController extends Controller
     }
 
     /**
-     * Always responds the same way regardless of whether the email exists,
-     * so this can't be used to enumerate registered accounts.
+     * Reveals whether the email is registered - same tradeoff as login()
+     * above (clearer feedback for real users, mitigated by the shared
+     * throttle:10,1 group in routes/api.php rather than message ambiguity).
+     * This still can't be used to take over an account: the reset link is
+     * only ever emailed to the real inbox, and resetPassword() below checks
+     * the token against that specific user, so knowing the email exists
+     * doesn't get an attacker any closer to the password itself.
      */
     public function forgotPassword(Request $request)
     {
@@ -220,9 +239,17 @@ class AuthController extends Controller
             'email' => ['required', 'string', 'email'],
         ]);
 
+        $user = User::where('email', $data['email'])->first();
+
+        if (! $user) {
+            throw ValidationException::withMessages([
+                'email' => ['No account found with that email.'],
+            ]);
+        }
+
         Password::broker()->sendResetLink(['email' => $data['email']]);
 
-        return response()->json(['message' => 'If an account exists for that email, a reset link has been sent.']);
+        return response()->json(['message' => 'Reset link sent - check your inbox.']);
     }
 
     public function resetPassword(Request $request)
