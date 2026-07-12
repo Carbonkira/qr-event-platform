@@ -40,6 +40,7 @@ class Event extends Model
         'ai_summary',
         'ai_summary_generated_at',
         'user_id',
+        'organization_id',
     ];
 
     protected function casts(): array
@@ -89,6 +90,11 @@ class Event extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function organization(): BelongsTo
+    {
+        return $this->belongsTo(Organization::class);
     }
 
     public function tasks(): HasMany
