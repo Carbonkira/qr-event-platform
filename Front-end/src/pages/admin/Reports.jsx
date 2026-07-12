@@ -96,7 +96,7 @@ export default function Reports() {
         {events.length === 0 ? (
           <p className="text-center text-slate-400 text-[12px] py-10">No events yet.</p>
         ) : (
-          <table className="w-full text-[13px] mt-3">
+          <div className="overflow-x-auto"><table className="w-full text-[13px] mt-3 min-w-[560px]">
             <thead>
               <tr className="border-b border-slate-100 text-left">
                 <th className="px-5 py-2.5 font-semibold text-slate-500 text-[11px] uppercase tracking-wide">Event</th>
@@ -125,7 +125,7 @@ export default function Reports() {
                 )
               })}
             </tbody>
-          </table>
+          </table></div>
         )}
       </Card>
     </div>

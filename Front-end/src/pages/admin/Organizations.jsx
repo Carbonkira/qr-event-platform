@@ -34,7 +34,7 @@ export default function Organizations() {
 
   return (
     <div className="max-w-3xl space-y-5">
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div><h1 className="text-2xl font-extrabold">My Organizations</h1><p className="text-[13px] text-slate-500">Every organization you belong to</p></div>
         <Btn variant="accent" icon={Plus} onClick={() => setCreating(o => !o)}>New Organization</Btn>
       </div>

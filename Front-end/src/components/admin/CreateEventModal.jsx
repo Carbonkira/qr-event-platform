@@ -219,7 +219,7 @@ export default function CreateEventModal({ open, onClose, toast, onCreated }) {
               <LocationPicker venue={form.venue} location={form.location} lat={form.lat} lng={form.lng} onChange={patch => setForm(f => ({ ...f, ...patch }))} />
               {errors.location && <p className="text-[11px] text-rose-600 flex items-center gap-1"><AlertCircle size={11} />{errors.location}</p>}
             </div>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <Input label="Date" value={form.date} onChange={e => up('date', e.target.value)} type="date" error={errors.date} required />
               <Input label="Start" value={form.startTime} onChange={e => up('startTime', e.target.value)} type="time" />
               <Input label="End" value={form.endTime} onChange={e => up('endTime', e.target.value)} type="time" />

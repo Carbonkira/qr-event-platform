@@ -59,6 +59,11 @@ function GlobalStyles() {
       .line-clamp-3{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
       input,select,textarea,button{font-family:inherit}
       ::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:4px}
+      /* Horizontal-scroll strips (tabs, action-button rows) rely on the
+         swipe/drag gesture itself as the affordance - a visible scrollbar
+         underneath them just reads as a stray gray bar. */
+      .scrollbar-hide{scrollbar-width:none;-ms-overflow-style:none}
+      .scrollbar-hide::-webkit-scrollbar{display:none}
     `}</style>
   )
 }

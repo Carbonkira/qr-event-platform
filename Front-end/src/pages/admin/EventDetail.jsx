@@ -1,10 +1,10 @@
-import { useEffect, useState, lazy, Suspense } from 'react'
+import { useEffect, useRef, useState, lazy, Suspense } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
   ArrowLeft, Pencil, ScanLine, Download, Lock, Hourglass, Copy, Check, X,
   Users, CheckCircle2, MessageSquare, Star, CheckSquare, Square, Plus,
   Search as SearchIcon, FileSpreadsheet, Award, Clock3, MapPinned, Eye,
-  Trash2, UserPlus, Copy as CopyIcon, Send, Upload, ArrowUpCircle, ListPlus, Ban,
+  Trash2, UserPlus, Copy as CopyIcon, Send, Upload, ArrowUpCircle, ListPlus, Ban, MoreVertical, DollarSign,
 } from 'lucide-react'
 import { Card, Badge, Btn, Input, Toggle, KPI, PriceTag, StarRating, Modal } from '../../components/ui'
 import AiSummaryCard from '../../components/admin/AiSummaryCard'
@@ -20,6 +20,9 @@ import { cn, fmtDate, fmtDateLong, fmtTime, locale } from '../../lib/utils'
 const STATUS_COLOR = { draft: 'slate', pending: 'amber', approved: 'green', rejected: 'rose', completed: 'slate', cancelled: 'rose' }
 const DELETABLE_STATUSES = ['draft', 'pending', 'rejected', 'cancelled']
 const CANCELLABLE_STATUSES = ['pending', 'approved']
+// Six-plus full-word tabs never fit a phone's width, tiny or not - shown
+// as icon-only below sm: instead of forcing a scroll-hunt through text.
+const TAB_ICONS = { overview: Eye, checklist: CheckSquare, guests: Users, scanner: ScanLine, payments: DollarSign, feedback: MessageSquare, report: FileSpreadsheet }
 
 export default function EventDetail() {
   const { id } = useParams()
@@ -54,6 +57,14 @@ export default function EventDetail() {
   const [guestSaving, setGuestSaving] = useState(false)
   const [workflowLoading, setWorkflowLoading] = useState(false)
   const [importing, setImporting] = useState(false)
+  const [actionsOpen, setActionsOpen] = useState(false)
+  const actionsRef = useRef(null)
+
+  useEffect(() => {
+    const onClick = (e) => { if (actionsRef.current && !actionsRef.current.contains(e.target)) setActionsOpen(false) }
+    document.addEventListener('mousedown', onClick)
+    return () => document.removeEventListener('mousedown', onClick)
+  }, [])
 
   if (!event) return <div className="text-center py-20 text-slate-400 text-[13px]">Loading event…</div>
 
@@ -251,10 +262,24 @@ export default function EventDetail() {
   if (guestFilter === 'waitlist') guestList = guestList.filter(r => r.waitlisted)
   const waitlistCount = regs.filter(r => r.waitlisted).length
 
+  // Same set of actions as the desktop button row below, just described
+  // as data so the mobile "Actions" menu can list them instead of forcing
+  // a horizontal scroll through up to 8 buttons on a phone-width screen.
+  const actions = [
+    canManage && { icon: Pencil, label: 'Edit', onClick: () => navigate(`/organizer/events/${event.id}/edit`) },
+    { icon: CopyIcon, label: 'Duplicate', onClick: onDuplicate },
+    canManage && event.status === 'draft' && { icon: Send, label: 'Submit for approval', onClick: onSubmitForApproval },
+    canManage && event.status === 'approved' && { icon: CheckCircle2, label: 'Mark Completed', onClick: onCompleteEvent },
+    canManage && CANCELLABLE_STATUSES.includes(event.status) && { icon: Ban, label: 'Cancel event', onClick: onCancelEvent },
+    canManage && DELETABLE_STATUSES.includes(event.status) && { icon: Trash2, label: 'Delete event', onClick: onDeleteEvent, danger: true },
+    { icon: ScanLine, label: 'Scan', onClick: () => setTab('scanner') },
+    { icon: Download, label: 'Report', onClick: exportReport },
+  ].filter(Boolean)
+
   return (
     <div className="space-y-5">
       <div className="flex items-center gap-3">
-        <button onClick={() => navigate('/my-events')} className="p-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-50"><ArrowLeft size={16} /></button>
+        <button onClick={() => navigate('/my-events')} className="p-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 flex-shrink-0"><ArrowLeft size={16} /></button>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-0.5">
             <Badge color={STATUS_COLOR[event.status] || 'slate'} size="xs">{event.status}</Badge>
@@ -263,6 +288,26 @@ export default function EventDetail() {
           </div>
           <h1 className="text-xl font-extrabold truncate">{event.title}</h1>
         </div>
+
+        {/* Up to 8 actions - a single menu button on mobile instead of
+            forcing a horizontal scroll-hunt through a row of buttons. */}
+        <div className="relative sm:hidden" ref={actionsRef}>
+          <button onClick={() => setActionsOpen(o => !o)} className="p-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-50" aria-label="Event actions">
+            <MoreVertical size={18} />
+          </button>
+          {actionsOpen && (
+            <div className="absolute top-full mt-1.5 right-0 w-56 bg-white rounded-xl border border-slate-200 shadow-lg py-1.5 z-20">
+              {actions.map(({ icon: Icon, label, onClick, danger }) => (
+                <button key={label} onClick={() => { setActionsOpen(false); onClick() }} className={cn('w-full flex items-center gap-2.5 px-3.5 py-2 text-[13px] font-medium hover:bg-slate-50', danger ? 'text-rose-600' : 'text-slate-700')}>
+                  <Icon size={15} className={danger ? 'text-rose-400' : 'text-slate-400'} />{label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="hidden sm:flex items-center gap-2 overflow-x-auto overflow-y-hidden scrollbar-hide">
         {canManage && <Btn variant="secondary" size="sm" icon={Pencil} onClick={() => navigate(`/organizer/events/${event.id}/edit`)}>Edit</Btn>}
         <Btn variant="secondary" size="sm" icon={CopyIcon} loading={workflowLoading} onClick={onDuplicate}>Duplicate</Btn>
         {canManage && event.status === 'draft' && <Btn variant="primary" size="sm" icon={Send} loading={workflowLoading} onClick={onSubmitForApproval}>Submit for approval</Btn>}
@@ -273,8 +318,21 @@ export default function EventDetail() {
         <Btn variant="primary" size="sm" icon={Download} onClick={exportReport}>Report</Btn>
       </div>
 
-      <div className="flex gap-1 border-b border-slate-200 overflow-x-auto overflow-y-hidden">
-        {tabs.map(t => <button key={t} onClick={() => setTab(t)} className={cn('px-4 py-2.5 text-[13px] font-semibold capitalize whitespace-nowrap border-b-2 -mb-px transition-all', tab === t ? 'border-[#1a1a2e] text-[#1a1a2e]' : 'border-transparent text-slate-400 hover:text-slate-600')}>{t}</button>)}
+      <div className="relative">
+        <div className="flex gap-0.5 sm:gap-1 border-b border-slate-200 overflow-x-auto overflow-y-hidden scrollbar-hide">
+          {tabs.map(t => {
+            const TabIcon = TAB_ICONS[t]
+            return (
+              <button key={t} onClick={() => setTab(t)} title={t} className={cn('flex items-center gap-1.5 px-3 sm:px-4 py-2 sm:py-2.5 text-[13px] font-semibold capitalize whitespace-nowrap border-b-2 -mb-px transition-all flex-shrink-0', tab === t ? 'border-[#1a1a2e] text-[#1a1a2e]' : 'border-transparent text-slate-400 hover:text-slate-600')}>
+                {TabIcon && <TabIcon size={16} className="sm:hidden" />}
+                <span className="hidden sm:inline">{t}</span>
+              </button>
+            )
+          })}
+        </div>
+        {/* Hints there's more to scroll to, rather than the last tab just
+            looking cut off mid-word at the edge. */}
+        <div className="sm:hidden pointer-events-none absolute right-0 top-0 bottom-px w-6 bg-gradient-to-l from-[#fafafa] to-transparent" />
       </div>
 
       {tab === 'overview' && (
@@ -331,9 +389,9 @@ export default function EventDetail() {
 
       {tab === 'guests' && (
         <Card className="p-5">
-          <div className="flex items-center justify-between mb-4 gap-2">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-2">
             <p className="font-bold text-[14px] whitespace-nowrap">Guests ({guestList.length}){waitlistCount > 0 && <span className="font-normal text-slate-400"> · {waitlistCount} waitlisted</span>}</p>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <Btn variant="secondary" size="sm" icon={UserPlus} onClick={openAddGuest}>Add guest</Btn>
               <label className={cn('inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold bg-white text-slate-700 border border-slate-200 hover:border-slate-300 cursor-pointer', importing && 'opacity-50 pointer-events-none')}>
                 <Upload size={13} />Import CSV
@@ -354,10 +412,12 @@ export default function EventDetail() {
           </div>
           <div className="space-y-2">
             {guestList.map(r => (
-              <div key={r.id} className="flex items-center gap-3 p-3 rounded-xl border border-slate-200">
-                <div className={cn('w-9 h-9 rounded-full flex items-center justify-center font-bold text-[13px]', r.attended ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-400')}>{r.name[0]}</div>
-                <div className="flex-1 min-w-0"><p className="text-[13px] font-semibold truncate">{r.name} {r.isWalkIn && <Badge color="blue" size="xs">Walk-in</Badge>}</p><p className="text-[11px] text-slate-400 truncate">{r.email}</p></div>
-                <div className="flex items-center gap-1.5">
+              <div key={r.id} className="flex flex-wrap items-center gap-3 p-3 rounded-xl border border-slate-200">
+                <div className="flex items-center gap-3 flex-1 min-w-[160px]">
+                  <div className={cn('w-9 h-9 rounded-full flex items-center justify-center font-bold text-[13px] flex-shrink-0', r.attended ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-400')}>{r.name[0]}</div>
+                  <div className="flex-1 min-w-0"><p className="text-[13px] font-semibold truncate">{r.name} {r.isWalkIn && <Badge color="blue" size="xs">Walk-in</Badge>}</p><p className="text-[11px] text-slate-400 truncate">{r.email}</p></div>
+                </div>
+                <div className="flex items-center gap-1.5 flex-wrap">
                   {r.waitlisted && <Badge color="violet" size="xs"><ListPlus size={9} />Waitlist</Badge>}
                   {r.paymentStatus === 'pending' && <Badge color="amber" size="xs"><Clock3 size={9} />Pay?</Badge>}
                   {r.paymentStatus === 'verified' && <Badge color="green" size="xs"><Check size={9} />Paid</Badge>}
@@ -367,7 +427,7 @@ export default function EventDetail() {
                   {r.attended ? <Badge color="green" size="xs"><CheckCircle2 size={9} />In</Badge> : <Badge color="slate" size="xs">Not in</Badge>}
                   {r.feedbackSubmitted && <Badge color="amber" size="xs"><Star size={9} />FB</Badge>}
                 </div>
-                <div className="flex items-center gap-1 ml-1">
+                <div className="flex items-center gap-1 ml-auto sm:ml-1">
                   {r.waitlisted && <button onClick={() => onPromote(r)} title="Promote off waitlist" className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50"><ArrowUpCircle size={14} /></button>}
                   <button onClick={() => openEditGuest(r)} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100"><Pencil size={14} /></button>
                   <button onClick={() => removeGuest(r)} className="p-1.5 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50"><Trash2 size={14} /></button>

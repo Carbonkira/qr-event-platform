@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, lazy, Suspense } from 'react'
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
-import { Plus, ChevronDown, LogOut, MailWarning, Hourglass, MessageSquare, FileText, ClipboardList, Building2, Users2, User as UserIcon } from 'lucide-react'
+import { Plus, ChevronDown, LogOut, MailWarning, Hourglass, MessageSquare, FileText, ClipboardList, Building2, Users2, User as UserIcon, Menu, X, Compass, CalendarDays } from 'lucide-react'
 import { Btn, Logo } from '../ui'
 import { cn } from '../../lib/utils'
 import { useApp } from '../../context/AppContext'
@@ -43,6 +43,7 @@ export default function AppShell() {
   const [resending, setResending] = useState(false)
   const [manageOpen, setManageOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
+  const [mobileOpen, setMobileOpen] = useState(false)
   const manageRef = useRef(null)
   const profileRef = useRef(null)
 
@@ -56,6 +57,11 @@ export default function AppShell() {
     document.addEventListener('mousedown', onClick)
     return () => document.removeEventListener('mousedown', onClick)
   }, [])
+
+  // The desktop nav (Explore/My Events/Organizations/Connections/Manage)
+  // has no room to fit on a phone-width screen - it's swapped for a
+  // hamburger-triggered panel below md:, closed automatically on navigation.
+  useEffect(() => { setMobileOpen(false) }, [location.pathname])
 
   const onCreateClick = () => {
     if (!user) { navigate('/login?next=/my-events'); return }
@@ -85,7 +91,7 @@ export default function AppShell() {
             <span className="font-extrabold text-[17px] tracking-tight hidden sm:block">QRMeets</span>
           </Link>
 
-          <nav className="flex items-center gap-1 flex-1 justify-center min-w-0">
+          <nav className="hidden md:flex items-center gap-1 flex-1 justify-center min-w-0">
             <Link to="/" className={navLinkClass(location.pathname === '/')}>Explore</Link>
             <Link to="/my-events" className={navLinkClass(location.pathname.startsWith('/my-events'))}>My Events</Link>
             <Link to="/organizations" className={navLinkClass(location.pathname.startsWith('/organizations') || location.pathname.startsWith('/org/'))}>Organizations</Link>
@@ -115,9 +121,9 @@ export default function AppShell() {
           </nav>
 
           <div className="flex items-center gap-2 flex-shrink-0">
-            <Btn variant="accent" size="md" icon={Plus} onClick={onCreateClick}>Create Event</Btn>
+            <Btn variant="accent" size="md" icon={Plus} onClick={onCreateClick}><span className="hidden sm:inline">Create Event</span></Btn>
             {user ? (
-              <div className="relative" ref={profileRef}>
+              <div className="relative hidden md:block" ref={profileRef}>
                 <button onClick={() => setProfileOpen(o => !o)} className="w-9 h-9 rounded-full overflow-hidden bg-gradient-to-br from-[#e94560] to-[#6d28d9] flex items-center justify-center text-white font-bold text-[13px] flex-shrink-0">
                   {user.avatar ? <img src={user.avatar} alt="" className="w-full h-full object-cover" /> : (user.name?.[0]?.toUpperCase() || '·')}
                 </button>
@@ -130,10 +136,53 @@ export default function AppShell() {
                 )}
               </div>
             ) : (
-              <Link to="/login" className={navLinkClass(location.pathname === '/login')}>Log in</Link>
+              <Link to="/login" className={cn(navLinkClass(location.pathname === '/login'), 'hidden md:inline-block')}>Log in</Link>
             )}
+
+            <button onClick={() => setMobileOpen(o => !o)} className="md:hidden p-2 rounded-xl text-slate-600 hover:bg-slate-100 flex-shrink-0" aria-label={mobileOpen ? 'Close menu' : 'Open menu'}>
+              {mobileOpen ? <X size={20} /> : <Menu size={20} />}
+            </button>
           </div>
         </div>
+
+        {mobileOpen && (
+          <div className="md:hidden border-t border-slate-200/60 bg-white max-h-[calc(100vh-4rem)] overflow-y-auto">
+            <nav className="px-3 py-2">
+              <Link to="/" className="flex items-center gap-2.5 px-2.5 py-2.5 rounded-xl text-[14px] font-medium text-slate-700 hover:bg-slate-50"><Compass size={16} className="text-slate-400" />Explore</Link>
+              <Link to="/my-events" className="flex items-center gap-2.5 px-2.5 py-2.5 rounded-xl text-[14px] font-medium text-slate-700 hover:bg-slate-50"><CalendarDays size={16} className="text-slate-400" />My Events</Link>
+              <Link to="/organizations" className="flex items-center gap-2.5 px-2.5 py-2.5 rounded-xl text-[14px] font-medium text-slate-700 hover:bg-slate-50"><Building2 size={16} className="text-slate-400" />Organizations</Link>
+              {user && (
+                <Link to="/connections" className="flex items-center gap-2.5 px-2.5 py-2.5 rounded-xl text-[14px] font-medium text-slate-700 hover:bg-slate-50">
+                  <Users2 size={16} className="text-slate-400" /><span className="flex-1">Connections</span>
+                  {incomingCount > 0 && <span className="min-w-5 h-5 px-1.5 rounded-full bg-[#e94560] text-white text-[10px] font-bold flex items-center justify-center">{incomingCount}</span>}
+                </Link>
+              )}
+
+              {canManage && (
+                <>
+                  <p className="px-2.5 pt-3 pb-1 text-[10px] font-bold text-slate-400 uppercase tracking-wide">Manage</p>
+                  {MANAGE_ITEMS.filter(i => !i.adminOnly || user?.role === 'admin').map(({ icon: Icon, label, path, badgeKey }) => (
+                    <Link key={path} to={path} className="flex items-center gap-2.5 px-2.5 py-2.5 rounded-xl text-[14px] font-medium text-slate-700 hover:bg-slate-50">
+                      <Icon size={16} className="text-slate-400" /><span className="flex-1">{label}</span>
+                      {badgeKey && analytics?.[badgeKey] > 0 && <span className="min-w-5 h-5 px-1.5 rounded-full bg-[#e94560] text-white text-[10px] font-bold flex items-center justify-center">{analytics[badgeKey]}</span>}
+                    </Link>
+                  ))}
+                </>
+              )}
+
+              <div className="border-t border-slate-100 mt-2 pt-2">
+                {user ? (
+                  <>
+                    <Link to="/organizer/profile" className="flex items-center gap-2.5 px-2.5 py-2.5 rounded-xl text-[14px] font-medium text-slate-700 hover:bg-slate-50"><UserIcon size={16} className="text-slate-400" />Profile ({user.name})</Link>
+                    <button onClick={onLogout} className="w-full flex items-center gap-2.5 px-2.5 py-2.5 rounded-xl text-[14px] font-medium text-slate-700 hover:bg-slate-50"><LogOut size={16} className="text-slate-400" />Log out</button>
+                  </>
+                ) : (
+                  <Link to="/login" className="flex items-center gap-2.5 px-2.5 py-2.5 rounded-xl text-[14px] font-medium text-slate-700 hover:bg-slate-50"><UserIcon size={16} className="text-slate-400" />Log in</Link>
+                )}
+              </div>
+            </nav>
+          </div>
+        )}
       </header>
 
       {user && !user.emailVerifiedAt && (

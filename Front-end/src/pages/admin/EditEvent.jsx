@@ -167,7 +167,7 @@ export default function EditEvent() {
           {errors.location && <p className="text-[11px] text-rose-600">{errors.location}</p>}
         </div>
 
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <Input label="Date" value={form.date} onChange={e => up('date', e.target.value)} type="date" error={errors.date} required />
           <Input label="Start" value={form.startTime} onChange={e => up('startTime', e.target.value)} type="time" />
           <Input label="End" value={form.endTime} onChange={e => up('endTime', e.target.value)} type="time" />
@@ -251,9 +251,9 @@ export default function EditEvent() {
         </div>
       )}
 
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-2">
         <Btn variant="ghost" onClick={() => navigate(`/organizer/events/${event.id}`)}>Cancel</Btn>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           {event.status === 'draft' && <Btn variant="primary" icon={Send} loading={submitting} onClick={submitForApproval}>Submit for Approval</Btn>}
           <Btn variant="accent" size="lg" loading={loading} onClick={save}>Save Changes</Btn>
         </div>

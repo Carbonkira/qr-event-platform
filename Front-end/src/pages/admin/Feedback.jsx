@@ -46,14 +46,14 @@ export default function Feedback() {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div><h1 className="text-2xl font-extrabold">Feedback</h1><p className="text-[13px] text-slate-500">Participant satisfaction insights</p></div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <select value={filter} onChange={e => setFilter(e.target.value)} className="px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-[13px] outline-none"><option value="">All events</option>{events.map(e => <option key={e.id} value={e.id}>{e.title}</option>)}</select>
           <Btn variant="secondary" size="sm" icon={Download} onClick={downloadCsv} disabled={fb.length === 0}>CSV</Btn>
         </div>
       </div>
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
         <KPI icon={MessageSquare} label="Responses" value={fb.length} color="#1a1a2e" />
         <KPI icon={Percent} label="Response Rate" value={rate !== null ? `${rate}%` : "—"} sub={filter ? `${fb.length} of ${att.length} attendees` : undefined} color="#0f9d8f" />
         <KPI icon={Star} label="Avg Rating" value={`${avg}/5`} color="#f59e0b" />
