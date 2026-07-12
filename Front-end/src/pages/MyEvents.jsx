@@ -3,7 +3,7 @@ import { Link, useNavigate, useOutletContext } from 'react-router-dom'
 import { CheckCircle2, Users, Calendar, Hourglass, ChevronRight, Star } from 'lucide-react'
 import { Card, Badge, KPI, PriceTag } from '../components/ui'
 import { useApp } from '../context/AppContext'
-import { useAdminEvents, useAnalytics, useMyRegistrations } from '../hooks/useApi'
+import { useAdminEvents, useAnalytics, useMyRegistrations, useMyOrgs } from '../hooks/useApi'
 import { cn, fmtDate, fmtTime } from '../lib/utils'
 
 const STATUS_COLOR = { draft: 'slate', pending: 'amber', approved: 'green', rejected: 'rose', completed: 'slate', cancelled: 'rose' }
@@ -22,10 +22,16 @@ export default function MyEvents() {
 
   const { data: analytics } = useAnalytics(!!user)
   const { data: eventsData } = useAdminEvents(!!user)
-  // adminIndex returns every event for an admin (they need that for
-  // Approvals/Manage) - "hosting" here means events *this* account created,
-  // regardless of role, so it's filtered client-side either way.
-  const hostedEvents = (eventsData || []).filter(e => e.userId === user?.id)
+  const { data: myOrgsData } = useMyOrgs(!!user)
+  // adminIndex returns every event on the platform for an admin (they need
+  // that for Approvals) - "hosting" here means events belonging to an
+  // organization this account is actually a member of, same real scope as
+  // any co-organizer sees, plus legacy org-less events they personally
+  // created (those have no membership concept to check).
+  const myOrgIds = new Set((myOrgsData || []).map(o => o.id))
+  const hostedEvents = (eventsData || []).filter(e =>
+    e.organizationId != null ? myOrgIds.has(e.organizationId) : e.userId === user?.id
+  )
   const a = analytics || {}
 
   return (

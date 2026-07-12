@@ -12,7 +12,7 @@ import AiSummaryCard from '../../components/admin/AiSummaryCard'
 // Lazy - html5-qrcode is a large camera/decoding library only needed once
 // an organizer actually opens the Scanner tab, not on every event-detail visit.
 const EventScannerPanel = lazy(() => import('../../components/admin/EventScannerPanel'))
-import { useAdminEvents, useRegistrations, useFeedback } from '../../hooks/useApi'
+import { useAdminEvents, useRegistrations, useFeedback, useMyOrgs } from '../../hooks/useApi'
 import { addTask, toggleTask, verifyPayment, updateRegistration, deleteRegistration, addGuest, duplicateEvent, submitEvent, completeEvent, cancelEvent, deleteEvent, importGuestsCsv, promoteRegistration } from '../../api/resources'
 import { useApp } from '../../context/AppContext'
 import { cn, fmtDate, fmtDateLong, fmtTime, locale } from '../../lib/utils'
@@ -27,8 +27,11 @@ export default function EventDetail() {
   const { user, addToast } = useApp()
   const { data: eventsData, refetch } = useAdminEvents()
   const event = (eventsData || []).find(e => String(e.id) === id)
-  // Legacy events with no owner stay editable by anyone (see EventController::authorizeOwner).
-  const isOwner = event && (event.userId == null || event.userId === user?.id)
+  const { data: myOrgs } = useMyOrgs()
+  // Matches EventController::authorizeOrgMember exactly: any member (not
+  // just whoever created it) of the event's organization can manage it.
+  // Legacy events with no organization stay editable by anyone.
+  const canManage = event && (event.organizationId == null || (myOrgs || []).some(o => o.id === event.organizationId))
   const { data: regsData, refetch: refetchRegs } = useRegistrations(id)
   const regs = regsData || []
   const { data: fbData } = useFeedback(id)
@@ -255,12 +258,12 @@ export default function EventDetail() {
           </div>
           <h1 className="text-xl font-extrabold truncate">{event.title}</h1>
         </div>
-        {isOwner && <Btn variant="secondary" size="sm" icon={Pencil} onClick={() => navigate(`/organizer/events/${event.id}/edit`)}>Edit</Btn>}
+        {canManage && <Btn variant="secondary" size="sm" icon={Pencil} onClick={() => navigate(`/organizer/events/${event.id}/edit`)}>Edit</Btn>}
         <Btn variant="secondary" size="sm" icon={CopyIcon} loading={workflowLoading} onClick={onDuplicate}>Duplicate</Btn>
-        {isOwner && event.status === 'draft' && <Btn variant="primary" size="sm" icon={Send} loading={workflowLoading} onClick={onSubmitForApproval}>Submit for approval</Btn>}
-        {isOwner && event.status === 'approved' && <Btn variant="primary" size="sm" icon={CheckCircle2} loading={workflowLoading} onClick={onCompleteEvent}>Mark Completed</Btn>}
-        {isOwner && CANCELLABLE_STATUSES.includes(event.status) && <Btn variant="secondary" size="sm" icon={Ban} loading={workflowLoading} onClick={onCancelEvent}>Cancel</Btn>}
-        {isOwner && DELETABLE_STATUSES.includes(event.status) && <Btn variant="secondary" size="sm" icon={Trash2} loading={workflowLoading} onClick={onDeleteEvent} className="!text-rose-600 hover:!bg-rose-50">Delete</Btn>}
+        {canManage && event.status === 'draft' && <Btn variant="primary" size="sm" icon={Send} loading={workflowLoading} onClick={onSubmitForApproval}>Submit for approval</Btn>}
+        {canManage && event.status === 'approved' && <Btn variant="primary" size="sm" icon={CheckCircle2} loading={workflowLoading} onClick={onCompleteEvent}>Mark Completed</Btn>}
+        {canManage && CANCELLABLE_STATUSES.includes(event.status) && <Btn variant="secondary" size="sm" icon={Ban} loading={workflowLoading} onClick={onCancelEvent}>Cancel</Btn>}
+        {canManage && DELETABLE_STATUSES.includes(event.status) && <Btn variant="secondary" size="sm" icon={Trash2} loading={workflowLoading} onClick={onDeleteEvent} className="!text-rose-600 hover:!bg-rose-50">Delete</Btn>}
         <Btn variant="secondary" size="sm" icon={ScanLine} onClick={() => setTab('scanner')}>Scan</Btn>
         <Btn variant="primary" size="sm" icon={Download} onClick={exportReport}>Report</Btn>
       </div>

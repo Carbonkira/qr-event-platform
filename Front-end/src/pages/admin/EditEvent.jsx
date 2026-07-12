@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { Plus, Trash2, ArrowLeft, MapPin, MapPinned, Image as ImageIcon, Users, Ticket, DollarSign, UserCheck, Lock, Award, MessageSquare, Tag, Send, Upload, X } from 'lucide-react'
 import { Btn, Card, Input, Select, Textarea, Toggle } from '../../components/ui'
 import LocationPicker from '../../components/shared/LocationPicker'
-import { useAdminEvents } from '../../hooks/useApi'
+import { useAdminEvents, useMyOrgs } from '../../hooks/useApi'
 import { updateEvent, submitEvent, uploadEventImage } from '../../api/resources'
 import { useApp } from '../../context/AppContext'
 import { cn, INDUSTRIES } from '../../lib/utils'
@@ -48,7 +48,10 @@ export default function EditEvent() {
   const { user, addToast } = useApp()
   const { data: eventsData } = useAdminEvents()
   const event = (eventsData || []).find(e => String(e.id) === id)
-  const isOwner = event && (event.userId == null || event.userId === user?.id)
+  const { data: myOrgs } = useMyOrgs()
+  // Matches EventController::authorizeOrgMember: any member of the event's
+  // organization can edit it, not just whoever originally created it.
+  const canManage = event && (event.organizationId == null || (myOrgs || []).some(o => o.id === event.organizationId))
 
   const [form, setForm] = useState(null)
   const [errors, setErrors] = useState({})
@@ -58,12 +61,12 @@ export default function EditEvent() {
 
   useEffect(() => { if (event && !form) setForm(formFromEvent(event)) }, [event, form])
 
-  if (event && !isOwner) {
+  if (event && !canManage) {
     return (
       <div className="max-w-md mx-auto py-20">
         <Card className="p-8 text-center">
           <h2 className="text-lg font-bold mb-1">Not your event</h2>
-          <p className="text-[13px] text-slate-500 mb-6">Only the organizer who created this event can edit it.</p>
+          <p className="text-[13px] text-slate-500 mb-6">Only a member of this event's organization can edit it.</p>
           <Btn variant="secondary" full onClick={() => navigate(`/organizer/events/${event.id}`)}>Back to event</Btn>
         </Card>
       </div>
