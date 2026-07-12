@@ -50,6 +50,9 @@ export function useAnalytics(enabled = true) {
 export function useOrganization() {
   return useAsync(() => api.getOrganization(), [])
 }
+export function useMyOrgs(enabled = true) {
+  return useAsync(() => (enabled ? api.getMyOrgs() : Promise.resolve([])), [enabled])
+}
 export function useTaskTemplates() {
   return useAsync(() => api.getTaskTemplates(), [])
 }

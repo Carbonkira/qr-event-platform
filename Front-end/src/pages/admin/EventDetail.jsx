@@ -231,7 +231,7 @@ export default function EventDetail() {
         <Btn variant="primary" size="sm" icon={Download} onClick={exportReport}>Report</Btn>
       </div>
 
-      <div className="flex gap-1 border-b border-slate-200 overflow-x-auto">
+      <div className="flex gap-1 border-b border-slate-200 overflow-x-auto overflow-y-hidden">
         {tabs.map(t => <button key={t} onClick={() => setTab(t)} className={cn('px-4 py-2.5 text-[13px] font-semibold capitalize whitespace-nowrap border-b-2 -mb-px transition-all', tab === t ? 'border-[#1a1a2e] text-[#1a1a2e]' : 'border-transparent text-slate-400 hover:text-slate-600')}>{t}</button>)}
       </div>
 

@@ -169,12 +169,31 @@ export function getAnalytics() {
   return api.get('/analytics')
 }
 
-// ─── Organization ───
+// ─── Organization ─── (legacy global-branding singleton - still used by
+// AppShell's footer/LandingHero/Register.jsx until they migrate to real
+// per-org data; see Front-end/src/pages/admin/Organizations.jsx for the
+// real multi-org CRUD below)
 export function getOrganization() {
   return api.get('/organization')
 }
 export function updateOrganization(payload) {
   return api.put('/organization', payload)
+}
+
+// ─── Orgs (real multi-organization) ───
+export function getMyOrgs() {
+  return api.get('/orgs/mine')
+}
+export function createOrg(payload) {
+  return api.post('/orgs', payload)
+}
+export function updateOrg(id, payload) {
+  return api.put(`/orgs/${id}`, payload)
+}
+export async function uploadOrgLogo(id, file) {
+  const form = new FormData()
+  form.append('logo', file)
+  return api.post(`/orgs/${id}/logo`, form)
 }
 
 // ─── Task Templates ───

@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\EventController;
 use App\Http\Controllers\Api\FeedbackController;
 use App\Http\Controllers\Api\FeedbackSummaryController;
 use App\Http\Controllers\Api\OrganizationController;
+use App\Http\Controllers\Api\OrgController;
 use App\Http\Controllers\Api\QrCodeController;
 use App\Http\Controllers\Api\RegistrationController;
 use App\Http\Controllers\Api\TaskTemplateController;
@@ -101,6 +102,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/analytics', [AnalyticsController::class, 'index']);
 
     Route::put('/organization', [OrganizationController::class, 'update']);
+
+    Route::get('/orgs/mine', [OrgController::class, 'mine']);
+    Route::post('/orgs', [OrgController::class, 'store']);
+    Route::put('/orgs/{organization}', [OrgController::class, 'update']);
+    Route::post('/orgs/{organization}/logo', [OrgController::class, 'uploadLogo'])->middleware('throttle:20,1');
 
     Route::get('/task-templates', [TaskTemplateController::class, 'index']);
     Route::post('/task-templates', [TaskTemplateController::class, 'store']);
