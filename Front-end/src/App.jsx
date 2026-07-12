@@ -25,6 +25,7 @@ import ParticipantFeedback from './pages/participant/Feedback'
 import FeedbackDone from './pages/participant/FeedbackDone'
 
 import MyEvents from './pages/MyEvents'
+import MyConnections from './pages/MyConnections'
 import AdminEventDetail from './pages/admin/EventDetail'
 import EditEvent from './pages/admin/EditEvent'
 import AdminFeedback from './pages/admin/Feedback'
@@ -100,6 +101,7 @@ function AppRoutes() {
           <Route path="profile" element={<Navigate to="/organizer/profile" replace />} />
 
           <Route path="my-events" element={<ProtectedRoute><MyEvents /></ProtectedRoute>} />
+          <Route path="connections" element={<ProtectedRoute><MyConnections /></ProtectedRoute>} />
 
           <Route path="organizer" element={<ProtectedRoute><ManageLayout /></ProtectedRoute>}>
             <Route index element={<Navigate to="/my-events" replace />} />

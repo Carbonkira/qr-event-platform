@@ -234,6 +234,26 @@ export function replyToDiscussionThread(threadId, body) {
   return api.post(`/discussion/threads/${threadId}/replies`, { body })
 }
 
+// ─── Connections ───
+export function getFellowAttendees(eventId) {
+  return api.get(`/events/${eventId}/attendees`)
+}
+export function getConnections() {
+  return api.get('/connections')
+}
+export function sendConnectionRequest(recipientId) {
+  return api.post('/connections', { recipientId })
+}
+export function acceptConnection(id) {
+  return api.post(`/connections/${id}/accept`)
+}
+export function declineConnection(id) {
+  return api.post(`/connections/${id}/decline`)
+}
+export function removeConnection(id) {
+  return api.del(`/connections/${id}`)
+}
+
 // ─── Task Templates ───
 export function getTaskTemplates() {
   return api.get('/task-templates')

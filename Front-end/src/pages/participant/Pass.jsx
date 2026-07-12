@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import QRCode from 'qrcode'
 import { ArrowLeft, Award, Calendar, MapPin, MessageSquare } from 'lucide-react'
 import { Btn, Card } from '../../components/ui'
+import FellowAttendees from '../../components/participant/FellowAttendees'
 import { fmtDate, fmtTime } from '../../lib/utils'
 
 export default function Pass() {
@@ -59,6 +60,8 @@ export default function Pass() {
           <Btn variant="accent" size="md" full icon={MessageSquare} onClick={() => navigate(`/feedback/${regId}`, { state: { ...registration, event } })}>Leave Feedback</Btn>
         )}
       </Card>
+
+      {event.id && <FellowAttendees eventId={event.id} />}
     </div>
   )
 }

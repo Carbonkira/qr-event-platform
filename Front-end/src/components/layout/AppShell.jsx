@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
-import { Plus, ChevronDown, LogOut, MailWarning, Hourglass, MessageSquare, FileText, ClipboardList, Building2, User as UserIcon, Instagram, Linkedin, Facebook, Twitter, Globe } from 'lucide-react'
+import { Plus, ChevronDown, LogOut, MailWarning, Hourglass, MessageSquare, FileText, ClipboardList, Building2, Users2, User as UserIcon, Instagram, Linkedin, Facebook, Twitter, Globe } from 'lucide-react'
 import { Btn, Logo } from '../ui'
 import { cn } from '../../lib/utils'
 import { useApp } from '../../context/AppContext'
-import { useAdminEvents, useAnalytics, useOrganization } from '../../hooks/useApi'
+import { useAdminEvents, useAnalytics, useOrganization, useConnections } from '../../hooks/useApi'
 import CreateEventModal from '../admin/CreateEventModal'
 
 // Same social fields as the public event-detail page's SOC map - only
@@ -37,6 +37,8 @@ export default function AppShell() {
   const { data: ownEvents } = useAdminEvents(!!user)
   const { data: analytics } = useAnalytics(!!user)
   const { data: org } = useOrganization()
+  const { data: connections } = useConnections(!!user)
+  const incomingCount = connections?.incoming?.length || 0
   const [createOpen, setCreateOpen] = useState(false)
   const [resending, setResending] = useState(false)
   const [manageOpen, setManageOpen] = useState(false)
@@ -86,6 +88,12 @@ export default function AppShell() {
           <nav className="flex items-center gap-1 flex-1 justify-center min-w-0">
             <Link to="/" className={navLinkClass(location.pathname === '/')}>Explore</Link>
             <Link to="/my-events" className={navLinkClass(location.pathname.startsWith('/my-events'))}>My Events</Link>
+            {user && (
+              <Link to="/connections" className={cn(navLinkClass(location.pathname.startsWith('/connections')), 'flex items-center gap-1.5')}>
+                <Users2 size={14} />Connections
+                {incomingCount > 0 && <span className="min-w-4 h-4 px-1 rounded-full bg-[#e94560] text-white text-[10px] font-bold flex items-center justify-center">{incomingCount}</span>}
+              </Link>
+            )}
             {canManage && (
               <div className="relative" ref={manageRef}>
                 <button onClick={() => setManageOpen(o => !o)} className={cn(navLinkClass(location.pathname.startsWith('/organizer/') && !location.pathname.startsWith('/organizer/events')), 'flex items-center gap-1')}>
@@ -149,6 +157,7 @@ export default function AppShell() {
                 <Link to="/" className="block text-[13px] text-slate-600 hover:text-[#e94560]">Explore events</Link>
                 <Link to="/my-events" className="block text-[13px] text-slate-600 hover:text-[#e94560]">My events</Link>
                 <Link to="/find-pass" className="block text-[13px] text-slate-600 hover:text-[#e94560]">Find my pass</Link>
+                {user && <Link to="/connections" className="block text-[13px] text-slate-600 hover:text-[#e94560]">My connections</Link>}
               </div>
             </div>
             <div>

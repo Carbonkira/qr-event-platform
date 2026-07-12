@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Mail\RegistrationConfirmedMail;
+use App\Models\Connection;
 use App\Models\Event;
 use App\Models\Registration;
 use Illuminate\Http\Request;
@@ -286,6 +287,54 @@ class RegistrationController extends Controller
     public function indexForEvent(Event $event)
     {
         return response()->json($event->registrations()->orderByDesc('created_at')->get());
+    }
+
+    /**
+     * Fellow attendees, for the "Connect" surface on the participant pass
+     * page - discovery for the real connections feature (Connection model).
+     * Gated by the requester themselves being registered for this event, so
+     * it's not a way to enumerate an event's attendee list from the outside.
+     */
+    public function fellowAttendees(Request $request, Event $event)
+    {
+        $me = $request->user();
+        abort_unless(
+            Registration::where('event_id', $event->id)->where('user_id', $me->id)->exists(),
+            403,
+            'You must be registered for this event to see fellow attendees.'
+        );
+
+        $others = Registration::where('event_id', $event->id)
+            ->where('user_id', '!=', $me->id)
+            ->whereNotNull('user_id')
+            ->with('user:id,name,avatar')
+            ->get()
+            ->unique('user_id')
+            ->values();
+
+        $connections = Connection::involving($me->id)->get();
+
+        $attendees = $others->map(function (Registration $reg) use ($me, $connections) {
+            $user = $reg->user;
+            $conn = $connections->first(fn (Connection $c) => $c->requester_id === $user->id || $c->recipient_id === $user->id);
+
+            $status = 'none';
+            if ($conn && $conn->status === 'accepted') {
+                $status = 'connected';
+            } elseif ($conn && $conn->status === 'pending') {
+                $status = $conn->requester_id === $me->id ? 'pendingSent' : 'pendingReceived';
+            }
+
+            return [
+                'id' => $user->id,
+                'name' => $user->name,
+                'avatar' => $user->avatar,
+                'connectionStatus' => $status,
+                'connectionId' => $status === 'none' ? null : $conn->id,
+            ];
+        });
+
+        return response()->json($attendees->values());
     }
 
     /**

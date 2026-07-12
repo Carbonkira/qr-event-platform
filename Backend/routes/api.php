@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\AnalyticsController;
 use App\Http\Controllers\Api\AttendanceController;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\ConnectionController;
 use App\Http\Controllers\Api\EventController;
 use App\Http\Controllers\Api\FeedbackController;
 use App\Http\Controllers\Api\DiscussionController;
@@ -92,6 +93,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/events/{event}/registrations/import', [RegistrationController::class, 'importCsv']);
     });
     Route::get('/events/{event}/registrations', [RegistrationController::class, 'indexForEvent']);
+    Route::get('/events/{event}/attendees', [RegistrationController::class, 'fellowAttendees']);
     Route::put('/registrations/{registration}', [RegistrationController::class, 'update']);
     Route::delete('/registrations/{registration}', [RegistrationController::class, 'destroy']);
     Route::post('/registrations/{registration}/verify-payment', [RegistrationController::class, 'verifyPayment']);
@@ -122,6 +124,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/orgs/{organization}/discussion', [DiscussionController::class, 'store']);
     Route::get('/discussion/threads/{thread}', [DiscussionController::class, 'show']);
     Route::post('/discussion/threads/{thread}/replies', [DiscussionController::class, 'storeReply']);
+
+    Route::get('/connections', [ConnectionController::class, 'index']);
+    Route::post('/connections', [ConnectionController::class, 'store']);
+    Route::post('/connections/{connection}/accept', [ConnectionController::class, 'accept']);
+    Route::post('/connections/{connection}/decline', [ConnectionController::class, 'decline']);
+    Route::delete('/connections/{connection}', [ConnectionController::class, 'destroy']);
 
     Route::get('/task-templates', [TaskTemplateController::class, 'index']);
     Route::post('/task-templates', [TaskTemplateController::class, 'store']);

@@ -68,6 +68,12 @@ export function useDiscussionThreads(orgId, enabled = true) {
 export function useDiscussionThread(threadId) {
   return useAsync(() => (threadId ? api.getDiscussionThread(threadId) : Promise.resolve(null)), [threadId])
 }
+export function useFellowAttendees(eventId, enabled = true) {
+  return useAsync(() => (enabled && eventId ? api.getFellowAttendees(eventId) : Promise.resolve([])), [eventId, enabled])
+}
+export function useConnections(enabled = true) {
+  return useAsync(() => (enabled ? api.getConnections() : Promise.resolve(null)), [enabled])
+}
 export function useTaskTemplates() {
   return useAsync(() => api.getTaskTemplates(), [])
 }
