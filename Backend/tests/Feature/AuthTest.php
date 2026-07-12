@@ -8,6 +8,7 @@ use App\Notifications\VerifyEmailNotification;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Facades\URL;
@@ -18,14 +19,24 @@ class AuthTest extends TestCase
 {
     use RefreshDatabase;
 
+    // Password::uncompromised() calls the real HaveIBeenPwned API - fake it
+    // so tests are deterministic and don't depend on network access (an
+    // empty response means "no matching suffix found", i.e. not breached).
+    private function fakeUncompromisedPasswordCheck(): void
+    {
+        Http::fake(['api.pwnedpasswords.com/*' => Http::response('', 200)]);
+    }
+
     public function test_register_creates_an_unverified_account_and_sends_verification_email(): void
     {
         Notification::fake();
+        $this->fakeUncompromisedPasswordCheck();
 
         $response = $this->postJson('/api/auth/register', [
             'name' => 'Ana Reyes',
             'email' => 'ana@example.com',
-            'password' => 'password123',
+            'password' => 'Password123!',
+            'password_confirmation' => 'Password123!',
         ]);
 
         $response->assertCreated()->assertJsonStructure(['user', 'token']);
@@ -35,6 +46,49 @@ class AuthTest extends TestCase
         $this->assertNull($user->email_verified_at);
 
         Notification::assertSentTo($user, VerifyEmailNotification::class);
+    }
+
+    public function test_register_rejects_a_password_that_does_not_match_its_confirmation(): void
+    {
+        $this->fakeUncompromisedPasswordCheck();
+
+        $this->postJson('/api/auth/register', [
+            'name' => 'Ana Reyes',
+            'email' => 'ana@example.com',
+            'password' => 'Password123!',
+            'password_confirmation' => 'SomethingElse123!',
+        ])->assertStatus(422)->assertJsonValidationErrors(['password']);
+
+        $this->assertNull(User::where('email', 'ana@example.com')->first());
+    }
+
+    public function test_register_rejects_a_password_that_does_not_meet_strength_requirements(): void
+    {
+        $this->fakeUncompromisedPasswordCheck();
+
+        // All lowercase, no digits/symbols - fails mixedCase()/numbers()/symbols().
+        $this->postJson('/api/auth/register', [
+            'name' => 'Ana Reyes',
+            'email' => 'ana@example.com',
+            'password' => 'onlylowercase',
+            'password_confirmation' => 'onlylowercase',
+        ])->assertStatus(422)->assertJsonValidationErrors(['password']);
+    }
+
+    public function test_register_rejects_a_known_breached_password(): void
+    {
+        // Password::uncompromised() sends the first 5 chars of
+        // sha1('Password123!') as the range query and checks the response
+        // for the remaining 35 chars as a "suffix:count" line - faking that
+        // exact suffix here is what makes it register as breached.
+        Http::fake(['api.pwnedpasswords.com/*' => Http::response("F5F70D47ADC2DB2EB397FBEF5F7BC560E29:5\n", 200)]);
+
+        $this->postJson('/api/auth/register', [
+            'name' => 'Ana Reyes',
+            'email' => 'ana@example.com',
+            'password' => 'Password123!',
+            'password_confirmation' => 'Password123!',
+        ])->assertStatus(422)->assertJsonValidationErrors(['password']);
     }
 
     /**
@@ -120,6 +174,7 @@ class AuthTest extends TestCase
 
     public function test_reset_password_with_a_valid_token_changes_the_password_and_revokes_tokens(): void
     {
+        $this->fakeUncompromisedPasswordCheck();
         $user = User::create(['name' => 'Test User', 'email' => 'test@example.com', 'password' => bcrypt('old-password')]);
         $token = $user->createToken('api')->plainTextToken;
         $this->assertCount(1, $user->tokens);
@@ -129,10 +184,11 @@ class AuthTest extends TestCase
         $this->postJson('/api/auth/reset-password', [
             'token' => $resetToken,
             'email' => 'test@example.com',
-            'password' => 'new-password123',
+            'password' => 'NewPassword123!',
+            'password_confirmation' => 'NewPassword123!',
         ])->assertOk();
 
-        $this->assertTrue(Hash::check('new-password123', $user->fresh()->password));
+        $this->assertTrue(Hash::check('NewPassword123!', $user->fresh()->password));
         $this->assertCount(0, $user->fresh()->tokens);
     }
 
@@ -190,10 +246,11 @@ class AuthTest extends TestCase
 
     public function test_changing_password_requires_the_correct_current_password(): void
     {
+        $this->fakeUncompromisedPasswordCheck();
         $user = User::create(['name' => 'Test User', 'email' => 'test@example.com', 'password' => bcrypt('password123')]);
         Sanctum::actingAs($user);
 
-        $this->putJson('/api/auth/me', ['current_password' => 'wrong', 'password' => 'new-password123'])
+        $this->putJson('/api/auth/me', ['current_password' => 'wrong', 'password' => 'NewPassword123!', 'password_confirmation' => 'NewPassword123!'])
             ->assertStatus(422)
             ->assertJsonValidationErrors(['currentPassword']);
 
@@ -202,13 +259,14 @@ class AuthTest extends TestCase
 
     public function test_changing_password_with_the_correct_current_password_succeeds(): void
     {
+        $this->fakeUncompromisedPasswordCheck();
         $user = User::create(['name' => 'Test User', 'email' => 'test@example.com', 'password' => bcrypt('password123')]);
         Sanctum::actingAs($user);
 
-        $this->putJson('/api/auth/me', ['current_password' => 'password123', 'password' => 'new-password123'])
+        $this->putJson('/api/auth/me', ['current_password' => 'password123', 'password' => 'NewPassword123!', 'password_confirmation' => 'NewPassword123!'])
             ->assertOk();
 
-        $this->assertTrue(Hash::check('new-password123', $user->fresh()->password));
+        $this->assertTrue(Hash::check('NewPassword123!', $user->fresh()->password));
     }
 
     public function test_changing_email_re_locks_verification_and_queues_a_new_verification_email(): void

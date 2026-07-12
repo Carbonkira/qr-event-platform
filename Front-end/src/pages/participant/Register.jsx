@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, User, Mail, Lock, Receipt, Ticket, Award, Send, Clock3, Upload, ImageDown, X, UserPlus, LogIn, MailCheck, RefreshCw } from 'lucide-react'
 import { Btn, Input, Toggle, Card } from '../../components/ui'
+import PasswordChecklist from '../../components/shared/PasswordChecklist'
 import { useEvent, useOrganization } from '../../hooks/useApi'
 import { registerForEvent, walkInForEvent } from '../../api/resources'
 import { useApp } from '../../context/AppContext'
@@ -93,6 +94,10 @@ export default function Register() {
 
   const submitAccount = async (e) => {
     e.preventDefault()
+    if (accountMode === 'create' && accountForm.password !== accountForm.passwordConfirmation) {
+      setAccountErrors({ password: ['Passwords do not match'] })
+      return
+    }
     setAccountLoading(true)
     setAccountErrors({})
     try {
@@ -183,6 +188,10 @@ export default function Register() {
             {accountMode === 'create' && <Input label="Full Name" value={accountForm.name} onChange={setAccountField('name')} icon={User} placeholder="Juan Dela Cruz" error={accountErrors.name?.[0]} required />}
             <Input label="Email" type="email" value={accountForm.email} onChange={setAccountField('email')} icon={Mail} placeholder="juan@email.com" error={accountErrors.email?.[0]} required />
             <Input label="Password" type="password" value={accountForm.password} onChange={setAccountField('password')} icon={Lock} placeholder="••••••••" error={accountErrors.password?.[0]} required />
+            {accountMode === 'create' && accountForm.password && <PasswordChecklist password={accountForm.password} />}
+            {accountMode === 'create' && (
+              <Input label="Confirm Password" type="password" value={accountForm.passwordConfirmation || ''} onChange={setAccountField('passwordConfirmation')} icon={Lock} placeholder="••••••••" required />
+            )}
             <Btn type="submit" variant="accent" size="lg" full icon={accountMode === 'create' ? UserPlus : LogIn} loading={accountLoading}>{accountMode === 'create' ? 'Create Account & Continue' : 'Log In & Continue'}</Btn>
           </form>
         )}

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { User, Mail, GraduationCap, Lock, Camera } from 'lucide-react'
 import { Card, Btn, Input, Textarea } from '../../components/ui'
+import PasswordChecklist from '../../components/shared/PasswordChecklist'
 import { useOrganization } from '../../hooks/useApi'
 import { updateOrganization } from '../../api/resources'
 import { useApp } from '../../context/AppContext'
@@ -99,7 +100,7 @@ function PasswordCard() {
     setSaving(true)
     setErrors({})
     try {
-      await updateProfile({ currentPassword: form.currentPassword, password: form.password })
+      await updateProfile({ currentPassword: form.currentPassword, password: form.password, passwordConfirmation: form.passwordConfirm })
       addToast('Password updated', 'success')
       setForm({ currentPassword: '', password: '', passwordConfirm: '' })
     } catch (err) {
@@ -119,6 +120,7 @@ function PasswordCard() {
           <Input label="New password" type="password" value={form.password} onChange={update('password')} icon={Lock} error={errors.password?.[0]} required />
           <Input label="Confirm new password" type="password" value={form.passwordConfirm} onChange={update('passwordConfirm')} icon={Lock} required />
         </div>
+        {form.password && <PasswordChecklist password={form.password} />}
         <div className="flex justify-end">
           <Btn variant="secondary" type="submit" loading={saving}>Update Password</Btn>
         </div>

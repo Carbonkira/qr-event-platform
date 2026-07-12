@@ -10,10 +10,24 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\Password as PasswordRule;
 use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
+    /**
+     * Shared everywhere a password is actually being set (register, reset,
+     * change) - `confirmed` expects a matching `password_confirmation`
+     * field (the frontend sends passwordConfirmation, camelCased back to
+     * snake_case by ConvertCamelCaseRequestToSnakeCase). uncompromised()
+     * checks the password against known-breached lists via the HaveIBeenPwned
+     * API (k-anonymity, the real password is never sent).
+     */
+    private function passwordRules(): array
+    {
+        return ['confirmed', PasswordRule::min(8)->mixedCase()->numbers()->symbols()->uncompromised()];
+    }
+
     /**
      * Create an account. There's only one account type - the same user can
      * go on to organize events and register for other people's events (see
@@ -26,7 +40,7 @@ class AuthController extends Controller
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email'],
-            'password' => ['required', 'string', 'min:8'],
+            'password' => array_merge(['required', 'string'], $this->passwordRules()),
             'institution' => ['nullable', 'string', 'max:255'],
         ]);
 
@@ -109,7 +123,7 @@ class AuthController extends Controller
             'email' => ['sometimes', 'string', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user->id)],
             'institution' => ['sometimes', 'nullable', 'string', 'max:255'],
             'current_password' => ['required_with:password', 'string'],
-            'password' => ['sometimes', 'string', 'min:8'],
+            'password' => array_merge(['sometimes', 'string'], $this->passwordRules()),
         ]);
 
         if (array_key_exists('password', $data)) {
@@ -216,7 +230,7 @@ class AuthController extends Controller
         $data = $request->validate([
             'token' => ['required', 'string'],
             'email' => ['required', 'string', 'email'],
-            'password' => ['required', 'string', 'min:8'],
+            'password' => array_merge(['required', 'string'], $this->passwordRules()),
         ]);
 
         $status = Password::broker()->reset(
