@@ -402,15 +402,27 @@ class RegistrationController extends Controller
     }
 
     /**
-     * Public, keyed only by the registration's own (unguessable) id - same
-     * security model as qr.png below. Lets the Pass page fetch live status
-     * (attended, feedback_submitted, the event's current status) instead of
-     * only ever showing whatever was true at the moment of registration,
-     * which is all a plain /pass/:regId link previously had to go on.
+     * Public, keyed by the registration's own id - which, unlike a token,
+     * is a plain sequential integer and trivially enumerable (1, 2, 3, ...).
+     * Deliberately returns only what the Pass page actually renders, not
+     * the full model: no email, custom_data, payment_ref, or the payment
+     * screenshot URL. Lets the Pass page fetch live status (attended,
+     * feedback_submitted, the event's current status) instead of only ever
+     * showing whatever was true at the moment of registration, which is
+     * all a plain /pass/:regId link previously had to go on.
      */
     public function show(Registration $registration)
     {
-        return response()->json($registration->load('event'));
+        return response()->json([
+            'id' => $registration->id,
+            'name' => $registration->name,
+            'qr_code' => $registration->qr_code,
+            'event_id' => $registration->event_id,
+            'attended' => $registration->attended,
+            'feedback_submitted' => $registration->feedback_submitted,
+            'needs_certificate' => $registration->needs_certificate,
+            'event' => $registration->event()->select('id', 'title', 'slug', 'date', 'start_time', 'end_time', 'venue', 'status', 'feedback_enabled')->first(),
+        ]);
     }
 
     public function verifyPayment(Request $request, Registration $registration)

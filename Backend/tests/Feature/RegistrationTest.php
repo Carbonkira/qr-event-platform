@@ -41,6 +41,27 @@ class RegistrationTest extends TestCase
         $this->assertTrue($response->json('attended'));
     }
 
+    public function test_the_public_registration_lookup_does_not_leak_contact_or_payment_details(): void
+    {
+        // This is a plain sequential id, not a token - anyone can iterate
+        // it, so the response has to stay limited to what the Pass page
+        // actually renders. Locks in the fix for a real leak (email,
+        // custom form answers, payment ref/screenshot were all exposed).
+        $event = $this->makeEvent(['status' => 'approved']);
+        $registration = $event->registrations()->create([
+            'name' => 'Attendee', 'email' => 'secret@example.com', 'qr_code' => 'QR-2',
+            'custom_data' => ['phone' => '555-1234'], 'payment_ref' => 'REF-999', 'payment_status' => 'pending',
+        ]);
+
+        $response = $this->getJson("/api/registrations/{$registration->id}")->assertOk();
+
+        $response->assertJsonMissingPath('email');
+        $response->assertJsonMissingPath('customData');
+        $response->assertJsonMissingPath('paymentRef');
+        $response->assertJsonMissingPath('paymentStatus');
+        $response->assertJsonMissingPath('paymentScreenshotUrl');
+    }
+
     public function test_registering_for_an_event_requires_authentication(): void
     {
         Mail::fake();
