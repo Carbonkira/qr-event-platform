@@ -13,6 +13,7 @@ import VerifyEmail from './pages/public/VerifyEmail'
 import EmailVerified from './pages/public/EmailVerified'
 import ForgotPassword from './pages/public/ForgotPassword'
 import ResetPassword from './pages/public/ResetPassword'
+import InviteAccept from './pages/public/InviteAccept'
 
 import Register from './pages/participant/Register'
 import Confirm from './pages/participant/Confirm'
@@ -88,6 +89,7 @@ function AppRoutes() {
           <Route path="organizer/register" element={<RegisterOrganizer />} />
           <Route path="organizer/verify-email" element={<VerifyEmail />} />
           <Route path="email-verified" element={<EmailVerified />} />
+          <Route path="invites/:token" element={<InviteAccept />} />
 
           {/* Old links/bookmarks - kept working, redirected to their new home. */}
           <Route path="my-tickets" element={<Navigate to="/my-events" replace />} />

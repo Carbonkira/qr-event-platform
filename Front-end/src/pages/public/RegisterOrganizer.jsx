@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Building2, User, Mail, Lock, GraduationCap, UserPlus } from 'lucide-react'
 import { Btn, Input, Card } from '../../components/ui'
 import PasswordChecklist from '../../components/shared/PasswordChecklist'
@@ -7,6 +7,7 @@ import { useApp } from '../../context/AppContext'
 
 export default function RegisterOrganizer() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const { createAccount, addToast } = useApp()
   const [form, setForm] = useState({ organization: '', name: '', email: '', password: '', passwordConfirmation: '', institution: '' })
   const [errors, setErrors] = useState({})
@@ -24,7 +25,8 @@ export default function RegisterOrganizer() {
     setErrors({})
     try {
       await createAccount(form)
-      navigate(`/organizer/verify-email?email=${encodeURIComponent(form.email)}`)
+      const next = searchParams.get('next')
+      navigate(next || `/organizer/verify-email?email=${encodeURIComponent(form.email)}`)
     } catch (err) {
       setErrors(err.errors || {})
       addToast(err.message, 'error')

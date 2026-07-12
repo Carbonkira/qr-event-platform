@@ -195,6 +195,27 @@ export async function uploadOrgLogo(id, file) {
   form.append('logo', file)
   return api.post(`/orgs/${id}/logo`, form)
 }
+export function getOrgMembers(id) {
+  return api.get(`/orgs/${id}/members`)
+}
+export function removeOrgMember(id, userId) {
+  return api.del(`/orgs/${id}/members/${userId}`)
+}
+export function getOrgInvites(id) {
+  return api.get(`/orgs/${id}/invites`)
+}
+export function inviteToOrg(id, email) {
+  return api.post(`/orgs/${id}/invites`, { email })
+}
+export function revokeOrgInvite(id, inviteId) {
+  return api.del(`/orgs/${id}/invites/${inviteId}`)
+}
+export function getInvite(token) {
+  return api.get(`/invites/${token}`)
+}
+export function acceptInvite(token) {
+  return api.post(`/invites/${token}/accept`)
+}
 
 // ─── Task Templates ───
 export function getTaskTemplates() {

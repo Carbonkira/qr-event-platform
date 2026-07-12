@@ -3,11 +3,14 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Mail\OrganizationInviteMail;
 use App\Models\Organization;
+use App\Models\OrganizationInvite;
+use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
-use Illuminate\Validation\Rule;
 
 /**
  * Real multi-organization CRUD - deliberately a separate controller from
@@ -74,6 +77,66 @@ class OrgController extends Controller
         $organization->update(['logo' => Storage::disk('public')->url($path)]);
 
         return response()->json($organization);
+    }
+
+    /** Members of the organization, with their role - visible to any member. */
+    public function members(Request $request, Organization $organization)
+    {
+        abort_unless($organization->isMember($request->user()), 403, 'You are not a member of this organization.');
+
+        return response()->json($organization->members()->get());
+    }
+
+    /** Owner-only: remove a member. The last owner can't be removed (an org must always have one). */
+    public function removeMember(Request $request, Organization $organization, User $user)
+    {
+        $this->authorizeOwner($request, $organization);
+
+        $isRemovingLastOwner = $organization->isOwner($user)
+            && $organization->members()->wherePivot('role', 'owner')->count() === 1;
+        abort_if($isRemovingLastOwner, 422, "An organization must always have at least one owner.");
+
+        $organization->members()->detach($user->id);
+
+        return response()->json(['message' => 'Member removed.']);
+    }
+
+    /** Owner-only: pending (not yet accepted) invites for the organization. */
+    public function invites(Request $request, Organization $organization)
+    {
+        $this->authorizeOwner($request, $organization);
+
+        return response()->json($organization->invites()->whereNull('accepted_at')->latest()->get());
+    }
+
+    /** Owner-only: invite someone by email. They don't need an account yet. */
+    public function storeInvite(Request $request, Organization $organization)
+    {
+        $this->authorizeOwner($request, $organization);
+
+        $data = $request->validate(['email' => ['required', 'email', 'max:255']]);
+
+        $invite = $organization->invites()->create([
+            'email' => $data['email'],
+            'token' => Str::random(64),
+            'invited_by' => $request->user()->id,
+            'expires_at' => now()->addDays(7),
+        ]);
+
+        Mail::to($invite->email)->queue(new OrganizationInviteMail($invite));
+
+        return response()->json($invite, 201);
+    }
+
+    /** Owner-only: revoke a pending invite. */
+    public function destroyInvite(Request $request, Organization $organization, OrganizationInvite $invite)
+    {
+        $this->authorizeOwner($request, $organization);
+        abort_unless($invite->organization_id === $organization->id, 404);
+
+        $invite->delete();
+
+        return response()->json(['message' => 'Invite revoked.']);
     }
 
     private function authorizeOwner(Request $request, Organization $organization): void

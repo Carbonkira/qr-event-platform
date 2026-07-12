@@ -1,9 +1,9 @@
 import { useRef, useState } from 'react'
-import { Building2, Camera, Plus } from 'lucide-react'
+import { Building2, Camera, Plus, Mail, X, UserMinus } from 'lucide-react'
 import { Card, Btn, Input, Textarea, Badge } from '../../components/ui'
 import { useApp } from '../../context/AppContext'
-import { useMyOrgs } from '../../hooks/useApi'
-import { createOrg, updateOrg, uploadOrgLogo } from '../../api/resources'
+import { useMyOrgs, useOrgMembers, useOrgInvites } from '../../hooks/useApi'
+import { createOrg, updateOrg, uploadOrgLogo, removeOrgMember, inviteToOrg, revokeOrgInvite } from '../../api/resources'
 
 const MAX_LOGO_BYTES = 5 * 1024 * 1024 // 5MB — matches other image uploads
 
@@ -61,12 +61,18 @@ export default function Organizations() {
 }
 
 function OrgCard({ org, onSaved }) {
-  const { addToast } = useApp()
+  const { addToast, user } = useApp()
   const isOwner = org.pivot?.role === 'owner'
   const [form, setForm] = useState({ name: org.name, description: org.description || '', email: org.email || '' })
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState(false)
   const fileRef = useRef(null)
+  const { data: membersData, refetch: refetchMembers } = useOrgMembers(org.id)
+  const { data: invitesData, refetch: refetchInvites } = useOrgInvites(org.id, isOwner)
+  const members = membersData || []
+  const invites = invitesData || []
+  const [inviteEmail, setInviteEmail] = useState('')
+  const [inviting, setInviting] = useState(false)
 
   const update = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }))
 
@@ -100,6 +106,42 @@ function OrgCard({ org, onSaved }) {
     }
   }
 
+  const sendInvite = async (e) => {
+    e.preventDefault()
+    if (!inviteEmail.trim()) return
+    setInviting(true)
+    try {
+      await inviteToOrg(org.id, inviteEmail.trim())
+      addToast(`Invite sent to ${inviteEmail.trim()}`, 'success')
+      setInviteEmail('')
+      refetchInvites()
+    } catch (err) {
+      addToast(err.message || 'Failed to send invite', 'error')
+    } finally {
+      setInviting(false)
+    }
+  }
+
+  const cancelInvite = async (inviteId) => {
+    try {
+      await revokeOrgInvite(org.id, inviteId)
+      addToast('Invite revoked', 'success')
+      refetchInvites()
+    } catch (err) {
+      addToast(err.message || 'Failed to revoke invite', 'error')
+    }
+  }
+
+  const kickMember = async (memberId) => {
+    try {
+      await removeOrgMember(org.id, memberId)
+      addToast('Member removed', 'success')
+      refetchMembers()
+    } catch (err) {
+      addToast(err.message || 'Failed to remove member', 'error')
+    }
+  }
+
   return (
     <Card className="p-5 space-y-4">
       <div className="flex items-center gap-3">
@@ -126,6 +168,43 @@ function OrgCard({ org, onSaved }) {
         </form>
       ) : (
         <p className="text-[12px] text-slate-400">Only an owner can edit this organization's profile.</p>
+      )}
+
+      <div className="border-t border-slate-100 pt-4 space-y-2">
+        <p className="text-[12px] font-bold text-slate-700">Members ({members.length})</p>
+        <div className="space-y-1.5">
+          {members.map(m => (
+            <div key={m.id} className="flex items-center justify-between gap-2 text-[13px] py-1">
+              <span className="truncate">{m.name}{m.id === user?.id && ' (you)'}</span>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <Badge color={m.pivot?.role === 'owner' ? 'dark' : 'slate'} size="xs">{m.pivot?.role}</Badge>
+                {isOwner && m.pivot?.role !== 'owner' && (
+                  <button type="button" onClick={() => kickMember(m.id)} className="p-1 text-slate-400 hover:text-rose-500" title="Remove member"><UserMinus size={13} /></button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {isOwner && (
+        <div className="border-t border-slate-100 pt-4 space-y-2">
+          <p className="text-[12px] font-bold text-slate-700">Invite a member</p>
+          <form onSubmit={sendInvite} className="flex items-end gap-2">
+            <div className="flex-1"><Input value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} type="email" icon={Mail} placeholder="teammate@example.com" /></div>
+            <Btn type="submit" variant="secondary" size="sm" loading={inviting}>Send invite</Btn>
+          </form>
+          {invites.length > 0 && (
+            <div className="space-y-1.5 pt-1">
+              {invites.map(inv => (
+                <div key={inv.id} className="flex items-center justify-between gap-2 text-[12px] py-1">
+                  <span className="truncate text-slate-500">{inv.email} <span className="text-slate-400">· pending</span></span>
+                  <button type="button" onClick={() => cancelInvite(inv.id)} className="p-1 text-slate-400 hover:text-rose-500 flex-shrink-0" title="Revoke invite"><X size={13} /></button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       )}
     </Card>
   )

@@ -53,6 +53,12 @@ export function useOrganization() {
 export function useMyOrgs(enabled = true) {
   return useAsync(() => (enabled ? api.getMyOrgs() : Promise.resolve([])), [enabled])
 }
+export function useOrgMembers(id, enabled = true) {
+  return useAsync(() => (enabled ? api.getOrgMembers(id) : Promise.resolve([])), [id, enabled])
+}
+export function useOrgInvites(id, enabled = true) {
+  return useAsync(() => (enabled ? api.getOrgInvites(id) : Promise.resolve([])), [id, enabled])
+}
 export function useTaskTemplates() {
   return useAsync(() => api.getTaskTemplates(), [])
 }

@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\EventController;
 use App\Http\Controllers\Api\FeedbackController;
 use App\Http\Controllers\Api\FeedbackSummaryController;
+use App\Http\Controllers\Api\InviteController;
 use App\Http\Controllers\Api\OrganizationController;
 use App\Http\Controllers\Api\OrgController;
 use App\Http\Controllers\Api\QrCodeController;
@@ -33,6 +34,7 @@ Route::get('/email/verify/{id}/{hash}', [AuthController::class, 'verify'])
 
 Route::get('/events', [EventController::class, 'index']);
 Route::get('/events/{slug}', [EventController::class, 'show']);
+Route::get('/invites/{token}', [InviteController::class, 'show']);
 // Unauthenticated write endpoints an abuse script could otherwise hammer
 // with no account and no ownership check to fall back on.
 Route::middleware('throttle:30,1')->group(function () {
@@ -107,6 +109,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/orgs', [OrgController::class, 'store']);
     Route::put('/orgs/{organization}', [OrgController::class, 'update']);
     Route::post('/orgs/{organization}/logo', [OrgController::class, 'uploadLogo'])->middleware('throttle:20,1');
+    Route::get('/orgs/{organization}/members', [OrgController::class, 'members']);
+    Route::delete('/orgs/{organization}/members/{user}', [OrgController::class, 'removeMember']);
+    Route::get('/orgs/{organization}/invites', [OrgController::class, 'invites']);
+    Route::post('/orgs/{organization}/invites', [OrgController::class, 'storeInvite'])->middleware('throttle:20,1');
+    Route::delete('/orgs/{organization}/invites/{invite}', [OrgController::class, 'destroyInvite']);
+    Route::post('/invites/{token}/accept', [InviteController::class, 'accept']);
 
     Route::get('/task-templates', [TaskTemplateController::class, 'index']);
     Route::post('/task-templates', [TaskTemplateController::class, 'store']);
