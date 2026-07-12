@@ -15,7 +15,13 @@ return [
 
     'guard' => ['web'],
 
-    'expiration' => null,
+    // A stolen/leaked token used to stay valid forever - null never expired
+    // it. 30 days by default: long enough that a returning organizer or
+    // attendee won't notice, short enough to actually bound the exposure
+    // window instead of it being permanent. This is a hard cutoff from
+    // token creation (i.e. from login), not a sliding/rolling window -
+    // see Laravel\Sanctum\Guard::supportsCredentials().
+    'expiration' => env('SANCTUM_EXPIRATION', 60 * 24 * 30),
 
     'token_prefix' => env('SANCTUM_TOKEN_PREFIX', ''),
 

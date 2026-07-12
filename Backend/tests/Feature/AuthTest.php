@@ -158,6 +158,33 @@ class AuthTest extends TestCase
         ])->assertUnprocessable();
     }
 
+    public function test_a_token_older_than_the_configured_expiration_is_rejected(): void
+    {
+        User::create(['name' => 'Test User', 'email' => 'test@example.com', 'password' => bcrypt('password123')]);
+
+        $login = $this->postJson('/api/auth/login', ['email' => 'test@example.com', 'password' => 'password123'])->assertOk();
+        $token = $login->json('token');
+
+        // Fresh token - works.
+        $this->withHeader('Authorization', "Bearer {$token}")->getJson('/api/auth/me')->assertOk();
+
+        // Same token, backdated past the configured expiration window -
+        // Sanctum's guard checks created_at against now() - expiration
+        // minutes, not last activity, so this alone should be enough to
+        // invalidate it even though nothing else about the token changed.
+        \Laravel\Sanctum\PersonalAccessToken::query()->update(['created_at' => now()->subDays(31)]);
+        // Laravel's auth guard memoizes the resolved user for the lifetime
+        // of the guard instance - within a single test method the app
+        // container (and thus the guard) persists across HTTP calls, which
+        // would silently reuse the first request's already-authenticated
+        // user instead of re-checking the token. A real second HTTP
+        // request in production never has this problem (fresh process
+        // each time); forgetGuards() reproduces that here.
+        \Illuminate\Support\Facades\Auth::forgetGuards();
+
+        $this->withHeader('Authorization', "Bearer {$token}")->getJson('/api/auth/me')->assertUnauthorized();
+    }
+
     public function test_forgot_password_sends_reset_link_and_never_reveals_whether_the_email_exists(): void
     {
         Notification::fake();
