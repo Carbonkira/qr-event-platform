@@ -1,5 +1,10 @@
 {
   "rewrites": [
+    {
+      "source": "/events/:slug",
+      "has": [{ "type": "header", "key": "user-agent", "value": ".*(facebookexternalhit|Facebot|Twitterbot|Discordbot|Slackbot|LinkedInBot|WhatsApp|TelegramBot|Googlebot|bingbot|SkypeUriPreview|Pinterest).*" }],
+      "destination": "/api/og-event?slug=:slug"
+    },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
