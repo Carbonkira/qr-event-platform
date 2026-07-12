@@ -104,7 +104,7 @@ export default function Home() {
   )
 }
 
-function SuggestCard({ event }) {
+export function SuggestCard({ event }) {
   return (
     <Link to={`/events/${event.slug}`}>
       <Card hover className="overflow-hidden">

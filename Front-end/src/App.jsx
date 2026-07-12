@@ -7,6 +7,7 @@ import ManageLayout from './components/layout/ManageLayout'
 
 import Home from './pages/public/Home'
 import EventDetail from './pages/public/EventDetail'
+import OrgPublic from './pages/public/OrgPublic'
 import Login from './pages/public/Login'
 import RegisterOrganizer from './pages/public/RegisterOrganizer'
 import VerifyEmail from './pages/public/VerifyEmail'
@@ -77,6 +78,7 @@ function AppRoutes() {
         <Route element={<AppShell />}>
           <Route index element={<Home />} />
           <Route path="events/:slug" element={<EventDetail />} />
+          <Route path="org/:slug" element={<OrgPublic />} />
           <Route path="events/:slug/register" element={<Register />} />
           <Route path="events/:slug/confirm/:regId" element={<Confirm />} />
           <Route path="pass/:regId" element={<Pass />} />

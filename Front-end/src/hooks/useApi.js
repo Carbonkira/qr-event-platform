@@ -59,6 +59,9 @@ export function useOrgMembers(id, enabled = true) {
 export function useOrgInvites(id, enabled = true) {
   return useAsync(() => (enabled ? api.getOrgInvites(id) : Promise.resolve([])), [id, enabled])
 }
+export function usePublicOrg(slug) {
+  return useAsync(() => (slug ? api.getPublicOrg(slug) : Promise.resolve(null)), [slug])
+}
 export function useTaskTemplates() {
   return useAsync(() => api.getTaskTemplates(), [])
 }

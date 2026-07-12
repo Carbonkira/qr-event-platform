@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
-import { Building2, Camera, Plus, Mail, X, UserMinus } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { Building2, Camera, Plus, Mail, X, UserMinus, ExternalLink } from 'lucide-react'
 import { Card, Btn, Input, Textarea, Badge } from '../../components/ui'
 import { useApp } from '../../context/AppContext'
 import { useMyOrgs, useOrgMembers, useOrgInvites } from '../../hooks/useApi'
@@ -150,7 +151,7 @@ function OrgCard({ org, onSaved }) {
         </div>
         <div className="flex-1 min-w-0">
           <p className="font-bold text-[14px] truncate">{org.name}</p>
-          <p className="text-[11px] text-slate-400">/org/{org.slug}</p>
+          <Link to={`/org/${org.slug}`} className="text-[11px] text-slate-400 hover:text-[#e94560] inline-flex items-center gap-1">/org/{org.slug}<ExternalLink size={10} /></Link>
         </div>
         <Badge color={isOwner ? 'dark' : 'slate'}>{isOwner ? 'Owner' : 'Member'}</Badge>
       </div>

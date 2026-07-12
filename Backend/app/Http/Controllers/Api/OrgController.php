@@ -41,6 +41,29 @@ class OrgController extends Controller
         return response()->json($request->user()->organizations()->get());
     }
 
+    /**
+     * Public organization page - branding plus its public events, split
+     * into upcoming/past like the mock's participant-facing pages. Only
+     * approved, non-private events are shown here, same visibility rule as
+     * EventController::index's public listing.
+     */
+    public function showPublic(Organization $organization)
+    {
+        $events = $organization->events()
+            ->where('status', 'approved')
+            ->where('is_private', false)
+            ->orderBy('date')
+            ->get();
+
+        $today = now()->toDateString();
+
+        return response()->json([
+            'organization' => $organization,
+            'upcomingEvents' => $events->where('date', '>=', $today)->values(),
+            'pastEvents' => $events->where('date', '<', $today)->sortByDesc('date')->values(),
+        ]);
+    }
+
     public function store(Request $request)
     {
         $data = $request->validate(array_merge(self::PROFILE_FIELDS, [

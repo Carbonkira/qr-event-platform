@@ -216,6 +216,9 @@ export function getInvite(token) {
 export function acceptInvite(token) {
   return api.post(`/invites/${token}/accept`)
 }
+export function getPublicOrg(slug) {
+  return api.get(`/org/${slug}`)
+}
 
 // ─── Task Templates ───
 export function getTaskTemplates() {

@@ -35,6 +35,7 @@ Route::get('/email/verify/{id}/{hash}', [AuthController::class, 'verify'])
 Route::get('/events', [EventController::class, 'index']);
 Route::get('/events/{slug}', [EventController::class, 'show']);
 Route::get('/invites/{token}', [InviteController::class, 'show']);
+Route::get('/org/{organization:slug}', [OrgController::class, 'showPublic']);
 // Unauthenticated write endpoints an abuse script could otherwise hammer
 // with no account and no ownership check to fall back on.
 Route::middleware('throttle:30,1')->group(function () {

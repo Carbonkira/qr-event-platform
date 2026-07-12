@@ -1,4 +1,4 @@
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import {
   ArrowLeft, Lock, Instagram, Linkedin, Facebook, Twitter, Globe, Briefcase, Award,
   MapPin, Shield, ExternalLink, Ticket, UserCheck, CalendarPlus, Share2,
@@ -74,10 +74,19 @@ export default function EventDetail() {
 
           <div className="rounded-xl border border-slate-200 p-4 mb-6">
             <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wide mb-2">Organized by</p>
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#1a1a2e] to-[#e94560] flex items-center justify-center text-white font-bold text-sm flex-shrink-0">{event.organizedBy?.[0]}</div>
-              <div className="flex-1"><p className="text-[14px] font-semibold text-slate-800">{event.organizedBy}</p></div>
-            </div>
+            {event.organization ? (
+              <Link to={`/org/${event.organization.slug}`} className="flex items-center gap-3 group">
+                <div className="w-9 h-9 rounded-full overflow-hidden bg-gradient-to-br from-[#1a1a2e] to-[#e94560] flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                  {event.organization.logo ? <img src={event.organization.logo} alt="" className="w-full h-full object-cover" /> : event.organizedBy?.[0]}
+                </div>
+                <div className="flex-1"><p className="text-[14px] font-semibold text-slate-800 group-hover:text-[#e94560]">{event.organizedBy}</p></div>
+              </Link>
+            ) : (
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#1a1a2e] to-[#e94560] flex items-center justify-center text-white font-bold text-sm flex-shrink-0">{event.organizedBy?.[0]}</div>
+                <div className="flex-1"><p className="text-[14px] font-semibold text-slate-800">{event.organizedBy}</p></div>
+              </div>
+            )}
             {Object.values(event.socials || {}).some(Boolean) && <div className="flex items-center gap-2 mt-3 pt-3 border-t border-slate-100">
               {SOC.map(([k, Icon]) => event.socials?.[k] ? <a key={k} href="#" onClick={e => e.preventDefault()} className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-600 transition-all"><Icon size={14} /></a> : null)}
             </div>}
