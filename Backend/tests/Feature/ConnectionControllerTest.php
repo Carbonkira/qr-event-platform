@@ -2,9 +2,11 @@
 
 namespace Tests\Feature;
 
+use App\Mail\ConnectionRequestMail;
 use App\Models\Connection;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Mail;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -26,6 +28,18 @@ class ConnectionControllerTest extends TestCase
         $this->postJson('/api/connections', ['recipient_id' => $them->id])->assertCreated();
 
         $this->assertDatabaseHas('connections', ['requester_id' => $me->id, 'recipient_id' => $them->id, 'status' => 'pending']);
+    }
+
+    public function test_sending_a_connection_request_emails_the_recipient(): void
+    {
+        Mail::fake();
+        $me = $this->makeUser('me@example.com');
+        $them = $this->makeUser('them@example.com');
+
+        Sanctum::actingAs($me);
+        $this->postJson('/api/connections', ['recipient_id' => $them->id])->assertCreated();
+
+        Mail::assertQueued(ConnectionRequestMail::class, fn ($mail) => $mail->hasTo($them->email));
     }
 
     public function test_cannot_send_a_connection_request_to_yourself(): void

@@ -3,8 +3,10 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Mail\ConnectionRequestMail;
 use App\Models\Connection;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Mail;
 
 /**
  * Real mutual connections - a request/accept relationship, not just a
@@ -44,11 +46,12 @@ class ConnectionController extends Controller
             // fresh request from whoever's asking now, rather than leaving
             // a permanently dead row blocked by the unique constraint.
             $existing->update(['requester_id' => $me, 'recipient_id' => $data['recipient_id'], 'status' => 'pending']);
-
-            return response()->json($existing->fresh(), 201);
+            $connection = $existing->fresh();
+        } else {
+            $connection = Connection::create(['requester_id' => $me, 'recipient_id' => $data['recipient_id'], 'status' => 'pending']);
         }
 
-        $connection = Connection::create(['requester_id' => $me, 'recipient_id' => $data['recipient_id'], 'status' => 'pending']);
+        Mail::to($connection->recipient->email)->queue(new ConnectionRequestMail($connection));
 
         return response()->json($connection, 201);
     }

@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Mail\OrganizationInviteMail;
+use App\Mail\OrganizationMemberJoinedMail;
 use App\Models\Organization;
 use App\Models\OrganizationInvite;
 use App\Models\User;
@@ -63,6 +64,25 @@ class InviteFlowTest extends TestCase
         $this->assertSame('Acme', $response->json('organization.name'));
         $this->assertFalse($response->json('expired'));
         $this->assertFalse($response->json('accepted'));
+    }
+
+    public function test_accepting_an_invite_emails_the_organizations_owners(): void
+    {
+        Mail::fake();
+        $owner = $this->makeUser('owner@example.com');
+        $org = $this->makeOrg($owner);
+        $invitee = $this->makeUser('invitee@example.com');
+        $invite = $org->invites()->create([
+            'email' => 'invitee@example.com',
+            'token' => 'test-token-owner-mail',
+            'invited_by' => $owner->id,
+            'expires_at' => now()->addDays(7),
+        ]);
+
+        Sanctum::actingAs($invitee);
+        $this->postJson("/api/invites/{$invite->token}/accept")->assertOk();
+
+        Mail::assertQueued(OrganizationMemberJoinedMail::class, fn ($mail) => $mail->hasTo($owner->email) && $mail->newMember->is($invitee));
     }
 
     public function test_accepting_an_invite_adds_the_user_as_a_member(): void
