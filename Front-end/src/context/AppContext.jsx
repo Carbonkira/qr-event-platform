@@ -62,13 +62,18 @@ export function AppProvider({ children }) {
 
   // The browser's back-forward cache can restore a page as a frozen
   // snapshot of exactly how it looked before you navigated away, without
-  // re-running any app logic - e.g. changing your email in Profile, then
-  // hitting Back to an earlier page, could briefly still show the old
-  // email even though the account was genuinely updated. event.persisted
-  // is how the browser tells us this was a bfcache restore, not a normal
-  // mount, so pull the real account state fresh when it happens.
+  // re-running any app logic - useAsync (see hooks/useApi.js) only ever
+  // fetches on mount, and a bfcache restore never re-runs that. In
+  // practice: register for an event, then hit Back to the event page or
+  // the events list, and it can still show "Register" / an old "going"
+  // count instead of your new registration - every page that fetches
+  // data this way is affected, not just one. event.persisted is how the
+  // browser tells us this was a bfcache restore rather than a real mount;
+  // a full reload is the simplest way to guarantee everything on the
+  // restored page is genuinely fresh, matching what manually refreshing
+  // already fixes for people running into this.
   useEffect(() => {
-    const onPageShow = (event) => { if (event.persisted && getToken()) api.me().then(setUser).catch(() => {}) }
+    const onPageShow = (event) => { if (event.persisted) window.location.reload() }
     window.addEventListener('pageshow', onPageShow)
     return () => window.removeEventListener('pageshow', onPageShow)
   }, [])
