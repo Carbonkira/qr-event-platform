@@ -1,9 +1,44 @@
-import { useEffect, useState } from 'react'
-import { User, Mail, GraduationCap, Lock } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { User, Mail, GraduationCap, Lock, Camera } from 'lucide-react'
 import { Card, Btn, Input, Textarea } from '../../components/ui'
 import { useOrganization } from '../../hooks/useApi'
 import { updateOrganization } from '../../api/resources'
 import { useApp } from '../../context/AppContext'
+
+const MAX_AVATAR_BYTES = 5 * 1024 * 1024 // 5MB — matches the backend's own limit
+
+function AvatarUpload() {
+  const { user, uploadAvatar, addToast } = useApp()
+  const [uploading, setUploading] = useState(false)
+  const fileRef = useRef(null)
+
+  const onPick = async (file) => {
+    if (!file) return
+    if (!file.type.startsWith('image/')) { addToast('Please upload an image', 'error'); return }
+    if (file.size > MAX_AVATAR_BYTES) { addToast('Image must be under 5MB', 'error'); return }
+    setUploading(true)
+    try {
+      await uploadAvatar(file)
+      addToast('Profile photo updated', 'success')
+    } catch (err) {
+      addToast(err.message || 'Failed to upload photo', 'error')
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  return (
+    <div className="flex items-center gap-4">
+      <div className="w-16 h-16 rounded-full overflow-hidden bg-gradient-to-br from-[#e94560] to-[#6d28d9] flex items-center justify-center text-white font-bold text-2xl flex-shrink-0">
+        {user?.avatar ? <img src={user.avatar} alt="" className="w-full h-full object-cover" /> : (user?.name?.[0]?.toUpperCase() || '·')}
+      </div>
+      <div>
+        <Btn variant="secondary" size="sm" icon={Camera} loading={uploading} onClick={() => fileRef.current?.click()}>Change photo</Btn>
+        <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={e => { onPick(e.target.files?.[0]); e.target.value = '' }} />
+      </div>
+    </div>
+  )
+}
 
 function AccountCard() {
   const { user, updateProfile, addToast } = useApp()
@@ -34,6 +69,7 @@ function AccountCard() {
         <p className="font-bold text-[14px]">My Account</p>
         <p className="text-[11px] text-slate-400">Your own login — separate from the organization info below</p>
       </div>
+      <AvatarUpload />
       <form onSubmit={save} className="space-y-4">
         <Input label="Full name" value={form.name} onChange={update('name')} icon={User} error={errors.name?.[0]} required />
         <Input label="Email" type="email" value={form.email} onChange={update('email')} icon={Mail} error={errors.email?.[0]} required />

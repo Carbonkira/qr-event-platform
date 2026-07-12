@@ -56,6 +56,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/auth/logout', [AuthController::class, 'logout']);
     Route::get('/auth/me', [AuthController::class, 'me']);
     Route::put('/auth/me', [AuthController::class, 'updateProfile']);
+    Route::post('/auth/me/avatar', [AuthController::class, 'uploadAvatar'])->middleware('throttle:20,1');
     Route::post('/auth/email/verification-notification', [AuthController::class, 'resendVerification']);
 
     Route::get('/admin/events', [EventController::class, 'adminIndex']);

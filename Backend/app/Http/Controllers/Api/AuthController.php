@@ -8,6 +8,7 @@ use Illuminate\Auth\Events\Verified;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
@@ -138,6 +139,23 @@ class AuthController extends Controller
         if ($emailChanged) {
             $user->sendEmailVerificationNotification();
         }
+
+        return response()->json($user);
+    }
+
+    /**
+     * Same store-and-return-url pattern as EventController::uploadImage.
+     */
+    public function uploadAvatar(Request $request)
+    {
+        $request->validate([
+            'avatar' => ['required', 'image', 'max:5120'], // 5MB, matches other image uploads
+        ]);
+
+        $user = $request->user();
+        $path = $request->file('avatar')->store('avatars', 'public');
+        $user->avatar = Storage::disk('public')->url($path);
+        $user->save();
 
         return response()->json($user);
     }

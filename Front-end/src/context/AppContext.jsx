@@ -85,6 +85,12 @@ export function AppProvider({ children }) {
     return u
   }, [])
 
+  const uploadAvatar = useCallback(async (file) => {
+    const u = await api.uploadAvatar(file)
+    setUser(u)
+    return u
+  }, [])
+
   // Pulls fresh /auth/me state - needed after the user clicks the
   // verification link in another tab, since nothing else updates
   // `user.emailVerifiedAt` in this tab on its own.
@@ -108,7 +114,7 @@ export function AppProvider({ children }) {
 
   return (
     <AppContext.Provider value={{
-      user, authReady, login, createAccount, logout, updateProfile, refreshUser, resendVerificationEmail,
+      user, authReady, login, createAccount, logout, updateProfile, uploadAvatar, refreshUser, resendVerificationEmail,
       toasts, addToast, removeToast,
       coords, place, locationStatus,
     }}>

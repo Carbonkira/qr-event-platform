@@ -68,6 +68,16 @@ class RegistrationTest extends TestCase
         $this->assertSame(1, Registration::where('event_id', $event->id)->where('user_id', $user->id)->count());
     }
 
+    public function test_registration_confirmed_email_renders_with_the_logo(): void
+    {
+        $event = $this->makeEvent();
+        $registration = $event->registrations()->create(['name' => 'Ana', 'email' => 'ana@example.com', 'qr_code' => 'QR-TEST-LOGO']);
+
+        $html = (new \App\Mail\RegistrationConfirmedMail($registration))->render();
+
+        $this->assertStringContainsString('/logo-email.png', $html);
+    }
+
     public function test_an_unverified_account_cannot_register_for_an_event(): void
     {
         Mail::fake();

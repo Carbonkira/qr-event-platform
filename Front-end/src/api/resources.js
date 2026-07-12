@@ -33,6 +33,11 @@ export function me() {
 export function updateProfile(payload) {
   return api.put('/auth/me', payload)
 }
+export function uploadAvatar(file) {
+  const form = new FormData()
+  form.append('avatar', file)
+  return api.post('/auth/me/avatar', form)
+}
 
 // ─── Events ───
 export function getPublicEvents(params) {

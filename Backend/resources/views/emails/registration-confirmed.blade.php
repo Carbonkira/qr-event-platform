@@ -5,7 +5,11 @@
 <tr><td align="center">
 <table role="presentation" width="100%" style="max-width:480px;background:#ffffff;border-radius:16px;border:1px solid #e2dfda;overflow:hidden;">
 <tr><td style="height:6px;background:linear-gradient(90deg,#1a1a2e,#e94560);"></td></tr>
-<tr><td style="padding:28px 28px 8px;">
+<tr><td style="padding:20px 28px 0;">
+<img src="{{ config('app.url') }}/logo-email.png" width="28" height="28" alt="QRMeets" style="border-radius:7px;vertical-align:middle;">
+<span style="font-size:14px;font-weight:800;color:#1a1a2e;vertical-align:middle;margin-left:8px;">QRMeets</span>
+</td></tr>
+<tr><td style="padding:16px 28px 8px;">
 <p style="font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#e94560;margin:0 0 8px;">{{ $registration->waitlisted ? "You're on the waitlist" : "You're registered" }}</p>
 <h1 style="font-size:20px;margin:0 0 4px;">{{ $event->title }}</h1>
 <p style="font-size:13px;color:#5b5b6b;margin:0;">

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
-import { QrCode, Plus, ChevronDown, LogOut, MailWarning, Hourglass, MessageSquare, FileText, ClipboardList, User as UserIcon } from 'lucide-react'
-import { Btn } from '../ui'
+import { Plus, ChevronDown, LogOut, MailWarning, Hourglass, MessageSquare, FileText, ClipboardList, User as UserIcon } from 'lucide-react'
+import { Btn, Logo } from '../ui'
 import { cn } from '../../lib/utils'
 import { useApp } from '../../context/AppContext'
 import { useAdminEvents, useAnalytics } from '../../hooks/useApi'
@@ -73,7 +73,7 @@ export default function AppShell() {
       <header className="sticky top-0 z-40 bg-[#fafafa]/80 backdrop-blur-md border-b border-slate-200/60">
         <div className="max-w-5xl mx-auto px-5 h-16 flex items-center justify-between gap-2">
           <Link to="/" className="flex items-center gap-2 flex-shrink-0">
-            <div className="w-8 h-8 rounded-lg bg-[#1a1a2e] flex items-center justify-center"><QrCode size={17} className="text-white" /></div>
+            <Logo size={32} />
             <span className="font-extrabold text-[17px] tracking-tight hidden sm:block">QRMeets</span>
           </Link>
 
@@ -103,7 +103,9 @@ export default function AppShell() {
             <Btn variant="accent" size="md" icon={Plus} onClick={onCreateClick}>Create Event</Btn>
             {user ? (
               <div className="relative" ref={profileRef}>
-                <button onClick={() => setProfileOpen(o => !o)} className="w-9 h-9 rounded-full bg-gradient-to-br from-[#e94560] to-[#6d28d9] flex items-center justify-center text-white font-bold text-[13px] flex-shrink-0">{user.name?.[0]?.toUpperCase() || '·'}</button>
+                <button onClick={() => setProfileOpen(o => !o)} className="w-9 h-9 rounded-full overflow-hidden bg-gradient-to-br from-[#e94560] to-[#6d28d9] flex items-center justify-center text-white font-bold text-[13px] flex-shrink-0">
+                  {user.avatar ? <img src={user.avatar} alt="" className="w-full h-full object-cover" /> : (user.name?.[0]?.toUpperCase() || '·')}
+                </button>
                 {profileOpen && (
                   <div className="absolute top-full mt-1.5 right-0 w-52 bg-white rounded-xl border border-slate-200 shadow-lg py-1.5 z-50">
                     <div className="px-3.5 py-2 border-b border-slate-100 mb-1"><p className="text-[13px] font-semibold text-slate-800 truncate">{user.name}</p><p className="text-[11px] text-slate-400 truncate">{user.email}</p></div>

@@ -6,6 +6,19 @@ import { cn } from '../../lib/utils'
 // (Btn/Input/Select/Textarea/Toggle/Badge/Card/StarRating/Modal/KPI/PriceTag)
 // so every ported page imports one set instead of redefining them.
 
+// The one brand mark, used everywhere it appears (header, favicon, emails)
+// so it's never a different icon/color in different places. Keep this in
+// sync with public/favicon.svg and Backend/public/logo-email.png.
+export const Logo = ({ size = 32 }) => (
+  <svg width={size} height={size} viewBox="0 0 32 32" fill="none">
+    <rect width="32" height="32" rx="8" fill="#1a1a2e" />
+    <rect x="7" y="7" width="8" height="8" rx="1.5" fill="white" />
+    <rect x="17" y="7" width="8" height="8" rx="1.5" fill="white" />
+    <rect x="7" y="17" width="8" height="8" rx="1.5" fill="white" />
+    <rect x="19" y="19" width="4" height="4" rx="1" fill="white" />
+  </svg>
+)
+
 export const Btn = ({ children, onClick, variant = 'primary', size = 'md', icon: Icon, loading, disabled, className = '', type = 'button', full }) => {
   const base = 'inline-flex items-center justify-center gap-2 font-semibold rounded-xl transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]'
   const sizes = { sm: 'px-3 py-1.5 text-xs', md: 'px-4 py-2.5 text-sm', lg: 'px-6 py-3.5 text-[15px]' }

@@ -154,6 +154,40 @@ class AuthTest extends TestCase
         $this->assertTrue(Hash::check('password123', $user->fresh()->password));
     }
 
+    public function test_upload_avatar_requires_authentication(): void
+    {
+        $file = \Illuminate\Http\UploadedFile::fake()->image('me.jpg');
+
+        $this->postJson('/api/auth/me/avatar', ['avatar' => $file])->assertUnauthorized();
+    }
+
+    public function test_upload_avatar_requires_an_actual_image(): void
+    {
+        $user = User::create(['name' => 'Test User', 'email' => 'test@example.com', 'password' => bcrypt('password123')]);
+        Sanctum::actingAs($user);
+        $file = \Illuminate\Http\UploadedFile::fake()->create('notes.txt', 10);
+
+        $this->postJson('/api/auth/me/avatar', ['avatar' => $file])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['avatar']);
+    }
+
+    public function test_upload_avatar_stores_the_file_and_updates_the_user(): void
+    {
+        \Illuminate\Support\Facades\Storage::fake('public');
+        $user = User::create(['name' => 'Test User', 'email' => 'test@example.com', 'password' => bcrypt('password123')]);
+        Sanctum::actingAs($user);
+        $file = \Illuminate\Http\UploadedFile::fake()->image('me.jpg', 400, 400);
+
+        $response = $this->postJson('/api/auth/me/avatar', ['avatar' => $file])->assertOk();
+
+        $url = $response->json('avatar');
+        $this->assertNotEmpty($url);
+        $this->assertSame($url, $user->fresh()->avatar);
+        $storedPath = \Illuminate\Support\Str::after(parse_url($url, PHP_URL_PATH), '/storage/');
+        \Illuminate\Support\Facades\Storage::disk('public')->assertExists($storedPath);
+    }
+
     public function test_changing_password_requires_the_correct_current_password(): void
     {
         $user = User::create(['name' => 'Test User', 'email' => 'test@example.com', 'password' => bcrypt('password123')]);
