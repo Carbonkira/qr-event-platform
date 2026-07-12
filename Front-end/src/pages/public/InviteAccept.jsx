@@ -17,7 +17,10 @@ export default function InviteAccept() {
   useEffect(() => {
     getInvite(token)
       .then(setInvite)
-      .catch(err => setError(err.message || 'This invite link is invalid.'))
+      // Deliberately not showing err.message here - a 404 from firstOrFail()
+      // returns Laravel's raw "No query results for model [...]" text, which
+      // is an internal implementation detail, not something to show a visitor.
+      .catch(() => setError('This invite link is invalid, or the invite has been revoked.'))
       .finally(() => setLoading(false))
   }, [token])
 
