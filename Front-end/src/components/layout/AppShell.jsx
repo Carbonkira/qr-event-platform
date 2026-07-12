@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
-import { Plus, ChevronDown, LogOut, MailWarning, Hourglass, MessageSquare, FileText, ClipboardList, User as UserIcon, Instagram, Linkedin, Facebook, Twitter, Globe } from 'lucide-react'
+import { Plus, ChevronDown, LogOut, MailWarning, Hourglass, MessageSquare, FileText, ClipboardList, Building2, User as UserIcon, Instagram, Linkedin, Facebook, Twitter, Globe } from 'lucide-react'
 import { Btn, Logo } from '../ui'
 import { cn } from '../../lib/utils'
 import { useApp } from '../../context/AppContext'
@@ -20,6 +20,7 @@ const MANAGE_ITEMS = [
   { icon: MessageSquare, label: 'Feedback', path: '/organizer/feedback' },
   { icon: FileText, label: 'Reports', path: '/organizer/reports' },
   { icon: ClipboardList, label: 'Checklists', path: '/organizer/templates' },
+  { icon: Building2, label: 'My Organizations', path: '/organizer/organizations' },
 ]
 
 // Single shell for the whole app - replaces the old PublicShell/OrgShell

@@ -9,7 +9,7 @@ import {
 import { Modal, Btn, Input, Select, Textarea, Toggle, Badge } from '../ui'
 import LocationPicker from '../shared/LocationPicker'
 import { createEvent, generateEventDescription, uploadEventImage } from '../../api/resources'
-import { useTaskTemplates } from '../../hooks/useApi'
+import { useTaskTemplates, useMyOrgs } from '../../hooks/useApi'
 import { cn, INDUSTRIES } from '../../lib/utils'
 
 const DEFAULT_FEEDBACK_QUESTIONS = [
@@ -23,7 +23,7 @@ const DEFAULT_FEEDBACK_QUESTIONS = [
 const blankForm = () => ({
   title: '', type: 'Meetup', description: '', venue: '', location: '', lat: null, lng: null,
   date: '', startTime: '', endTime: '',
-  organizedBy: '', industry: 'Technology', capacity: '50',
+  organizedBy: '', industry: 'Technology', capacity: '50', organizationId: '',
   image: '', pricing: 'free', price: '', allowWalkIns: true, isPrivate: false, requiresCertificate: false,
   feedbackEnabled: true, privacyPolicyUrl: '', taskTemplateId: '',
   socials: { instagram: '', linkedin: '', facebook: '', website: '' },
@@ -41,6 +41,8 @@ export default function CreateEventModal({ open, onClose, toast, onCreated }) {
   const navigate = useNavigate()
   const { data: templatesData } = useTaskTemplates()
   const templates = templatesData || []
+  const { data: orgsData } = useMyOrgs(open)
+  const orgs = orgsData || []
 
   const [form, setForm] = useState(blankForm)
   const [step, setStep] = useState(1)
@@ -51,6 +53,13 @@ export default function CreateEventModal({ open, onClose, toast, onCreated }) {
   const [errors, setErrors] = useState({})
 
   useEffect(() => { if (open) { setForm(blankForm()); setStep(1); setImgError(''); setErrors({}) } }, [open])
+
+  // Auto-pick the user's only org and hide the picker; a picker only
+  // appears once someone actually belongs to more than one.
+  useEffect(() => {
+    if (open && orgs.length === 1 && !form.organizationId) up('organizationId', String(orgs[0].id))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, orgs.length])
 
   const up = (k, v) => { setForm(f => ({ ...f, [k]: v })); setErrors(e => ({ ...e, [k]: undefined })) }
   const upSocial = (k, v) => setForm(f => ({ ...f, socials: { ...f.socials, [k]: v } }))
@@ -137,6 +146,7 @@ export default function CreateEventModal({ open, onClose, toast, onCreated }) {
         customFields: form.customFields.filter(f => f.label.trim()),
         tags: form.tags.split(',').map(t => t.trim()).filter(Boolean),
         taskTemplateId: form.taskTemplateId || null,
+        organizationId: form.organizationId || null,
         saveAsDraft,
       }
       const created = await createEvent(payload)
@@ -179,6 +189,9 @@ export default function CreateEventModal({ open, onClose, toast, onCreated }) {
         {step === 1 && (
           <div className="space-y-4">
             <Input label="Event Title" value={form.title} onChange={e => up('title', e.target.value)} placeholder="Founder Networking Night" error={errors.title} required />
+            {orgs.length > 1 && (
+              <Select label="Organization" value={form.organizationId} onChange={e => up('organizationId', e.target.value)} options={orgs.map(o => ({ value: String(o.id), label: o.name }))} />
+            )}
             <div className="grid grid-cols-2 gap-3">
               <Select label="Type" value={form.type} onChange={e => up('type', e.target.value)} options={['Meetup', 'Conference', 'Workshop', 'Seminar', 'Networking', 'Training'].map(v => ({ value: v, label: v }))} />
               <Select label="Industry" value={form.industry} onChange={e => up('industry', e.target.value)} options={INDUSTRIES.map(v => ({ value: v, label: v }))} />

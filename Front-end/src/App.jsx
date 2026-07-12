@@ -27,6 +27,7 @@ import EditEvent from './pages/admin/EditEvent'
 import AdminFeedback from './pages/admin/Feedback'
 import Reports from './pages/admin/Reports'
 import Templates from './pages/admin/Templates'
+import Organizations from './pages/admin/Organizations'
 import Profile from './pages/admin/Profile'
 import Approvals from './pages/admin/Approvals'
 
@@ -101,6 +102,7 @@ function AppRoutes() {
             <Route path="feedback" element={<AdminFeedback />} />
             <Route path="reports" element={<Reports />} />
             <Route path="templates" element={<Templates />} />
+            <Route path="organizations" element={<Organizations />} />
             <Route path="profile" element={<Profile />} />
             <Route path="approvals" element={<Approvals />} />
           </Route>
