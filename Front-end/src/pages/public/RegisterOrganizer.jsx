@@ -9,7 +9,7 @@ export default function RegisterOrganizer() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const { createAccount, addToast } = useApp()
-  const [form, setForm] = useState({ organization: '', name: '', email: '', password: '', passwordConfirmation: '', institution: '' })
+  const [form, setForm] = useState({ organization: '', name: '', email: '', emailConfirmation: '', password: '', passwordConfirmation: '', institution: '' })
   const [errors, setErrors] = useState({})
   const [loading, setLoading] = useState(false)
 
@@ -17,6 +17,10 @@ export default function RegisterOrganizer() {
 
   const submit = async (e) => {
     e.preventDefault()
+    if (form.email.trim().toLowerCase() !== form.emailConfirmation.trim().toLowerCase()) {
+      setErrors({ emailConfirmation: ['Emails do not match'] })
+      return
+    }
     if (form.password !== form.passwordConfirmation) {
       setErrors({ password: ['Passwords do not match'] })
       return
@@ -44,6 +48,7 @@ export default function RegisterOrganizer() {
           <Input label="Organization Name" icon={Building2} value={form.organization} onChange={set('organization')} placeholder="e.g. Acme Student Council" error={errors.organization?.[0]} required />
           <Input label="Your Name" icon={User} value={form.name} onChange={set('name')} placeholder="Full name" error={errors.name?.[0]} required />
           <Input label="Email" type="email" icon={Mail} value={form.email} onChange={set('email')} placeholder="you@organization.com" error={errors.email?.[0]} required />
+          <Input label="Confirm Email" type="email" icon={Mail} value={form.emailConfirmation} onChange={set('emailConfirmation')} placeholder="you@organization.com" error={errors.emailConfirmation?.[0]} required />
           <Input label="Password" type="password" icon={Lock} value={form.password} onChange={set('password')} placeholder="••••••••" error={errors.password?.[0]} required />
           {form.password && <PasswordChecklist password={form.password} />}
           <Input label="Confirm Password" type="password" icon={Lock} value={form.passwordConfirmation} onChange={set('passwordConfirmation')} placeholder="••••••••" required />

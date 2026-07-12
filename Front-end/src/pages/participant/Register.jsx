@@ -116,6 +116,10 @@ export default function Register() {
 
   const submitAccount = async (e) => {
     e.preventDefault()
+    if (accountMode === 'create' && accountForm.email.trim().toLowerCase() !== (accountForm.emailConfirmation || '').trim().toLowerCase()) {
+      setAccountErrors({ emailConfirmation: ['Emails do not match'] })
+      return
+    }
     if (accountMode === 'create' && accountForm.password !== accountForm.passwordConfirmation) {
       setAccountErrors({ password: ['Passwords do not match'] })
       return
@@ -209,6 +213,9 @@ export default function Register() {
             <p className="text-[12px] text-slate-500 -mt-1">{accountMode === 'create' ? "You'll use this account for your QR pass, and to register for other events." : 'Log in to register with your existing account.'}</p>
             {accountMode === 'create' && <Input label="Full Name" value={accountForm.name} onChange={setAccountField('name')} icon={User} placeholder="Juan Dela Cruz" error={accountErrors.name?.[0]} required />}
             <Input label="Email" type="email" value={accountForm.email} onChange={setAccountField('email')} icon={Mail} placeholder="juan@email.com" error={accountErrors.email?.[0]} required />
+            {accountMode === 'create' && (
+              <Input label="Confirm Email" type="email" value={accountForm.emailConfirmation || ''} onChange={setAccountField('emailConfirmation')} icon={Mail} placeholder="juan@email.com" error={accountErrors.emailConfirmation?.[0]} required />
+            )}
             <Input label="Password" type="password" value={accountForm.password} onChange={setAccountField('password')} icon={Lock} placeholder="••••••••" error={accountErrors.password?.[0]} required />
             {accountMode === 'create' && accountForm.password && <PasswordChecklist password={accountForm.password} />}
             {accountMode === 'create' && (
