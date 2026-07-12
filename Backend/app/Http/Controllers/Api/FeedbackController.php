@@ -91,11 +91,12 @@ class FeedbackController extends Controller
             $query->where('event_id', $data['event_id']);
         }
 
-        // Scoped to events the requester owns unless they're an admin -
-        // previously any authenticated account could see feedback for any
-        // event, including other organizers' events.
+        // Scoped to events belonging to any organization the requester is a
+        // member of, unless they're an admin - see EventController::adminIndex
+        // for the same pattern/reasoning.
         if (! $request->user()->isAdmin()) {
-            $ownedEventIds = Event::where(fn ($q) => $q->where('user_id', $request->user()->id)->orWhereNull('user_id'))->pluck('id');
+            $orgIds = $request->user()->organizations()->pluck('organizations.id');
+            $ownedEventIds = Event::where(fn ($q) => $q->whereIn('organization_id', $orgIds)->orWhereNull('organization_id'))->pluck('id');
             $query->whereIn('event_id', $ownedEventIds);
         }
 

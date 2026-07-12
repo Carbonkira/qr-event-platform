@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Event;
+use App\Models\Organization;
 use App\Models\Registration;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -81,12 +82,16 @@ class FeedbackTest extends TestCase
     {
         $owner = User::create(['name' => 'Owner', 'email' => 'owner@example.com', 'password' => bcrypt('password123')]);
         $stranger = User::create(['name' => 'Stranger', 'email' => 'stranger@example.com', 'password' => bcrypt('password123')]);
+        $ownerOrg = Organization::create(['name' => "Owner's Org", 'slug' => 'owners-org-'.uniqid()]);
+        $ownerOrg->members()->attach($owner->id, ['role' => 'owner']);
+        $strangerOrg = Organization::create(['name' => "Stranger's Org", 'slug' => 'strangers-org-'.uniqid()]);
+        $strangerOrg->members()->attach($stranger->id, ['role' => 'owner']);
 
-        $ownedEvent = Event::create(['title' => 'Owned', 'status' => 'approved', 'slug' => 'owned-'.uniqid(), 'user_id' => $owner->id]);
+        $ownedEvent = Event::create(['title' => 'Owned', 'status' => 'approved', 'slug' => 'owned-'.uniqid(), 'user_id' => $owner->id, 'organization_id' => $ownerOrg->id]);
         $ownedReg = $ownedEvent->registrations()->create(['name' => 'A', 'email' => 'a@example.com', 'qr_code' => 'QR-A']);
         $ownedEvent->feedback()->create(['registration_id' => $ownedReg->id, 'q1' => 5, 'q2' => 5, 'q3' => 5, 'q4' => 5, 'q5' => 5]);
 
-        $othersEvent = Event::create(['title' => 'Others', 'status' => 'approved', 'slug' => 'others-'.uniqid(), 'user_id' => $stranger->id]);
+        $othersEvent = Event::create(['title' => 'Others', 'status' => 'approved', 'slug' => 'others-'.uniqid(), 'user_id' => $stranger->id, 'organization_id' => $strangerOrg->id]);
         $othersReg = $othersEvent->registrations()->create(['name' => 'B', 'email' => 'b@example.com', 'qr_code' => 'QR-B']);
         $othersEvent->feedback()->create(['registration_id' => $othersReg->id, 'q1' => 3, 'q2' => 3, 'q3' => 3, 'q4' => 3, 'q5' => 3]);
 

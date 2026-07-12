@@ -23,13 +23,15 @@ class FeedbackSummaryController extends Controller
      */
     public function generate(Request $request, Event $event)
     {
-        // Previously open to any authenticated account - matches the
-        // ownership check EventController uses for edit/delete (null owner =
+        // Matches EventController::authorizeOrgMember - any member of the
+        // event's organization can view its summary (null organization_id =
         // legacy event, stays open to anyone; admins bypass entirely).
         abort_if(
-            ! $request->user()->isAdmin() && $event->user_id !== null && $event->user_id !== $request->user()->id,
+            ! $request->user()->isAdmin()
+                && $event->organization_id !== null
+                && ! $request->user()->organizations()->where('organizations.id', $event->organization_id)->exists(),
             403,
-            'Only the organizer who created this event can view its feedback summary.'
+            'Only a member of this event\'s organization can view its feedback summary.'
         );
 
         $refresh = $request->boolean('refresh');

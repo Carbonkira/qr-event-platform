@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Event;
+use App\Models\Organization;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
@@ -22,12 +23,22 @@ class EventTest extends TestCase
         return $user;
     }
 
+    private function makeOrganization(User $owner): Organization
+    {
+        $org = Organization::create(['name' => "{$owner->name}'s Org", 'slug' => 'org-'.uniqid()]);
+        $org->members()->attach($owner->id, ['role' => 'owner']);
+
+        return $org;
+    }
+
     public function test_admin_index_only_shows_events_the_organizer_owns(): void
     {
         $owner = $this->makeUser('owner@example.com');
         $stranger = $this->makeUser('stranger@example.com');
-        Event::create(['title' => 'Mine', 'status' => 'approved', 'slug' => 'mine-'.uniqid(), 'user_id' => $owner->id]);
-        Event::create(['title' => 'Theirs', 'status' => 'approved', 'slug' => 'theirs-'.uniqid(), 'user_id' => $stranger->id]);
+        $ownerOrg = $this->makeOrganization($owner);
+        $strangerOrg = $this->makeOrganization($stranger);
+        Event::create(['title' => 'Mine', 'status' => 'approved', 'slug' => 'mine-'.uniqid(), 'user_id' => $owner->id, 'organization_id' => $ownerOrg->id]);
+        Event::create(['title' => 'Theirs', 'status' => 'approved', 'slug' => 'theirs-'.uniqid(), 'user_id' => $stranger->id, 'organization_id' => $strangerOrg->id]);
         Event::create(['title' => 'Legacy', 'status' => 'approved', 'slug' => 'legacy-'.uniqid(), 'user_id' => null]);
 
         Sanctum::actingAs($owner);
@@ -41,7 +52,8 @@ class EventTest extends TestCase
         $admin = $this->makeUser('admin@example.com');
         $admin->forceFill(['role' => 'admin'])->save();
         $owner = $this->makeUser('owner@example.com');
-        Event::create(['title' => 'Mine', 'status' => 'approved', 'slug' => 'mine-'.uniqid(), 'user_id' => $owner->id]);
+        $org = $this->makeOrganization($owner);
+        Event::create(['title' => 'Mine', 'status' => 'approved', 'slug' => 'mine-'.uniqid(), 'user_id' => $owner->id, 'organization_id' => $org->id]);
 
         Sanctum::actingAs($admin);
         $this->getJson('/api/admin/events')->assertOk()->assertJsonCount(1);
@@ -125,7 +137,8 @@ class EventTest extends TestCase
     {
         $owner = $this->makeUser('owner@example.com');
         $stranger = $this->makeUser('stranger@example.com');
-        $event = Event::create(['title' => 'Owned Event', 'status' => 'pending', 'user_id' => $owner->id, 'slug' => 'owned-event', 'capacity' => 10]);
+        $org = $this->makeOrganization($owner);
+        $event = Event::create(['title' => 'Owned Event', 'status' => 'pending', 'user_id' => $owner->id, 'organization_id' => $org->id, 'slug' => 'owned-event', 'capacity' => 10]);
 
         Sanctum::actingAs($stranger);
         $this->putJson("/api/events/{$event->id}", ['capacity' => 999])->assertForbidden();
@@ -136,11 +149,25 @@ class EventTest extends TestCase
         $this->assertSame(999, $event->fresh()->capacity);
     }
 
+    public function test_a_co_member_who_did_not_create_the_event_can_still_edit_it(): void
+    {
+        $creator = $this->makeUser('creator@example.com');
+        $coMember = $this->makeUser('comember@example.com');
+        $org = $this->makeOrganization($creator);
+        $org->members()->attach($coMember->id, ['role' => 'member']);
+        $event = Event::create(['title' => 'Club Event', 'status' => 'pending', 'user_id' => $creator->id, 'organization_id' => $org->id, 'slug' => 'club-event', 'capacity' => 10]);
+
+        Sanctum::actingAs($coMember);
+        $this->putJson("/api/events/{$event->id}", ['capacity' => 50])->assertOk();
+        $this->assertSame(50, $event->fresh()->capacity);
+    }
+
     public function test_only_the_owner_can_delete_an_event(): void
     {
         $owner = $this->makeUser('owner@example.com');
         $stranger = $this->makeUser('stranger@example.com');
-        $event = Event::create(['title' => 'Owned Event', 'status' => 'pending', 'user_id' => $owner->id, 'slug' => 'owned-event']);
+        $org = $this->makeOrganization($owner);
+        $event = Event::create(['title' => 'Owned Event', 'status' => 'pending', 'user_id' => $owner->id, 'organization_id' => $org->id, 'slug' => 'owned-event']);
 
         Sanctum::actingAs($stranger);
         $this->deleteJson("/api/events/{$event->id}")->assertForbidden();
@@ -185,7 +212,8 @@ class EventTest extends TestCase
     {
         $owner = $this->makeUser('owner@example.com');
         $stranger = $this->makeUser('stranger@example.com');
-        $event = Event::create(['title' => 'Owned Event', 'status' => 'approved', 'user_id' => $owner->id, 'slug' => 'owned-event']);
+        $org = $this->makeOrganization($owner);
+        $event = Event::create(['title' => 'Owned Event', 'status' => 'approved', 'user_id' => $owner->id, 'organization_id' => $org->id, 'slug' => 'owned-event']);
 
         Sanctum::actingAs($stranger);
         $this->postJson("/api/events/{$event->id}/complete")->assertForbidden();

@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Event;
+use App\Models\Organization;
 use App\Models\Registration;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -87,8 +88,10 @@ class FeedbackSummaryTest extends TestCase
     public function test_a_stranger_cannot_view_someone_elses_feedback_summary(): void
     {
         $owner = User::create(['name' => 'Owner', 'email' => 'owner@example.com', 'password' => bcrypt('password123')]);
+        $org = Organization::create(['name' => "Owner's Org", 'slug' => 'owners-org-'.uniqid()]);
+        $org->members()->attach($owner->id, ['role' => 'owner']);
         $event = Event::create([
-            'title' => 'Owned Event', 'status' => 'approved', 'slug' => 'owned-event-'.uniqid(), 'user_id' => $owner->id,
+            'title' => 'Owned Event', 'status' => 'approved', 'slug' => 'owned-event-'.uniqid(), 'user_id' => $owner->id, 'organization_id' => $org->id,
             'type' => 'Meetup', 'venue' => 'Venue', 'date' => '2026-08-01',
             'start_time' => '10:00', 'end_time' => '12:00', 'capacity' => 50,
         ]);

@@ -72,9 +72,13 @@ class EventController extends Controller
         $query = Event::with('tasks')->orderByDesc('created_at');
 
         if (! $request->user()->isAdmin()) {
-            // Legacy events with no owner stay visible to everyone, matching
-            // authorizeOwner()'s existing "editable by anyone" fallback below.
-            $query->where(fn ($q) => $q->where('user_id', $request->user()->id)->orWhereNull('user_id'));
+            // Scoped to events belonging to any organization the requester
+            // is a member of - not just events they personally created, now
+            // that organizations are real multi-member teams. Legacy events
+            // with no organization stay visible to everyone, matching
+            // authorizeOrgMember()'s "editable by anyone" fallback.
+            $orgIds = $request->user()->organizations()->pluck('organizations.id');
+            $query->where(fn ($q) => $q->whereIn('organization_id', $orgIds)->orWhereNull('organization_id'));
         }
 
         return response()->json($query->get());
@@ -163,6 +167,24 @@ class EventController extends Controller
         $data['status'] = $saveAsDraft ? 'draft' : 'pending';
         $data['user_id'] = $request->user()->id;
 
+        // organization_id is optional here rather than required: the
+        // frontend org picker (needed once someone belongs to more than
+        // one) ships in a later phase, so for now this defaults to the
+        // requester's only/first organization - explicit membership is
+        // still checked if one was actually passed, so nobody can assign
+        // their event to an organization they don't belong to.
+        $requestedOrgId = $request->input('organization_id');
+        if ($requestedOrgId) {
+            abort_unless(
+                $request->user()->organizations()->where('organizations.id', $requestedOrgId)->exists(),
+                403,
+                'You are not a member of that organization.'
+            );
+            $data['organization_id'] = $requestedOrgId;
+        } else {
+            $data['organization_id'] = $request->user()->organizations()->value('organizations.id');
+        }
+
         if ($data['is_private'] ?? false) {
             $data['private_link'] = $data['private_link'] ?? Str::random(16);
         } else {
@@ -186,7 +208,7 @@ class EventController extends Controller
 
     public function update(Request $request, Event $event)
     {
-        $this->authorizeOwner($request, $event);
+        $this->authorizeOrgMember($request, $event);
 
         $data = $this->validated($request, sometimes: true);
 
@@ -211,7 +233,7 @@ class EventController extends Controller
 
     public function destroy(Request $request, Event $event)
     {
-        $this->authorizeOwner($request, $event);
+        $this->authorizeOrgMember($request, $event);
 
         $event->delete();
 
@@ -244,7 +266,7 @@ class EventController extends Controller
      */
     public function submit(Request $request, Event $event)
     {
-        $this->authorizeOwner($request, $event);
+        $this->authorizeOrgMember($request, $event);
 
         abort_unless($event->status === 'draft', 422, 'Only draft events can be submitted.');
 
@@ -278,7 +300,7 @@ class EventController extends Controller
      */
     public function complete(Request $request, Event $event)
     {
-        $this->authorizeOwner($request, $event);
+        $this->authorizeOrgMember($request, $event);
 
         abort_unless($event->status === 'approved', 422, 'Only approved events can be marked completed.');
 
@@ -300,6 +322,11 @@ class EventController extends Controller
         $copy->status = 'draft';
         $copy->private_link = $event->is_private ? Str::random(16) : null;
         $copy->user_id = $request->user()->id;
+        // Anyone can duplicate anyone else's event (it becomes their own new
+        // draft) - replicate() would otherwise carry over the *original*
+        // event's organization_id even if the duplicator isn't a member of
+        // it, so this is deliberately re-derived from the duplicator instead.
+        $copy->organization_id = $request->user()->organizations()->value('organizations.id');
         $copy->save();
 
         foreach ($event->tasks as $task) {
@@ -330,18 +357,19 @@ class EventController extends Controller
     }
 
     /**
-     * Only the organizer who created an event can edit, delete, or submit
-     * it - unlike guest-list/check-in operations, which stay open to any
-     * organizer (shared front-desk tasks). Events with no owner (legacy rows
-     * from before this existed) stay editable by anyone rather than
-     * becoming permanently locked.
+     * Any member (owner or member role) of an event's organization can edit,
+     * delete, or submit it - not just whoever originally created it, since a
+     * co-officer in the same club should be able to pick up a teammate's
+     * event. Events with no organization (legacy rows from before this
+     * existed) stay editable by anyone rather than becoming permanently locked.
      */
-    private function authorizeOwner(Request $request, Event $event): void
+    private function authorizeOrgMember(Request $request, Event $event): void
     {
         abort_if(
-            $event->user_id !== null && $event->user_id !== $request->user()->id,
+            $event->organization_id !== null
+                && ! $request->user()->organizations()->where('organizations.id', $event->organization_id)->exists(),
             403,
-            'Only the organizer who created this event can do that.'
+            'Only a member of this event\'s organization can do that.'
         );
     }
 

@@ -13,15 +13,16 @@ class AnalyticsController extends Controller
     /**
      * Mirrors the mock's getAnalytics() shape exactly (App.jsx:127-131),
      * including its camelCase keys, so the ported frontend can consume it
-     * without remapping. Scoped to events the requester owns unless they're
-     * an admin - previously every count here was global, so any account
-     * (including a pure attendee) saw every other organizer's numbers,
-     * including "pendingApprovals" for events that weren't theirs.
+     * without remapping. Scoped to events belonging to any organization the
+     * requester is a member of, unless they're an admin - previously this
+     * scoped to "events I personally created," which under-counted a
+     * co-officer's own club's events once organizations became real teams.
      */
     public function index(Request $request)
     {
         $isAdmin = $request->user()->isAdmin();
-        $ownedEventIds = Event::where(fn ($q) => $q->where('user_id', $request->user()->id)->orWhereNull('user_id'))->pluck('id');
+        $orgIds = $request->user()->organizations()->pluck('organizations.id');
+        $ownedEventIds = Event::where(fn ($q) => $q->whereIn('organization_id', $orgIds)->orWhereNull('organization_id'))->pluck('id');
 
         $registrations = Registration::query();
         $feedback = Feedback::query();
