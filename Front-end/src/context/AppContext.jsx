@@ -60,6 +60,19 @@ export function AppProvider({ children }) {
     return () => window.removeEventListener('auth:session-revoked', onSessionRevoked)
   }, [])
 
+  // The browser's back-forward cache can restore a page as a frozen
+  // snapshot of exactly how it looked before you navigated away, without
+  // re-running any app logic - e.g. changing your email in Profile, then
+  // hitting Back to an earlier page, could briefly still show the old
+  // email even though the account was genuinely updated. event.persisted
+  // is how the browser tells us this was a bfcache restore, not a normal
+  // mount, so pull the real account state fresh when it happens.
+  useEffect(() => {
+    const onPageShow = (event) => { if (event.persisted && getToken()) api.me().then(setUser).catch(() => {}) }
+    window.addEventListener('pageshow', onPageShow)
+    return () => window.removeEventListener('pageshow', onPageShow)
+  }, [])
+
   const login = useCallback(async (email, password) => {
     const u = await api.login(email, password)
     setUser(u)

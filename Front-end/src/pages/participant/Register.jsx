@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { ArrowLeft, User, Mail, Lock, Receipt, Ticket, Award, Send, Clock3, Upload, ImageDown, X, UserPlus, LogIn, MailCheck, RefreshCw } from 'lucide-react'
+import { ArrowLeft, User, Mail, Lock, Receipt, Ticket, Award, Send, Clock3, Upload, ImageDown, X, UserPlus, LogIn, MailCheck, RefreshCw, Pencil } from 'lucide-react'
 import { Btn, Input, Toggle, Card } from '../../components/ui'
 import PasswordChecklist from '../../components/shared/PasswordChecklist'
 import { useEvent } from '../../hooks/useApi'
@@ -15,7 +15,7 @@ export default function Register() {
   const [searchParams] = useSearchParams()
   const isWalkIn = searchParams.get('walkIn') === '1'
   const navigate = useNavigate()
-  const { user, authReady, login, createAccount, refreshUser, resendVerificationEmail, addToast } = useApp()
+  const { user, authReady, login, createAccount, refreshUser, resendVerificationEmail, updateProfile, addToast } = useApp()
   const { data: event, loading } = useEvent(slug)
 
   // Registering for an event doubles as creating an account (see
@@ -31,6 +31,9 @@ export default function Register() {
   const [accountLoading, setAccountLoading] = useState(false)
   const [resending, setResending] = useState(false)
   const [checkingVerified, setCheckingVerified] = useState(false)
+  const [editingEmail, setEditingEmail] = useState(false)
+  const [correctedEmail, setCorrectedEmail] = useState('')
+  const [savingEmail, setSavingEmail] = useState(false)
 
   const [form, setForm] = useState({ name: '', email: '', customData: {}, needsCertificate: false })
   const [paymentRef, setPaymentRef] = useState('')
@@ -53,6 +56,26 @@ export default function Register() {
     try { await resendVerificationEmail(); addToast('Verification email sent!', 'success') }
     catch (err) { addToast(err.message || 'Could not resend right now', 'error') }
     finally { setResending(false) }
+  }
+
+  // Typo'd the email at account creation and stuck on this screen with no
+  // way back? Fix it right here - updateProfile already resets
+  // verification and sends a fresh link to the corrected address, the
+  // same as changing it from Profile, just without leaving the flow.
+  const startEditingEmail = () => { setCorrectedEmail(user?.email || ''); setEditingEmail(true) }
+  const saveCorrectedEmail = async (e) => {
+    e.preventDefault()
+    if (!correctedEmail.trim()) return
+    setSavingEmail(true)
+    try {
+      await updateProfile({ email: correctedEmail.trim() })
+      addToast('Email updated - check your inbox for a new verification link', 'success')
+      setEditingEmail(false)
+    } catch (err) {
+      addToast(err.message || 'Could not update your email', 'error')
+    } finally {
+      setSavingEmail(false)
+    }
   }
 
   const checkVerified = async () => {
@@ -199,11 +222,29 @@ export default function Register() {
           <div className="text-center py-2">
             <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-4"><MailCheck size={26} className="text-[#1a1a2e]" /></div>
             <h3 className="font-bold text-[16px] mb-1">Check your inbox</h3>
-            <p className="text-[13px] text-slate-500 mb-6">We sent a verification link to <b className="text-slate-700">{user?.email}</b>. Click it, then continue below.</p>
-            <div className="space-y-2">
-              <Btn variant="accent" size="lg" full loading={checkingVerified} onClick={checkVerified}>I've verified — Continue</Btn>
-              <Btn variant="secondary" size="lg" full icon={RefreshCw} loading={resending} onClick={resend}>Resend email</Btn>
-            </div>
+
+            {editingEmail ? (
+              <form onSubmit={saveCorrectedEmail} className="text-left mb-6">
+                <p className="text-[13px] text-slate-500 mb-3 text-center">Fix your email and we'll send a new link.</p>
+                <Input label="Email" type="email" value={correctedEmail} onChange={e => setCorrectedEmail(e.target.value)} icon={Mail} placeholder="juan@email.com" required />
+                <div className="flex gap-2 mt-3">
+                  <Btn type="button" variant="secondary" size="md" full onClick={() => setEditingEmail(false)}>Cancel</Btn>
+                  <Btn type="submit" variant="accent" size="md" full loading={savingEmail}>Save & resend</Btn>
+                </div>
+              </form>
+            ) : (
+              <p className="text-[13px] text-slate-500 mb-2">We sent a verification link to <b className="text-slate-700">{user?.email}</b>. Click it, then continue below.</p>
+            )}
+
+            {!editingEmail && (
+              <>
+                <button type="button" onClick={startEditingEmail} className="inline-flex items-center gap-1 text-[12px] font-semibold text-[#1a1a2e] hover:text-[#e94560] mb-6"><Pencil size={11} />Wrong email? Fix it</button>
+                <div className="space-y-2">
+                  <Btn variant="accent" size="lg" full loading={checkingVerified} onClick={checkVerified}>I've verified — Continue</Btn>
+                  <Btn variant="secondary" size="lg" full icon={RefreshCw} loading={resending} onClick={resend}>Resend email</Btn>
+                </div>
+              </>
+            )}
           </div>
         )}
 
