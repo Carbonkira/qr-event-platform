@@ -6,8 +6,7 @@ import {
 import { Btn, Card, Badge, PriceTag } from '../../components/ui'
 import EventMap from '../../components/shared/EventMap'
 import { useApp } from '../../context/AppContext'
-import { useEvent, useAsync } from '../../hooks/useApi'
-import { getRegistrations } from '../../api/resources'
+import { useEvent } from '../../hooks/useApi'
 import { fmtDateLong, fmtTime, monthDay, downloadICS, googleCalUrl, shareEvent } from '../../lib/utils'
 
 const SOC = [['instagram', Instagram], ['linkedin', Linkedin], ['facebook', Facebook], ['twitter', Twitter], ['website', Globe]]
@@ -18,8 +17,11 @@ export default function EventDetail() {
   const navigate = useNavigate()
   const { addToast: toast } = useApp()
   const { data: event, loading } = useEvent(slug)
-  const { data: regsData } = useAsync(() => (event ? getRegistrations(event.id) : Promise.resolve([])), [event?.id])
-  const regs = regsData || []
+  // Was fetching /events/:id/registrations for a count - that endpoint is
+  // organizer-only, so an anonymous or non-organizer visitor silently got
+  // 0 back regardless of real attendance. The event itself now carries its
+  // own confirmed-registration count (see EventController::show).
+  const registeredCount = event?.registrationsCount ?? 0
 
   if (loading) return <div className="text-center py-20 text-slate-400 text-[13px]">Loading event…</div>
   if (!event) return <div className="text-center py-20 text-slate-500">Event not found.</div>
@@ -38,7 +40,7 @@ export default function EventDetail() {
     )
   }
 
-  const isFull = regs.length >= event.capacity
+  const isFull = registeredCount >= event.capacity
   const isPast = event.status === 'completed' || new Date(event.date) < new Date(new Date().toDateString())
 
   return (
@@ -109,8 +111,8 @@ export default function EventDetail() {
                   {event.pricing === 'paid' ? <span className="text-xl font-extrabold">₱{event.price}</span> : <span className="text-[15px] font-bold text-emerald-600">Free</span>}
                 </div>
                 <div className="mb-4">
-                  <div className="flex justify-between text-[11px] mb-1.5"><span className="text-slate-500">{regs.length} registered</span><span className="font-semibold">{event.capacity} cap</span></div>
-                  <div className="h-1.5 rounded-full bg-slate-100"><div className="h-full rounded-full bg-[#1a1a2e] transition-all" style={{ width: `${Math.min(100, (regs.length / event.capacity) * 100)}%` }} /></div>
+                  <div className="flex justify-between text-[11px] mb-1.5"><span className="text-slate-500">{registeredCount} registered</span><span className="font-semibold">{event.capacity} cap</span></div>
+                  <div className="h-1.5 rounded-full bg-slate-100"><div className="h-full rounded-full bg-[#1a1a2e] transition-all" style={{ width: `${Math.min(100, (registeredCount / event.capacity) * 100)}%` }} /></div>
                 </div>
                 {isFull ? <div className="text-center py-2 rounded-xl bg-amber-50 text-amber-700 text-[13px] font-semibold">Event is full</div> : (
                   <div className="space-y-2">

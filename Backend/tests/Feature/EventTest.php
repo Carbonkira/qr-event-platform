@@ -86,6 +86,20 @@ class EventTest extends TestCase
         $this->getJson('/api/events?lat=999&lng=999')->assertStatus(422);
     }
 
+    public function test_public_listing_and_show_report_a_real_going_count_excluding_waitlist(): void
+    {
+        $event = Event::create(['title' => 'Some Event', 'status' => 'approved', 'is_private' => false, 'slug' => 'some-event', 'capacity' => 10]);
+        $event->registrations()->create(['name' => 'A', 'email' => 'a@example.com', 'qr_code' => 'QR-A']);
+        $event->registrations()->create(['name' => 'B', 'email' => 'b@example.com', 'qr_code' => 'QR-B']);
+        $event->registrations()->create(['name' => 'C', 'email' => 'c@example.com', 'qr_code' => 'QR-C', 'waitlisted' => true]);
+
+        $list = $this->getJson('/api/events')->assertOk();
+        $this->assertSame(2, $list->json('0.registrationsCount'));
+
+        $show = $this->getJson('/api/events/some-event')->assertOk();
+        $this->assertSame(2, $show->json('registrationsCount'));
+    }
+
     public function test_an_unverified_account_cannot_create_an_event(): void
     {
         $unverified = User::create(['name' => 'Unverified', 'email' => 'unverified@example.com', 'password' => bcrypt('password123')]);

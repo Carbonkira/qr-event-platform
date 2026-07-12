@@ -135,7 +135,7 @@ function EventRow({ event }) {
           <div className="mt-2 space-y-1">
             <p className="text-[12px] text-slate-500 flex items-center gap-1.5"><Clock size={12} />{fmtTime(event.startTime)} – {fmtTime(event.endTime)}</p>
             <p className="text-[12px] text-slate-500 flex items-center gap-1.5"><MapPin size={12} />{event.venue}{event.distanceKm != null && <span className="text-[#0f9d8f] font-semibold"> · {event.distanceKm} km away</span>}</p>
-            <p className="text-[12px] text-slate-400 flex items-center gap-1.5"><Users size={12} />{event.registrations_count ?? 0} going · by {event.organizedBy}</p>
+            <p className="text-[12px] text-slate-400 flex items-center gap-1.5"><Users size={12} />{event.registrationsCount ?? 0} going · by {event.organizedBy}</p>
           </div>
         </div>
         <div className="w-28 sm:w-36 flex-shrink-0 rounded-xl overflow-hidden bg-slate-100 self-stretch min-h-[96px]">

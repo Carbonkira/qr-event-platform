@@ -30,8 +30,12 @@ class EventController extends Controller
             'lng' => ['sometimes', 'nullable', 'numeric', 'between:-180,180'],
         ]);
 
+        // "Going" on the public listing - confirmed (non-waitlisted)
+        // registrants only, matching what the capacity bar/isFull check
+        // on the event detail page mean by "registered".
         $events = Event::where('status', 'approved')
             ->where('is_private', false)
+            ->withCount(['registrations' => fn ($q) => $q->where('waitlisted', false)])
             ->orderByDesc('created_at')
             ->get();
 
@@ -94,7 +98,9 @@ class EventController extends Controller
      */
     public function show(string $slug)
     {
-        $event = Event::with(['tasks', 'organization:id,name,slug,logo,email'])->where('slug', $slug)->firstOrFail();
+        $event = Event::with(['tasks', 'organization:id,name,slug,logo,email'])
+            ->withCount(['registrations' => fn ($q) => $q->where('waitlisted', false)])
+            ->where('slug', $slug)->firstOrFail();
 
         return response()->json($event);
     }
