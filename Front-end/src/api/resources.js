@@ -24,6 +24,10 @@ export function forgotPassword(email) {
 export function resetPassword(payload) {
   return api.post('/auth/reset-password', payload)
 }
+export async function validateResetToken(email, token) {
+  const { valid } = await api.post('/auth/reset-password/validate', { email, token })
+  return valid
+}
 export async function logout() {
   try { await api.post('/auth/logout') } finally { setToken(null) }
 }

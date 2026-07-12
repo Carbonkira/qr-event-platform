@@ -232,6 +232,27 @@ class AuthTest extends TestCase
         $this->assertCount(0, $user->fresh()->tokens);
     }
 
+    public function test_validate_reset_token_confirms_a_real_unused_token(): void
+    {
+        $user = User::create(['name' => 'Test User', 'email' => 'test@example.com', 'password' => bcrypt('password123')]);
+        $resetToken = Password::broker()->createToken($user);
+
+        $this->postJson('/api/auth/reset-password/validate', ['email' => 'test@example.com', 'token' => $resetToken])
+            ->assertOk()->assertJson(['valid' => true]);
+    }
+
+    public function test_validate_reset_token_rejects_a_wrong_token_or_unregistered_email(): void
+    {
+        $user = User::create(['name' => 'Test User', 'email' => 'test@example.com', 'password' => bcrypt('password123')]);
+        Password::broker()->createToken($user);
+
+        $this->postJson('/api/auth/reset-password/validate', ['email' => 'test@example.com', 'token' => 'made-up-token'])
+            ->assertOk()->assertJson(['valid' => false]);
+
+        $this->postJson('/api/auth/reset-password/validate', ['email' => 'nobody@example.com', 'token' => 'whatever'])
+            ->assertOk()->assertJson(['valid' => false]);
+    }
+
     public function test_update_profile_requires_authentication(): void
     {
         $this->putJson('/api/auth/me', ['name' => 'New Name'])->assertUnauthorized();

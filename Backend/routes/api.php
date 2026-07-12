@@ -28,6 +28,7 @@ Route::middleware('throttle:10,1')->group(function () {
     Route::post('/auth/register', [AuthController::class, 'register']);
     Route::post('/auth/forgot-password', [AuthController::class, 'forgotPassword']);
     Route::post('/auth/reset-password', [AuthController::class, 'resetPassword']);
+    Route::post('/auth/reset-password/validate', [AuthController::class, 'validateResetToken']);
 });
 Route::get('/email/verify/{id}/{hash}', [AuthController::class, 'verify'])
     ->middleware('signed')

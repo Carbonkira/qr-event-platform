@@ -252,6 +252,25 @@ class AuthController extends Controller
         return response()->json(['message' => 'Reset link sent - check your inbox.']);
     }
 
+    /**
+     * Lets the reset-password page check a link before showing the "choose
+     * a new password" form, rather than rendering that form for whatever
+     * email/token happen to be in the URL - a stale, tampered, or made-up
+     * link would otherwise look identical to a real one until submitted.
+     */
+    public function validateResetToken(Request $request)
+    {
+        $data = $request->validate([
+            'email' => ['required', 'string', 'email'],
+            'token' => ['required', 'string'],
+        ]);
+
+        $user = User::where('email', $data['email'])->first();
+        $valid = $user && Password::broker()->tokenExists($user, $data['token']);
+
+        return response()->json(['valid' => $valid]);
+    }
+
     public function resetPassword(Request $request)
     {
         $data = $request->validate([

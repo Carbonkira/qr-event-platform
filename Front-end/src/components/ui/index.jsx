@@ -1,5 +1,5 @@
-import { useEffect } from 'react'
-import { AlertCircle, X, Star } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { AlertCircle, X, Star, Eye, EyeOff } from 'lucide-react'
 import { cn } from '../../lib/utils'
 
 // Shared UI primitives — extracted from the original App.jsx monolith
@@ -34,18 +34,27 @@ export const Btn = ({ children, onClick, variant = 'primary', size = 'md', icon:
   </button>
 }
 
-export const Input = ({ label, value, onChange, placeholder, type = 'text', icon: Icon, error, required, disabled, hint }) => (
-  <div>
-    {label && <label className="block text-[12px] font-semibold text-slate-600 mb-1.5">{label}{required && <span className="text-rose-500 ml-0.5">*</span>}</label>}
-    <div className="relative">
-      {Icon && <Icon size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />}
-      <input type={type} value={value} onChange={onChange} placeholder={placeholder} disabled={disabled}
-        className={cn('w-full rounded-xl border text-sm px-3.5 py-2.5 outline-none transition-all', Icon && 'pl-9', error ? 'border-rose-300 bg-rose-50' : 'border-slate-200 bg-white focus:border-[#1a1a2e] focus:ring-2 focus:ring-slate-100', disabled && 'opacity-60 bg-slate-50 cursor-not-allowed')} />
+export const Input = ({ label, value, onChange, placeholder, type = 'text', icon: Icon, error, required, disabled, hint }) => {
+  const [revealed, setRevealed] = useState(false)
+  const isPassword = type === 'password'
+  return (
+    <div>
+      {label && <label className="block text-[12px] font-semibold text-slate-600 mb-1.5">{label}{required && <span className="text-rose-500 ml-0.5">*</span>}</label>}
+      <div className="relative">
+        {Icon && <Icon size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />}
+        <input type={isPassword && revealed ? 'text' : type} value={value} onChange={onChange} placeholder={placeholder} disabled={disabled}
+          className={cn('w-full rounded-xl border text-sm px-3.5 py-2.5 outline-none transition-all', Icon && 'pl-9', isPassword && 'pr-9', error ? 'border-rose-300 bg-rose-50' : 'border-slate-200 bg-white focus:border-[#1a1a2e] focus:ring-2 focus:ring-slate-100', disabled && 'opacity-60 bg-slate-50 cursor-not-allowed')} />
+        {isPassword && (
+          <button type="button" onClick={() => setRevealed(r => !r)} tabIndex={-1} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+            {revealed ? <EyeOff size={15} /> : <Eye size={15} />}
+          </button>
+        )}
+      </div>
+      {hint && !error && <p className="text-[11px] text-slate-400 mt-1">{hint}</p>}
+      {error && <p className="text-[11px] text-rose-600 mt-1 flex items-center gap-1"><AlertCircle size={11} />{error}</p>}
     </div>
-    {hint && !error && <p className="text-[11px] text-slate-400 mt-1">{hint}</p>}
-    {error && <p className="text-[11px] text-rose-600 mt-1 flex items-center gap-1"><AlertCircle size={11} />{error}</p>}
-  </div>
-)
+  )
+}
 
 export const Select = ({ label, value, onChange, options, required }) => (
   <div>
