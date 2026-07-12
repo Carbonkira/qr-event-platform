@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * A real, multi-member organization - a user can belong to zero, one, or
  * several (see OrganizationMember). `slug` is nullable at the DB level only
  * for migration safety (backfilling pre-existing rows); every organization
- * created going forward always gets one (see OrganizationController::store()).
+ * created going forward always gets one (see OrgController::store()).
  */
 class Organization extends Model
 {

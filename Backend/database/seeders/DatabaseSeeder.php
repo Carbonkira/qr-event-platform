@@ -35,8 +35,9 @@ class DatabaseSeeder extends Seeder
         // directly instead.
         $admin->forceFill(['role' => 'admin'])->save();
 
-        // ─── Organization (single row - first insert into an empty table
-        // gets id=1, matching OrganizationController's singleton()) ──────
+        // ─── Organization (first insert into an empty table gets id=1 -
+        // BackfillOrganizations reassigns this specific row to the demo
+        // account rather than creating a duplicate) ──────────────────────
         Organization::create([
             'name' => 'TechHub Manila',
             'description' => 'A community of builders, designers, and founders hosting events across Metro Manila.',

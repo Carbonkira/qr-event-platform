@@ -1,20 +1,16 @@
 import { useEffect, useRef, useState, lazy, Suspense } from 'react'
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
-import { Plus, ChevronDown, LogOut, MailWarning, Hourglass, MessageSquare, FileText, ClipboardList, Building2, Users2, User as UserIcon, Instagram, Linkedin, Facebook, Twitter, Globe } from 'lucide-react'
+import { Plus, ChevronDown, LogOut, MailWarning, Hourglass, MessageSquare, FileText, ClipboardList, Building2, Users2, User as UserIcon } from 'lucide-react'
 import { Btn, Logo } from '../ui'
 import { cn } from '../../lib/utils'
 import { useApp } from '../../context/AppContext'
-import { useAdminEvents, useAnalytics, useOrganization, useConnections } from '../../hooks/useApi'
+import { useAdminEvents, useAnalytics, useConnections } from '../../hooks/useApi'
 
 // Lazy - AppShell renders on every route, and CreateEventModal pulls in
 // LocationPicker's Google Maps SDK. Loading it eagerly here meant every
 // anonymous visitor downloaded the Maps bundle just to browse events.
 // It's only ever needed once someone actually opens the modal.
 const CreateEventModal = lazy(() => import('../admin/CreateEventModal'))
-
-// Same social fields as the public event-detail page's SOC map - only
-// rendered when the organization has actually filled one in.
-const SOCIAL_ICONS = [['instagram', Instagram], ['linkedin', Linkedin], ['facebook', Facebook], ['twitter', Twitter], ['website', Globe]]
 
 // Org-wide tools that don't have a natural per-event home the way
 // Checklist/Guests/Scanner do - grouped behind the "Manage" dropdown,
@@ -41,7 +37,6 @@ export default function AppShell() {
   const { user, logout, addToast, resendVerificationEmail, place } = useApp()
   const { data: ownEvents } = useAdminEvents(!!user)
   const { data: analytics } = useAnalytics(!!user)
-  const { data: org } = useOrganization()
   const { data: connections } = useConnections(!!user)
   const incomingCount = connections?.incoming?.length || 0
   const [createOpen, setCreateOpen] = useState(false)
@@ -161,6 +156,7 @@ export default function AppShell() {
               <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wide mb-3">Discover</p>
               <div className="space-y-2">
                 <Link to="/" className="block text-[13px] text-slate-600 hover:text-[#e94560]">Explore events</Link>
+                <Link to="/organizations" className="block text-[13px] text-slate-600 hover:text-[#e94560]">Organizations</Link>
                 <Link to="/my-events" className="block text-[13px] text-slate-600 hover:text-[#e94560]">My events</Link>
                 <Link to="/find-pass" className="block text-[13px] text-slate-600 hover:text-[#e94560]">Find my pass</Link>
                 {user && <Link to="/connections" className="block text-[13px] text-slate-600 hover:text-[#e94560]">My connections</Link>}
@@ -179,19 +175,8 @@ export default function AppShell() {
             </div>
           </div>
 
-          {SOCIAL_ICONS.some(([key]) => org?.[key]) && (
-            <div className="flex items-center gap-2 mb-8">
-              {SOCIAL_ICONS.map(([key, Icon]) => org?.[key] ? (
-                <a key={key} href={key === 'website' ? (org[key].startsWith('http') ? org[key] : `https://${org[key]}`) : '#'} target="_blank" rel="noreferrer" className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-600 transition-all">
-                  <Icon size={14} />
-                </a>
-              ) : null)}
-            </div>
-          )}
-
           <div className="pt-6 border-t border-slate-200/60 flex flex-col sm:flex-row items-center justify-between gap-3">
             <p className="text-[12px] text-slate-400">© {new Date().getFullYear()} QRMeets</p>
-            {org?.privacyPolicyUrl && <a href={org.privacyPolicyUrl} target="_blank" rel="noreferrer" className="text-[12px] text-slate-400 hover:text-slate-600">Privacy Policy</a>}
           </div>
         </div>
       </footer>

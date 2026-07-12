@@ -172,17 +172,6 @@ export function getAnalytics() {
   return api.get('/analytics')
 }
 
-// ─── Organization ─── (legacy global-branding singleton - still used by
-// AppShell's footer/LandingHero/Register.jsx until they migrate to real
-// per-org data; see Front-end/src/pages/admin/Organizations.jsx for the
-// real multi-org CRUD below)
-export function getOrganization() {
-  return api.get('/organization')
-}
-export function updateOrganization(payload) {
-  return api.put('/organization', payload)
-}
-
 // ─── Orgs (real multi-organization) ───
 export function getMyOrgs() {
   return api.get('/orgs/mine')

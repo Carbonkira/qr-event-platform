@@ -1,7 +1,6 @@
 import { Link } from 'react-router-dom'
 import { Compass, Ticket, ScanLine, ArrowRight, Cpu, GraduationCap, Palette, Landmark, HeartPulse, Megaphone, Building2, Sparkles } from 'lucide-react'
 import { Card, Btn } from '../ui'
-import { useOrganization } from '../../hooks/useApi'
 import { INDUSTRIES } from '../../lib/utils'
 
 const STEPS = [
@@ -29,8 +28,6 @@ const CATEGORY_STYLE = {
 // gets) - so a guest never hits a dead end, they just scroll past the pitch
 // into real, live events.
 export default function LandingHero({ events, onSelectCategory }) {
-  const { data: org } = useOrganization()
-
   const countByIndustry = events.reduce((acc, e) => {
     if (!e.industry) return acc
     acc[e.industry] = (acc[e.industry] || 0) + 1
@@ -50,7 +47,7 @@ export default function LandingHero({ events, onSelectCategory }) {
         <div className="relative">
           <h1 className="text-3xl sm:text-[40px] font-extrabold text-white tracking-tight leading-tight text-balance">Find your people.<br />Meet in person.</h1>
           <p className="text-[15px] text-slate-300 mt-4 max-w-lg mx-auto">
-            {org?.description || 'Real events, real rooms, real people — register in seconds and check in with a QR pass.'}
+            Real events, real rooms, real people — register in seconds and check in with a QR pass.
           </p>
           <div className="flex items-center justify-center gap-3 mt-8 flex-wrap">
             <Btn variant="accent" size="lg" onClick={scrollToListing}>Browse Events</Btn>

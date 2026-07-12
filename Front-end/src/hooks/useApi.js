@@ -47,9 +47,6 @@ export function useFeedback(eventId) {
 export function useAnalytics(enabled = true) {
   return useAsync(() => (enabled ? api.getAnalytics() : Promise.resolve(null)), [enabled])
 }
-export function useOrganization() {
-  return useAsync(() => api.getOrganization(), [])
-}
 export function useMyOrgs(enabled = true) {
   return useAsync(() => (enabled ? api.getMyOrgs() : Promise.resolve([])), [enabled])
 }

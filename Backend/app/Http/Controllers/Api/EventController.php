@@ -94,7 +94,7 @@ class EventController extends Controller
      */
     public function show(string $slug)
     {
-        $event = Event::with(['tasks', 'organization:id,name,slug,logo'])->where('slug', $slug)->firstOrFail();
+        $event = Event::with(['tasks', 'organization:id,name,slug,logo,email'])->where('slug', $slug)->firstOrFail();
 
         return response()->json($event);
     }

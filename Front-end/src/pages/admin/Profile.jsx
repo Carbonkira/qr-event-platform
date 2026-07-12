@@ -1,9 +1,7 @@
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { User, Mail, GraduationCap, Lock, Camera } from 'lucide-react'
-import { Card, Btn, Input, Textarea } from '../../components/ui'
+import { Card, Btn, Input } from '../../components/ui'
 import PasswordChecklist from '../../components/shared/PasswordChecklist'
-import { useOrganization } from '../../hooks/useApi'
-import { updateOrganization } from '../../api/resources'
 import { useApp } from '../../context/AppContext'
 
 const MAX_AVATAR_BYTES = 5 * 1024 * 1024 // 5MB — matches the backend's own limit
@@ -68,7 +66,7 @@ function AccountCard() {
     <Card className="p-5 space-y-4">
       <div>
         <p className="font-bold text-[14px]">My Account</p>
-        <p className="text-[11px] text-slate-400">Your own login — separate from the organization info below</p>
+        <p className="text-[11px] text-slate-400">Your personal login - manage your organizations from My Organizations</p>
       </div>
       <AvatarUpload />
       <form onSubmit={save} className="space-y-4">
@@ -130,77 +128,12 @@ function PasswordCard() {
 }
 
 export default function Profile() {
-  const { addToast } = useApp()
-  const { data: org, loading } = useOrganization()
-  const [form, setForm] = useState(null)
-  const [saving, setSaving] = useState(false)
-
-  useEffect(() => {
-    if (org && !form) {
-      setForm({
-        name: org.name || '', description: org.description || '', organizedBy: org.organizedBy || '',
-        email: org.email || '', industry: org.industry || '', instagram: org.instagram || '',
-        linkedin: org.linkedin || '', facebook: org.facebook || '', website: org.website || '',
-        twitter: org.twitter || '', privacyPolicyUrl: org.privacyPolicyUrl || '',
-      })
-    }
-  }, [org, form])
-
-  const update = (k, v) => setForm(f => ({ ...f, [k]: v }))
-
-  const handleSave = async (e) => {
-    e.preventDefault()
-    setSaving(true)
-    try {
-      await updateOrganization(form)
-      addToast('Profile updated', 'success')
-    } catch (err) {
-      addToast(err.message || 'Failed to update profile', 'error')
-    } finally {
-      setSaving(false)
-    }
-  }
-
   return (
     <div className="max-w-2xl space-y-5">
-      <div><h1 className="text-2xl font-extrabold">Profile</h1><p className="text-[13px] text-slate-500">Your account and your organization's public info</p></div>
+      <div><h1 className="text-2xl font-extrabold">Profile</h1><p className="text-[13px] text-slate-500">Your account settings</p></div>
 
       <AccountCard />
       <PasswordCard />
-
-      {loading || !form ? (
-        <div className="text-center py-10 text-slate-400 text-[13px]">Loading organization profile…</div>
-      ) : (
-        <form onSubmit={handleSave} className="space-y-6">
-          <Card className="p-5 space-y-4">
-            <p className="font-bold text-[14px]">Organization Profile</p>
-            <p className="text-[11px] text-slate-400 -mt-3">Shown to participants on your public event pages</p>
-            <Input label="Organization name" value={form.name} onChange={e => update('name', e.target.value)} required />
-            <Textarea label="Description" value={form.description} onChange={e => update('description', e.target.value)} rows={3} />
-            <div className="grid sm:grid-cols-2 gap-3">
-              <Input label="Organized by" value={form.organizedBy} onChange={e => update('organizedBy', e.target.value)} />
-              <Input label="Industry" value={form.industry} onChange={e => update('industry', e.target.value)} />
-            </div>
-            <Input label="Contact email" type="email" value={form.email} onChange={e => update('email', e.target.value)} />
-          </Card>
-
-          <Card className="p-5 space-y-4">
-            <p className="text-[12px] font-bold text-slate-400 uppercase tracking-wide">Socials & links</p>
-            <div className="grid sm:grid-cols-2 gap-3">
-              <Input label="Instagram" value={form.instagram} onChange={e => update('instagram', e.target.value)} placeholder="@handle" />
-              <Input label="LinkedIn" value={form.linkedin} onChange={e => update('linkedin', e.target.value)} placeholder="Page URL" />
-              <Input label="Facebook" value={form.facebook} onChange={e => update('facebook', e.target.value)} placeholder="Page URL" />
-              <Input label="Twitter / X" value={form.twitter} onChange={e => update('twitter', e.target.value)} placeholder="@handle" />
-              <Input label="Website" value={form.website} onChange={e => update('website', e.target.value)} placeholder="https://…" />
-              <Input label="Privacy policy URL" value={form.privacyPolicyUrl} onChange={e => update('privacyPolicyUrl', e.target.value)} placeholder="https://…" />
-            </div>
-          </Card>
-
-          <div className="flex justify-end">
-            <Btn variant="accent" type="submit" loading={saving}>Save Changes</Btn>
-          </div>
-        </form>
-      )}
     </div>
   )
 }

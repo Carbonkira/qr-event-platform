@@ -3,7 +3,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, User, Mail, Lock, Receipt, Ticket, Award, Send, Clock3, Upload, ImageDown, X, UserPlus, LogIn, MailCheck, RefreshCw } from 'lucide-react'
 import { Btn, Input, Toggle, Card } from '../../components/ui'
 import PasswordChecklist from '../../components/shared/PasswordChecklist'
-import { useEvent, useOrganization } from '../../hooks/useApi'
+import { useEvent } from '../../hooks/useApi'
 import { registerForEvent, walkInForEvent } from '../../api/resources'
 import { useApp } from '../../context/AppContext'
 import { cn, fmtDate, fmtTime } from '../../lib/utils'
@@ -17,7 +17,6 @@ export default function Register() {
   const navigate = useNavigate()
   const { user, authReady, login, createAccount, refreshUser, resendVerificationEmail, addToast } = useApp()
   const { data: event, loading } = useEvent(slug)
-  const { data: org } = useOrganization()
 
   // Registering for an event doubles as creating an account (see
   // AuthController::register) - "account" comes first unless the visitor
@@ -235,7 +234,7 @@ export default function Register() {
                 <li>Take a screenshot of your payment confirmation</li>
                 <li>Enter the reference number & upload the screenshot below</li>
               </ol>
-              {org && <p className="text-[11px] text-slate-400 mt-2">Pay to: <b className="text-slate-600">{org.name}</b>{org.email ? ` · ${org.email}` : ''}</p>}
+              {event.organization && <p className="text-[11px] text-slate-400 mt-2">Pay to: <b className="text-slate-600">{event.organization.name}</b>{event.organization.email ? ` · ${event.organization.email}` : ''}</p>}
             </div>
 
             <Input label="Payment Reference Number" value={paymentRef} onChange={e => setPaymentRef(e.target.value)} icon={Receipt} placeholder="e.g. 0029384756" error={errors.paymentRef?.[0] || errors.paymentRef} required />

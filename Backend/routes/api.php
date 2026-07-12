@@ -9,7 +9,6 @@ use App\Http\Controllers\Api\FeedbackController;
 use App\Http\Controllers\Api\DiscussionController;
 use App\Http\Controllers\Api\FeedbackSummaryController;
 use App\Http\Controllers\Api\InviteController;
-use App\Http\Controllers\Api\OrganizationController;
 use App\Http\Controllers\Api\OrgController;
 use App\Http\Controllers\Api\QrCodeController;
 use App\Http\Controllers\Api\RegistrationController;
@@ -48,7 +47,6 @@ Route::middleware('throttle:30,1')->group(function () {
     Route::post('/events/{event}/feedback', [FeedbackController::class, 'store']);
 });
 Route::get('/pass/lookup', [RegistrationController::class, 'lookup']);
-Route::get('/organization', [OrganizationController::class, 'show']);
 // Embedded as an <img> in confirmation/reminder emails, so it has to be
 // fetchable by the recipient's mail client with no auth header.
 Route::get('/registrations/{registration}/qr.png', [QrCodeController::class, 'show']);
@@ -108,8 +106,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/events/{event}/feedback-summary', [FeedbackSummaryController::class, 'generate']);
 
     Route::get('/analytics', [AnalyticsController::class, 'index']);
-
-    Route::put('/organization', [OrganizationController::class, 'update']);
 
     Route::get('/orgs/mine', [OrgController::class, 'mine']);
     Route::post('/orgs', [OrgController::class, 'store']);

@@ -13,11 +13,12 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 /**
- * Real multi-organization CRUD - deliberately a separate controller from
- * the old singleton OrganizationController (still used as-is by AppShell's
- * footer, Profile.jsx, LandingHero.jsx, and Register.jsx, which all show
- * generic global branding). Those get migrated over to real per-user org
- * data in a later phase; until then, both controllers coexist safely.
+ * Real multi-organization CRUD. The old singleton OrganizationController
+ * (a single global-branding Organization row, shown everywhere regardless
+ * of who was actually hosting) has been removed - AppShell's footer,
+ * Profile.jsx, LandingHero.jsx, and Register.jsx all use real per-org data
+ * now (or, for the platform-wide footer, no org data at all - there's no
+ * single "the" organization to represent anymore).
  */
 class OrgController extends Controller
 {

@@ -64,7 +64,12 @@ export default function Organizations() {
 function OrgCard({ org, onSaved }) {
   const { addToast, user } = useApp()
   const isOwner = org.pivot?.role === 'owner'
-  const [form, setForm] = useState({ name: org.name, description: org.description || '', email: org.email || '' })
+  const [form, setForm] = useState({
+    name: org.name, description: org.description || '', email: org.email || '',
+    organizedBy: org.organizedBy || '', industry: org.industry || '',
+    instagram: org.instagram || '', linkedin: org.linkedin || '', facebook: org.facebook || '',
+    twitter: org.twitter || '', website: org.website || '', privacyPolicyUrl: org.privacyPolicyUrl || '',
+  })
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState(false)
   const fileRef = useRef(null)
@@ -164,7 +169,22 @@ function OrgCard({ org, onSaved }) {
           </div>
           <Input label="Name" value={form.name} onChange={update('name')} required />
           <Textarea label="Description" value={form.description} onChange={update('description')} rows={2} />
-          <Input label="Contact email" type="email" value={form.email} onChange={update('email')} />
+          <div className="grid sm:grid-cols-2 gap-3">
+            <Input label="Contact email" type="email" value={form.email} onChange={update('email')} />
+            <Input label="Organized by" value={form.organizedBy} onChange={update('organizedBy')} placeholder="Shown on event pages" />
+          </div>
+          <Input label="Industry" value={form.industry} onChange={update('industry')} />
+
+          <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wide pt-2">Socials & links</p>
+          <div className="grid sm:grid-cols-2 gap-3">
+            <Input label="Instagram" value={form.instagram} onChange={update('instagram')} placeholder="@handle" />
+            <Input label="LinkedIn" value={form.linkedin} onChange={update('linkedin')} placeholder="Page URL" />
+            <Input label="Facebook" value={form.facebook} onChange={update('facebook')} placeholder="Page URL" />
+            <Input label="Twitter / X" value={form.twitter} onChange={update('twitter')} placeholder="@handle" />
+            <Input label="Website" value={form.website} onChange={update('website')} placeholder="https://…" />
+            <Input label="Privacy policy URL" value={form.privacyPolicyUrl} onChange={update('privacyPolicyUrl')} placeholder="https://…" />
+          </div>
+
           <div className="flex justify-end"><Btn type="submit" variant="secondary" size="sm" loading={saving}>Save</Btn></div>
         </form>
       ) : (
