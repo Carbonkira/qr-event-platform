@@ -102,7 +102,7 @@ export default function EventDetail() {
 
         <div className="md:sticky md:top-20">
           <Card className="p-5 shadow-sm">
-            {isPast ? <div className="text-center py-3"><Badge color="slate">This event has ended</Badge></div> : (
+            {event.status === 'cancelled' ? <div className="text-center py-3"><Badge color="rose">This event has been cancelled</Badge></div> : isPast ? <div className="text-center py-3"><Badge color="slate">This event has ended</Badge></div> : (
               <>
                 <div className="flex items-baseline justify-between mb-3">
                   <p className="text-[13px] font-semibold text-slate-500">Registration</p>

@@ -4,7 +4,7 @@ import {
   ArrowLeft, Pencil, ScanLine, Download, Lock, Hourglass, Copy, Check, X,
   Users, CheckCircle2, MessageSquare, Star, CheckSquare, Square, Plus,
   Search as SearchIcon, FileSpreadsheet, Award, Clock3, MapPinned, Eye,
-  Trash2, UserPlus, Copy as CopyIcon, Send, Upload, ArrowUpCircle, ListPlus,
+  Trash2, UserPlus, Copy as CopyIcon, Send, Upload, ArrowUpCircle, ListPlus, Ban,
 } from 'lucide-react'
 import { Card, Badge, Btn, Input, Toggle, KPI, PriceTag, StarRating, Modal } from '../../components/ui'
 import AiSummaryCard from '../../components/admin/AiSummaryCard'
@@ -13,11 +13,13 @@ import AiSummaryCard from '../../components/admin/AiSummaryCard'
 // an organizer actually opens the Scanner tab, not on every event-detail visit.
 const EventScannerPanel = lazy(() => import('../../components/admin/EventScannerPanel'))
 import { useAdminEvents, useRegistrations, useFeedback } from '../../hooks/useApi'
-import { addTask, toggleTask, verifyPayment, updateRegistration, deleteRegistration, addGuest, duplicateEvent, submitEvent, completeEvent, importGuestsCsv, promoteRegistration } from '../../api/resources'
+import { addTask, toggleTask, verifyPayment, updateRegistration, deleteRegistration, addGuest, duplicateEvent, submitEvent, completeEvent, cancelEvent, deleteEvent, importGuestsCsv, promoteRegistration } from '../../api/resources'
 import { useApp } from '../../context/AppContext'
 import { cn, fmtDate, fmtDateLong, fmtTime, locale } from '../../lib/utils'
 
-const STATUS_COLOR = { draft: 'slate', pending: 'amber', approved: 'green', rejected: 'rose', completed: 'slate' }
+const STATUS_COLOR = { draft: 'slate', pending: 'amber', approved: 'green', rejected: 'rose', completed: 'slate', cancelled: 'rose' }
+const DELETABLE_STATUSES = ['draft', 'pending', 'rejected', 'cancelled']
+const CANCELLABLE_STATUSES = ['pending', 'approved']
 
 export default function EventDetail() {
   const { id } = useParams()
@@ -191,6 +193,33 @@ export default function EventDetail() {
     }
   }
 
+  const onCancelEvent = async () => {
+    if (!window.confirm(`Cancel "${event.title}"? Every registrant (${regs.length}) will be emailed that it's cancelled.`)) return
+    setWorkflowLoading(true)
+    try {
+      await cancelEvent(event.id)
+      addToast('Event cancelled - registrants have been notified', 'success')
+      refetch()
+    } catch (err) {
+      addToast(err.message || 'Failed to cancel event', 'error')
+    } finally {
+      setWorkflowLoading(false)
+    }
+  }
+
+  const onDeleteEvent = async () => {
+    if (!window.confirm(`Delete "${event.title}"? This can't be undone.`)) return
+    setWorkflowLoading(true)
+    try {
+      await deleteEvent(event.id)
+      addToast('Event deleted', 'success')
+      navigate('/my-events')
+    } catch (err) {
+      addToast(err.message || 'Failed to delete event', 'error')
+      setWorkflowLoading(false)
+    }
+  }
+
   const exportGuests = () => {
     let csv = `Name,Email,Status,Check-in,Needs Cert,Feedback,Payment Ref,Payment Status\n`
     regs.forEach(r => { csv += `"${r.name}","${r.email}","${r.attended ? 'Checked in' : 'Registered'}","${r.checkInTime || ''}","${r.needsCertificate ? 'Yes' : 'No'}","${r.feedbackSubmitted ? 'Yes' : 'No'}","${r.paymentRef || ''}","${r.paymentStatus || 'n/a'}"\n` })
@@ -230,6 +259,8 @@ export default function EventDetail() {
         <Btn variant="secondary" size="sm" icon={CopyIcon} loading={workflowLoading} onClick={onDuplicate}>Duplicate</Btn>
         {isOwner && event.status === 'draft' && <Btn variant="primary" size="sm" icon={Send} loading={workflowLoading} onClick={onSubmitForApproval}>Submit for approval</Btn>}
         {isOwner && event.status === 'approved' && <Btn variant="primary" size="sm" icon={CheckCircle2} loading={workflowLoading} onClick={onCompleteEvent}>Mark Completed</Btn>}
+        {isOwner && CANCELLABLE_STATUSES.includes(event.status) && <Btn variant="secondary" size="sm" icon={Ban} loading={workflowLoading} onClick={onCancelEvent}>Cancel</Btn>}
+        {isOwner && DELETABLE_STATUSES.includes(event.status) && <Btn variant="secondary" size="sm" icon={Trash2} loading={workflowLoading} onClick={onDeleteEvent} className="!text-rose-600 hover:!bg-rose-50">Delete</Btn>}
         <Btn variant="secondary" size="sm" icon={ScanLine} onClick={() => setTab('scanner')}>Scan</Btn>
         <Btn variant="primary" size="sm" icon={Download} onClick={exportReport}>Report</Btn>
       </div>

@@ -2,11 +2,14 @@
 
 namespace Tests\Feature;
 
+use App\Mail\EventCancelledMail;
 use App\Models\Event;
 use App\Models\Organization;
+use App\Models\Registration;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Mail;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -174,6 +177,50 @@ class EventTest extends TestCase
 
         Sanctum::actingAs($owner);
         $this->deleteJson("/api/events/{$event->id}")->assertOk();
+    }
+
+    public function test_an_approved_or_completed_event_cannot_be_deleted(): void
+    {
+        $owner = $this->makeUser();
+        $org = $this->makeOrganization($owner);
+        $approved = Event::create(['title' => 'Live Event', 'status' => 'approved', 'user_id' => $owner->id, 'organization_id' => $org->id, 'slug' => 'live-event']);
+        $completed = Event::create(['title' => 'Done Event', 'status' => 'completed', 'user_id' => $owner->id, 'organization_id' => $org->id, 'slug' => 'done-event']);
+
+        Sanctum::actingAs($owner);
+        $this->deleteJson("/api/events/{$approved->id}")->assertStatus(422);
+        $this->deleteJson("/api/events/{$completed->id}")->assertStatus(422);
+        $this->assertNotNull($approved->fresh());
+        $this->assertNotNull($completed->fresh());
+    }
+
+    public function test_cancelling_an_event_emails_every_registrant_and_stops_it_appearing_publicly(): void
+    {
+        Mail::fake();
+        $owner = $this->makeUser();
+        $org = $this->makeOrganization($owner);
+        $event = Event::create(['title' => 'Live Event', 'status' => 'approved', 'is_private' => false, 'user_id' => $owner->id, 'organization_id' => $org->id, 'slug' => 'live-event']);
+        $r1 = Registration::create(['event_id' => $event->id, 'name' => 'A', 'email' => 'a@example.com', 'qr_code' => 'QR-A']);
+        $r2 = Registration::create(['event_id' => $event->id, 'name' => 'B', 'email' => 'b@example.com', 'qr_code' => 'QR-B', 'waitlisted' => true]);
+
+        Sanctum::actingAs($owner);
+        $this->postJson("/api/events/{$event->id}/cancel")->assertOk();
+
+        $this->assertSame('cancelled', $event->fresh()->status);
+        Mail::assertQueued(EventCancelledMail::class, fn ($mail) => $mail->hasTo($r1->email));
+        Mail::assertQueued(EventCancelledMail::class, fn ($mail) => $mail->hasTo($r2->email));
+        $publicEvents = $this->getJson('/api/events')->json();
+        $this->assertFalse(collect($publicEvents)->contains('slug', 'live-event'));
+    }
+
+    public function test_only_a_pending_or_approved_event_can_be_cancelled(): void
+    {
+        $owner = $this->makeUser();
+        $org = $this->makeOrganization($owner);
+        $draft = Event::create(['title' => 'Draft Event', 'status' => 'draft', 'user_id' => $owner->id, 'organization_id' => $org->id, 'slug' => 'draft-event']);
+
+        Sanctum::actingAs($owner);
+        $this->postJson("/api/events/{$draft->id}/cancel")->assertStatus(422);
+        $this->assertSame('draft', $draft->fresh()->status);
     }
 
     public function test_a_legacy_event_with_no_owner_can_be_edited_by_anyone(): void

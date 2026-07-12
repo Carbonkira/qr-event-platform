@@ -6,7 +6,7 @@ import { useApp } from '../context/AppContext'
 import { useAdminEvents, useAnalytics, useMyRegistrations } from '../hooks/useApi'
 import { cn, fmtDate, fmtTime } from '../lib/utils'
 
-const STATUS_COLOR = { draft: 'slate', pending: 'amber', approved: 'green', rejected: 'rose', completed: 'slate' }
+const STATUS_COLOR = { draft: 'slate', pending: 'amber', approved: 'green', rejected: 'rose', completed: 'slate', cancelled: 'rose' }
 
 // Replaces the old split between MyTickets.jsx (public, attending-only) and
 // Dashboard.jsx (organizer-only, hosting-only) - one account can do both, so

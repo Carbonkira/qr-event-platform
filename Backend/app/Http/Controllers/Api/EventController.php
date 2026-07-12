@@ -3,10 +3,12 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Mail\EventCancelledMail;
 use App\Models\Event;
 use App\Models\TaskTemplate;
 use App\Services\Gemini;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -231,13 +233,50 @@ class EventController extends Controller
         return response()->json($event->fresh('tasks'));
     }
 
+    /**
+     * An approved or completed event may have real registrants who'd lose
+     * their pass with zero notice if it just vanished - those get cancelled
+     * (below) instead, which emails everyone first. Delete stays available
+     * for statuses where that can't have happened yet.
+     */
     public function destroy(Request $request, Event $event)
     {
         $this->authorizeOrgMember($request, $event);
 
+        abort_unless(
+            in_array($event->status, ['draft', 'pending', 'rejected', 'cancelled']),
+            422,
+            "An approved or completed event can't be deleted - cancel it instead so registrants are notified."
+        );
+
         $event->delete();
 
         return response()->json(['message' => 'Event deleted.']);
+    }
+
+    /**
+     * Stops a live event without erasing it - unlike destroy(), every
+     * confirmed or waitlisted registrant gets emailed. The event stays
+     * visible on their pass/registrations as "cancelled" rather than
+     * disappearing outright.
+     */
+    public function cancel(Request $request, Event $event)
+    {
+        $this->authorizeOrgMember($request, $event);
+
+        abort_unless(
+            in_array($event->status, ['pending', 'approved']),
+            422,
+            'Only a pending or approved event can be cancelled.'
+        );
+
+        $event->update(['status' => 'cancelled']);
+
+        foreach ($event->registrations as $registration) {
+            Mail::to($registration->email)->queue(new EventCancelledMail($registration, $event));
+        }
+
+        return response()->json($event);
     }
 
     public function approve(Request $request, Event $event)

@@ -80,6 +80,9 @@ export function submitEvent(id) {
 export function completeEvent(id) {
   return api.post(`/events/${id}/complete`)
 }
+export function cancelEvent(id) {
+  return api.post(`/events/${id}/cancel`)
+}
 export function duplicateEvent(id) {
   return api.post(`/events/${id}/duplicate`)
 }
