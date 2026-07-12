@@ -1,11 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
-import { Plus, ChevronDown, LogOut, MailWarning, Hourglass, MessageSquare, FileText, ClipboardList, User as UserIcon } from 'lucide-react'
+import { Plus, ChevronDown, LogOut, MailWarning, Hourglass, MessageSquare, FileText, ClipboardList, User as UserIcon, Instagram, Linkedin, Facebook, Twitter, Globe } from 'lucide-react'
 import { Btn, Logo } from '../ui'
 import { cn } from '../../lib/utils'
 import { useApp } from '../../context/AppContext'
-import { useAdminEvents, useAnalytics } from '../../hooks/useApi'
+import { useAdminEvents, useAnalytics, useOrganization } from '../../hooks/useApi'
 import CreateEventModal from '../admin/CreateEventModal'
+
+// Same social fields as the public event-detail page's SOC map - only
+// rendered when the organization has actually filled one in.
+const SOCIAL_ICONS = [['instagram', Instagram], ['linkedin', Linkedin], ['facebook', Facebook], ['twitter', Twitter], ['website', Globe]]
 
 // Org-wide tools that don't have a natural per-event home the way
 // Checklist/Guests/Scanner do - grouped behind the "Manage" dropdown,
@@ -31,6 +35,7 @@ export default function AppShell() {
   const { user, logout, addToast, resendVerificationEmail, place } = useApp()
   const { data: ownEvents } = useAdminEvents(!!user)
   const { data: analytics } = useAnalytics(!!user)
+  const { data: org } = useOrganization()
   const [createOpen, setCreateOpen] = useState(false)
   const [resending, setResending] = useState(false)
   const [manageOpen, setManageOpen] = useState(false)
@@ -130,9 +135,49 @@ export default function AppShell() {
 
       <div className="animate-fade"><Outlet context={{ openCreate: onCreateClick, toast: addToast }} /></div>
 
-      <footer className="max-w-5xl mx-auto px-5 py-8 mt-10 border-t border-slate-200/60 flex flex-col sm:flex-row items-center justify-between gap-3">
-        <p className="text-[12px] text-slate-400">QRMeets · Event attendance & feedback, automated{place?.city ? ` · ${place.city}${place.country ? `, ${place.country}` : ''}` : ''}</p>
-        <p className="text-[12px] text-slate-400">© {new Date().getFullYear()} QRMeets</p>
+      <footer className="border-t border-slate-200/60 mt-10">
+        <div className="max-w-5xl mx-auto px-5 py-10">
+          <div className="grid sm:grid-cols-3 gap-8 mb-8">
+            <div>
+              <div className="flex items-center gap-2 mb-2"><Logo size={24} /><span className="font-extrabold text-[14px] text-slate-800">QRMeets</span></div>
+              <p className="text-[12px] text-slate-400 leading-relaxed">Event attendance & feedback, automated{place?.city ? ` · ${place.city}${place.country ? `, ${place.country}` : ''}` : ''}</p>
+            </div>
+            <div>
+              <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wide mb-3">Discover</p>
+              <div className="space-y-2">
+                <Link to="/" className="block text-[13px] text-slate-600 hover:text-[#e94560]">Explore events</Link>
+                <Link to="/my-events" className="block text-[13px] text-slate-600 hover:text-[#e94560]">My events</Link>
+                <Link to="/find-pass" className="block text-[13px] text-slate-600 hover:text-[#e94560]">Find my pass</Link>
+              </div>
+            </div>
+            <div>
+              <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wide mb-3">Account</p>
+              <div className="space-y-2">
+                {user ? (
+                  <Link to="/organizer/profile" className="block text-[13px] text-slate-600 hover:text-[#e94560]">Profile</Link>
+                ) : (
+                  <Link to="/login" className="block text-[13px] text-slate-600 hover:text-[#e94560]">Log in</Link>
+                )}
+                <Link to="/organizer/register" className="block text-[13px] text-slate-600 hover:text-[#e94560]">Host an event</Link>
+              </div>
+            </div>
+          </div>
+
+          {SOCIAL_ICONS.some(([key]) => org?.[key]) && (
+            <div className="flex items-center gap-2 mb-8">
+              {SOCIAL_ICONS.map(([key, Icon]) => org?.[key] ? (
+                <a key={key} href={key === 'website' ? (org[key].startsWith('http') ? org[key] : `https://${org[key]}`) : '#'} target="_blank" rel="noreferrer" className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-600 transition-all">
+                  <Icon size={14} />
+                </a>
+              ) : null)}
+            </div>
+          )}
+
+          <div className="pt-6 border-t border-slate-200/60 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <p className="text-[12px] text-slate-400">© {new Date().getFullYear()} QRMeets</p>
+            {org?.privacyPolicyUrl && <a href={org.privacyPolicyUrl} target="_blank" rel="noreferrer" className="text-[12px] text-slate-400 hover:text-slate-600">Privacy Policy</a>}
+          </div>
+        </div>
       </footer>
 
       <CreateEventModal open={createOpen} onClose={() => setCreateOpen(false)} toast={addToast} />

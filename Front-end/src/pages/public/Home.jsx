@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Calendar, Clock, MapPin, Users, Search, MapPinned, Sparkles, LocateFixed } from 'lucide-react'
 import { Card, Badge, PriceTag } from '../../components/ui'
+import LandingHero from '../../components/public/LandingHero'
 import { cn, fmtDate, fmtTime, monthDay } from '../../lib/utils'
 import { usePublicEvents } from '../../hooks/useApi'
 import { useApp } from '../../context/AppContext'
@@ -9,13 +10,19 @@ import { useApp } from '../../context/AppContext'
 export default function Home() {
   const [q, setQ] = useState('')
   const [filter, setFilter] = useState('upcoming')
-  const { coords, place, locationStatus: geoStatus } = useApp()
+  const { user, coords, place, locationStatus: geoStatus } = useApp()
 
   const { data: all, loading } = usePublicEvents(coords ? { lat: coords.lat, lng: coords.lng } : {})
   const events0 = all || []
   const now = new Date()
 
-  let events = events0.filter(e => !q || e.title.toLowerCase().includes(q.toLowerCase()) || (e.tags || []).some(t => t.toLowerCase().includes(q.toLowerCase())))
+  const query = q.trim().toLowerCase()
+  let events = events0.filter(e => {
+    if (!query) return true
+    const haystack = [e.title, e.description, e.venue, e.location, e.organizedBy, e.industry, e.type, ...(e.tags || [])]
+      .filter(Boolean).join(' ').toLowerCase()
+    return haystack.includes(query)
+  })
   if (filter === 'upcoming') events = events.filter(e => new Date(e.date) >= new Date(now.toDateString()))
   events = events.sort((a, b) => new Date(a.date) - new Date(b.date))
 
@@ -25,7 +32,9 @@ export default function Home() {
 
   return (
     <div className="max-w-5xl mx-auto px-5 py-8">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-7">
+      {!user && <LandingHero events={events0} onSelectCategory={setQ} />}
+
+      <div id="event-listing" className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-7 scroll-mt-6">
         <div>
           <h1 className="text-2xl font-extrabold tracking-tight">Events</h1>
           {geoStatus === 'granted' && place?.city ? (
@@ -39,7 +48,7 @@ export default function Home() {
         <div className="flex items-center gap-2">
           <div className="relative flex-1 sm:flex-none">
             <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search events…" className="w-full sm:w-56 pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 bg-white text-sm outline-none focus:border-[#1a1a2e] focus:ring-2 focus:ring-slate-100" />
+            <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search events, venues, topics…" className="w-full sm:w-64 pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 bg-white text-sm outline-none focus:border-[#1a1a2e] focus:ring-2 focus:ring-slate-100" />
           </div>
         </div>
       </div>

@@ -10,7 +10,7 @@ import { Modal, Btn, Input, Select, Textarea, Toggle, Badge } from '../ui'
 import LocationPicker from '../shared/LocationPicker'
 import { createEvent, generateEventDescription, uploadEventImage } from '../../api/resources'
 import { useTaskTemplates } from '../../hooks/useApi'
-import { cn } from '../../lib/utils'
+import { cn, INDUSTRIES } from '../../lib/utils'
 
 const DEFAULT_FEEDBACK_QUESTIONS = [
   { id: 'q1', label: 'Check-in experience', type: 'rating', required: true },
@@ -181,7 +181,7 @@ export default function CreateEventModal({ open, onClose, toast, onCreated }) {
             <Input label="Event Title" value={form.title} onChange={e => up('title', e.target.value)} placeholder="Founder Networking Night" error={errors.title} required />
             <div className="grid grid-cols-2 gap-3">
               <Select label="Type" value={form.type} onChange={e => up('type', e.target.value)} options={['Meetup', 'Conference', 'Workshop', 'Seminar', 'Networking', 'Training'].map(v => ({ value: v, label: v }))} />
-              <Select label="Industry" value={form.industry} onChange={e => up('industry', e.target.value)} options={['Technology', 'Education', 'Design', 'Finance', 'Healthcare', 'Marketing', 'Real Estate', 'Other'].map(v => ({ value: v, label: v }))} />
+              <Select label="Industry" value={form.industry} onChange={e => up('industry', e.target.value)} options={INDUSTRIES.map(v => ({ value: v, label: v }))} />
             </div>
             <div>
               <div className="flex items-center justify-between mb-1.5">

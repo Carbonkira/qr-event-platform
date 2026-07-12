@@ -7,6 +7,10 @@ export function cn(...inputs) {
 export const PIE_COLORS = ['#1a1a2e', '#e94560', '#f59e0b', '#0f9d8f', '#6d28d9']
 export const CHART_COLORS = PIE_COLORS
 
+// The fixed set of event industries/categories - one source of truth for
+// the create/edit forms' Select and the public category browsing cards.
+export const INDUSTRIES = ['Technology', 'Education', 'Design', 'Finance', 'Healthcare', 'Marketing', 'Real Estate', 'Other']
+
 export const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-PH', { weekday: 'short', month: 'short', day: 'numeric' }) : ''
 export const fmtDateLong = (d) => d ? new Date(d).toLocaleDateString('en-PH', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }) : ''
 export const fmtTime = (t) => { if (!t) return ''; const [h, m] = t.split(':'); const ampm = h >= 12 ? 'PM' : 'AM'; return `${h % 12 || 12}:${m} ${ampm}` }

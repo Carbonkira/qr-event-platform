@@ -6,7 +6,7 @@ import LocationPicker from '../../components/shared/LocationPicker'
 import { useAdminEvents } from '../../hooks/useApi'
 import { updateEvent, submitEvent, uploadEventImage } from '../../api/resources'
 import { useApp } from '../../context/AppContext'
-import { cn } from '../../lib/utils'
+import { cn, INDUSTRIES } from '../../lib/utils'
 
 const DEFAULT_FEEDBACK_QUESTIONS = [
   { id: 'q1', label: 'Check-in experience', type: 'rating', required: true },
@@ -19,7 +19,7 @@ const DEFAULT_FEEDBACK_QUESTIONS = [
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024 // 5MB — matches the backend's own limit
 
 const TYPE_OPTIONS = ['Meetup', 'Conference', 'Workshop', 'Seminar', 'Networking', 'Training'].map(v => ({ value: v, label: v }))
-const INDUSTRY_OPTIONS = ['Technology', 'Education', 'Design', 'Finance', 'Healthcare', 'Marketing', 'Real Estate', 'Other'].map(v => ({ value: v, label: v }))
+const INDUSTRY_OPTIONS = INDUSTRIES.map(v => ({ value: v, label: v }))
 const FIELD_TYPE_OPTIONS = [
   { value: 'text', label: 'Text' },
   { value: 'number', label: 'Number' },
