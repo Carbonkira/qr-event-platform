@@ -4,7 +4,7 @@ import {
   X, Check, ChevronLeft, ChevronRight, Send, Wand2, MapPin, MapPinned,
   Image as ImageIcon, AlertCircle, Ticket, DollarSign, UserCheck, Lock, Award,
   MessageSquare, Instagram, Linkedin, Facebook, Globe, Shield, User, Mail,
-  Plus, Tag, Trash2, Hourglass, Upload,
+  Plus, Tag, Trash2, Hourglass, Upload, CheckCircle2,
 } from 'lucide-react'
 import { Modal, Btn, Input, Select, Textarea, Toggle, Badge } from '../ui'
 import LocationPicker from '../shared/LocationPicker'
@@ -150,7 +150,11 @@ export default function CreateEventModal({ open, onClose, toast, onCreated }) {
         saveAsDraft,
       }
       const created = await createEvent(payload)
-      toast?.(saveAsDraft ? 'Draft saved!' : 'Event submitted for approval!', 'success')
+      // Events under a real organization auto-approve (that org already
+      // vouches for the submitter) - only an org-less event still queues
+      // for a platform admin to review.
+      const message = saveAsDraft ? 'Draft saved!' : created?.status === 'approved' ? "Event is live!" : 'Submitted for approval!'
+      toast?.(message, 'success')
       handleClose()
       onCreated?.(created)
       if (created?.id) navigate(saveAsDraft ? `/organizer/events/${created.id}/edit` : `/organizer/events/${created.id}`)
@@ -192,6 +196,10 @@ export default function CreateEventModal({ open, onClose, toast, onCreated }) {
             {orgs.length > 1 && (
               <Select label="Organization" value={form.organizationId} onChange={e => up('organizationId', e.target.value)} options={orgs.map(o => ({ value: String(o.id), label: o.name }))} />
             )}
+            {/* Co-organizers are org members, not per-event - inviting someone
+                makes them a member of the whole organization (and every event
+                under it), reusing the invite flow already built for that. */}
+            <p className="text-[11px] text-slate-400 -mt-1">Need co-organizers? <a href="/organizer/organizations" target="_blank" rel="noreferrer" className="font-semibold text-[#1a1a2e] hover:text-[#e94560]">Invite them to your organization ↗</a></p>
             <div className="grid grid-cols-2 gap-3">
               <Select label="Type" value={form.type} onChange={e => up('type', e.target.value)} options={['Meetup', 'Conference', 'Workshop', 'Seminar', 'Networking', 'Training'].map(v => ({ value: v, label: v }))} />
               <Select label="Industry" value={form.industry} onChange={e => up('industry', e.target.value)} options={INDUSTRIES.map(v => ({ value: v, label: v }))} />
@@ -340,10 +348,17 @@ export default function CreateEventModal({ open, onClose, toast, onCreated }) {
               </div>
             )}
 
-            <div className="rounded-xl bg-amber-50 border border-amber-200 p-3 flex items-start gap-2">
-              <Hourglass size={15} className="text-amber-600 flex-shrink-0 mt-0.5" />
-              <p className="text-[12px] text-amber-700">Your event will be submitted for <b>approval</b> before going live publicly.</p>
-            </div>
+            {orgs.length > 0 ? (
+              <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-3 flex items-start gap-2">
+                <CheckCircle2 size={15} className="text-emerald-600 flex-shrink-0 mt-0.5" />
+                <p className="text-[12px] text-emerald-700">Your organization vouches for this event - it goes live <b>immediately</b>, no admin review needed.</p>
+              </div>
+            ) : (
+              <div className="rounded-xl bg-amber-50 border border-amber-200 p-3 flex items-start gap-2">
+                <Hourglass size={15} className="text-amber-600 flex-shrink-0 mt-0.5" />
+                <p className="text-[12px] text-amber-700">Your event will be submitted for <b>approval</b> before going live publicly.</p>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -353,7 +368,7 @@ export default function CreateEventModal({ open, onClose, toast, onCreated }) {
         <div className="flex items-center gap-2">
           <Btn variant="secondary" loading={loading} onClick={() => submit(true)}>Save Draft</Btn>
           {step < 3 ? <Btn variant="primary" onClick={() => setStep(step + 1)}>Continue <ChevronRight size={15} /></Btn>
-            : <Btn variant="accent" icon={Send} loading={loading} onClick={() => submit(false)}>Submit for Approval</Btn>}
+            : <Btn variant="accent" icon={Send} loading={loading} onClick={() => submit(false)}>{orgs.length > 0 ? 'Publish Event' : 'Submit for Approval'}</Btn>}
         </div>
       </div>
     </Modal>

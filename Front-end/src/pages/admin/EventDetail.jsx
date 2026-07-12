@@ -169,8 +169,8 @@ export default function EventDetail() {
   const onSubmitForApproval = async () => {
     setWorkflowLoading(true)
     try {
-      await submitEvent(event.id)
-      addToast('Submitted for approval', 'success')
+      const updated = await submitEvent(event.id)
+      addToast(updated?.status === 'approved' ? 'Event is live!' : 'Submitted for approval', 'success')
       refetch()
     } catch (err) {
       const firstError = err.errors ? Object.values(err.errors)[0]?.[0] : null

@@ -166,7 +166,6 @@ class EventController extends Controller
         $data = $this->validated($request, draft: $saveAsDraft);
 
         $data['slug'] = $this->uniqueSlug($data['title']);
-        $data['status'] = $saveAsDraft ? 'draft' : 'pending';
         $data['user_id'] = $request->user()->id;
 
         // organization_id is optional here rather than required: the
@@ -186,6 +185,8 @@ class EventController extends Controller
         } else {
             $data['organization_id'] = $request->user()->organizations()->value('organizations.id');
         }
+
+        $data['status'] = $saveAsDraft ? 'draft' : $this->publishStatus($data['organization_id']);
 
         if ($data['is_private'] ?? false) {
             $data['private_link'] = $data['private_link'] ?? Str::random(16);
@@ -327,9 +328,21 @@ class EventController extends Controller
             );
         }
 
-        $event->update(['status' => 'pending']);
+        $event->update(['status' => $this->publishStatus($event->organization_id)]);
 
         return response()->json($event);
+    }
+
+    /**
+     * A real organization vouches for its own events - no need to make an
+     * org member wait on an unrelated platform admin to click approve.
+     * Only events with no organization (legacy rows, or the rare user who
+     * somehow belongs to none) still need a manual admin review, since
+     * there's no organization there to have already trusted the submitter.
+     */
+    private function publishStatus(?int $organizationId): string
+    {
+        return $organizationId !== null ? 'approved' : 'pending';
     }
 
     /**

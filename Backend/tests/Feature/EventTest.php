@@ -136,6 +136,47 @@ class EventTest extends TestCase
             ->assertJsonPath('status', 'pending');
     }
 
+    public function test_submitting_a_draft_for_an_organization_backed_event_is_auto_approved(): void
+    {
+        $user = $this->makeUser();
+        $org = $this->makeOrganization($user);
+        Sanctum::actingAs($user);
+        $event = Event::create([
+            'title' => 'Club Meetup', 'status' => 'draft', 'user_id' => $user->id, 'organization_id' => $org->id, 'slug' => 'club-meetup',
+            'type' => 'Meetup', 'venue' => 'Venue', 'date' => '2026-08-01', 'start_time' => '10:00', 'end_time' => '12:00', 'capacity' => 30,
+        ]);
+
+        $this->postJson("/api/events/{$event->id}/submit")
+            ->assertOk()
+            ->assertJsonPath('status', 'approved');
+    }
+
+    public function test_creating_an_event_directly_for_an_organization_is_auto_approved(): void
+    {
+        $user = $this->makeUser();
+        $this->makeOrganization($user);
+        Sanctum::actingAs($user);
+
+        $this->postJson('/api/events', [
+            'title' => 'Club Meetup', 'type' => 'Meetup', 'venue' => 'Venue',
+            'date' => '2026-08-01', 'startTime' => '10:00', 'endTime' => '12:00', 'capacity' => 30,
+        ])
+            ->assertCreated()
+            ->assertJsonPath('status', 'approved');
+    }
+
+    public function test_creating_an_event_with_no_organization_still_needs_admin_approval(): void
+    {
+        Sanctum::actingAs($this->makeUser());
+
+        $this->postJson('/api/events', [
+            'title' => 'Solo Event', 'type' => 'Meetup', 'venue' => 'Venue',
+            'date' => '2026-08-01', 'startTime' => '10:00', 'endTime' => '12:00', 'capacity' => 30,
+        ])
+            ->assertCreated()
+            ->assertJsonPath('status', 'pending');
+    }
+
     public function test_only_the_owner_can_update_an_event(): void
     {
         $owner = $this->makeUser('owner@example.com');
