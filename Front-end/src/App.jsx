@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { CheckCircle2, AlertCircle } from 'lucide-react'
 import { AppProvider, useApp } from './context/AppContext'
@@ -5,35 +6,42 @@ import ProtectedRoute from './components/layout/ProtectedRoute'
 import AppShell from './components/layout/AppShell'
 import ManageLayout from './components/layout/ManageLayout'
 
+// Home is the one page most visitors land on directly, so it's the only
+// route kept in the main bundle - everything else is fetched on demand.
+// This is what keeps Google Maps (LocationPicker/EventMap), Recharts
+// (Reports), and html5-qrcode (the scanner) out of a first-time visitor's
+// initial download; see CreateEventModal/EventScannerPanel below for the
+// same treatment applied to components rather than whole routes.
 import Home from './pages/public/Home'
-import EventDetail from './pages/public/EventDetail'
-import OrgPublic from './pages/public/OrgPublic'
-import DiscussionThread from './pages/public/DiscussionThread'
-import Login from './pages/public/Login'
-import RegisterOrganizer from './pages/public/RegisterOrganizer'
-import VerifyEmail from './pages/public/VerifyEmail'
-import EmailVerified from './pages/public/EmailVerified'
-import ForgotPassword from './pages/public/ForgotPassword'
-import ResetPassword from './pages/public/ResetPassword'
-import InviteAccept from './pages/public/InviteAccept'
 
-import Register from './pages/participant/Register'
-import Confirm from './pages/participant/Confirm'
-import Pass from './pages/participant/Pass'
-import FindPass from './pages/participant/FindPass'
-import ParticipantFeedback from './pages/participant/Feedback'
-import FeedbackDone from './pages/participant/FeedbackDone'
+const EventDetail = lazy(() => import('./pages/public/EventDetail'))
+const OrgPublic = lazy(() => import('./pages/public/OrgPublic'))
+const DiscussionThread = lazy(() => import('./pages/public/DiscussionThread'))
+const Login = lazy(() => import('./pages/public/Login'))
+const RegisterOrganizer = lazy(() => import('./pages/public/RegisterOrganizer'))
+const VerifyEmail = lazy(() => import('./pages/public/VerifyEmail'))
+const EmailVerified = lazy(() => import('./pages/public/EmailVerified'))
+const ForgotPassword = lazy(() => import('./pages/public/ForgotPassword'))
+const ResetPassword = lazy(() => import('./pages/public/ResetPassword'))
+const InviteAccept = lazy(() => import('./pages/public/InviteAccept'))
 
-import MyEvents from './pages/MyEvents'
-import MyConnections from './pages/MyConnections'
-import AdminEventDetail from './pages/admin/EventDetail'
-import EditEvent from './pages/admin/EditEvent'
-import AdminFeedback from './pages/admin/Feedback'
-import Reports from './pages/admin/Reports'
-import Templates from './pages/admin/Templates'
-import Organizations from './pages/admin/Organizations'
-import Profile from './pages/admin/Profile'
-import Approvals from './pages/admin/Approvals'
+const Register = lazy(() => import('./pages/participant/Register'))
+const Confirm = lazy(() => import('./pages/participant/Confirm'))
+const Pass = lazy(() => import('./pages/participant/Pass'))
+const FindPass = lazy(() => import('./pages/participant/FindPass'))
+const ParticipantFeedback = lazy(() => import('./pages/participant/Feedback'))
+const FeedbackDone = lazy(() => import('./pages/participant/FeedbackDone'))
+
+const MyEvents = lazy(() => import('./pages/MyEvents'))
+const MyConnections = lazy(() => import('./pages/MyConnections'))
+const AdminEventDetail = lazy(() => import('./pages/admin/EventDetail'))
+const EditEvent = lazy(() => import('./pages/admin/EditEvent'))
+const AdminFeedback = lazy(() => import('./pages/admin/Feedback'))
+const Reports = lazy(() => import('./pages/admin/Reports'))
+const Templates = lazy(() => import('./pages/admin/Templates'))
+const Organizations = lazy(() => import('./pages/admin/Organizations'))
+const Profile = lazy(() => import('./pages/admin/Profile'))
+const Approvals = lazy(() => import('./pages/admin/Approvals'))
 
 function GlobalStyles() {
   return (
@@ -76,6 +84,7 @@ function AppRoutes() {
     <div style={{ fontFamily: "'Inter',system-ui,sans-serif" }} className="min-h-screen bg-[#fafafa] text-slate-800">
       <GlobalStyles />
       <Toasts />
+      <Suspense fallback={<div className="text-center py-24 text-slate-400 text-[13px]">Loading…</div>}>
       <Routes>
         <Route element={<AppShell />}>
           <Route index element={<Home />} />
@@ -118,6 +127,7 @@ function AppRoutes() {
 
         <Route path="*" element={<NotFound />} />
       </Routes>
+      </Suspense>
     </div>
   )
 }

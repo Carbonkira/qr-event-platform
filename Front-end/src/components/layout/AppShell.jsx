@@ -1,11 +1,16 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, lazy, Suspense } from 'react'
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { Plus, ChevronDown, LogOut, MailWarning, Hourglass, MessageSquare, FileText, ClipboardList, Building2, Users2, User as UserIcon, Instagram, Linkedin, Facebook, Twitter, Globe } from 'lucide-react'
 import { Btn, Logo } from '../ui'
 import { cn } from '../../lib/utils'
 import { useApp } from '../../context/AppContext'
 import { useAdminEvents, useAnalytics, useOrganization, useConnections } from '../../hooks/useApi'
-import CreateEventModal from '../admin/CreateEventModal'
+
+// Lazy - AppShell renders on every route, and CreateEventModal pulls in
+// LocationPicker's Google Maps SDK. Loading it eagerly here meant every
+// anonymous visitor downloaded the Maps bundle just to browse events.
+// It's only ever needed once someone actually opens the modal.
+const CreateEventModal = lazy(() => import('../admin/CreateEventModal'))
 
 // Same social fields as the public event-detail page's SOC map - only
 // rendered when the organization has actually filled one in.
@@ -190,7 +195,15 @@ export default function AppShell() {
         </div>
       </footer>
 
-      <CreateEventModal open={createOpen} onClose={() => setCreateOpen(false)} toast={addToast} />
+      {createOpen && (
+        <Suspense fallback={
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm">
+            <span className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+          </div>
+        }>
+          <CreateEventModal open={createOpen} onClose={() => setCreateOpen(false)} toast={addToast} />
+        </Suspense>
+      )}
     </div>
   )
 }

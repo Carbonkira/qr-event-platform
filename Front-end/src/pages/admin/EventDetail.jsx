@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, lazy, Suspense } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
   ArrowLeft, Pencil, ScanLine, Download, Lock, Hourglass, Copy, Check, X,
@@ -7,8 +7,11 @@ import {
   Trash2, UserPlus, Copy as CopyIcon, Send, Upload, ArrowUpCircle, ListPlus,
 } from 'lucide-react'
 import { Card, Badge, Btn, Input, Toggle, KPI, PriceTag, StarRating, Modal } from '../../components/ui'
-import EventScannerPanel from '../../components/admin/EventScannerPanel'
 import AiSummaryCard from '../../components/admin/AiSummaryCard'
+
+// Lazy - html5-qrcode is a large camera/decoding library only needed once
+// an organizer actually opens the Scanner tab, not on every event-detail visit.
+const EventScannerPanel = lazy(() => import('../../components/admin/EventScannerPanel'))
 import { useAdminEvents, useRegistrations, useFeedback } from '../../hooks/useApi'
 import { addTask, toggleTask, verifyPayment, updateRegistration, deleteRegistration, addGuest, duplicateEvent, submitEvent, completeEvent, importGuestsCsv, promoteRegistration } from '../../api/resources'
 import { useApp } from '../../context/AppContext'
@@ -354,7 +357,9 @@ export default function EventDetail() {
       )}
 
       {tab === 'scanner' && (
-        <EventScannerPanel eventId={event.id} checkedInCount={att.length} totalCount={regs.length} onCheckedIn={refetchRegs} />
+        <Suspense fallback={<div className="text-center py-16 text-slate-400 text-[13px]">Loading scanner…</div>}>
+          <EventScannerPanel eventId={event.id} checkedInCount={att.length} totalCount={regs.length} onCheckedIn={refetchRegs} />
+        </Suspense>
       )}
 
       {tab === 'payments' && (
