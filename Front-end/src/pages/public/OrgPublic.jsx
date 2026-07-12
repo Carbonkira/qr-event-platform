@@ -1,14 +1,18 @@
-import { Link, useParams } from 'react-router-dom'
-import { Building2, Instagram, Linkedin, Facebook, Twitter, Globe, Calendar } from 'lucide-react'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
+import { Building2, Instagram, Linkedin, Facebook, Twitter, Globe, Calendar, MessageSquare } from 'lucide-react'
 import { Card } from '../../components/ui'
+import { cn } from '../../lib/utils'
 import { usePublicOrg } from '../../hooks/useApi'
 import { SuggestCard } from './Home'
+import OrgDiscussion from '../../components/public/OrgDiscussion'
 
 const SOC = [['instagram', Instagram], ['linkedin', Linkedin], ['facebook', Facebook], ['twitter', Twitter], ['website', Globe]]
 
 export default function OrgPublic() {
   const { slug } = useParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   const { data, loading } = usePublicOrg(slug)
+  const tab = searchParams.get('tab') === 'discussion' ? 'discussion' : 'events'
 
   if (loading) return <div className="text-center py-20 text-slate-400 text-[13px]">Loading…</div>
   if (!data) return <div className="text-center py-20 text-slate-500">Organization not found.</div>
@@ -33,24 +37,35 @@ export default function OrgPublic() {
         </div>
       )}
 
-      <section className="mb-10">
-        <h2 className="text-[13px] font-bold text-slate-700 uppercase tracking-wide mb-3">Upcoming events</h2>
-        {upcomingEvents.length === 0 ? (
-          <Card className="p-8 text-center text-[13px] text-slate-400"><Calendar size={22} className="mx-auto mb-2 text-slate-300" />No upcoming events right now.</Card>
-        ) : (
-          <div className="grid sm:grid-cols-3 gap-4">
-            {upcomingEvents.map(e => <SuggestCard key={e.id} event={e} />)}
-          </div>
-        )}
-      </section>
+      <div className="flex items-center gap-2 mb-7">
+        <button onClick={() => setSearchParams({})} className={cn('px-4 py-2 rounded-full text-[13px] font-semibold transition-all flex items-center gap-1.5', tab === 'events' ? 'bg-[#1a1a2e] text-white' : 'bg-white border border-slate-200 text-slate-600 hover:border-slate-300')}><Calendar size={13} />Events</button>
+        <button onClick={() => setSearchParams({ tab: 'discussion' })} className={cn('px-4 py-2 rounded-full text-[13px] font-semibold transition-all flex items-center gap-1.5', tab === 'discussion' ? 'bg-[#1a1a2e] text-white' : 'bg-white border border-slate-200 text-slate-600 hover:border-slate-300')}><MessageSquare size={13} />Discussion</button>
+      </div>
 
-      {pastEvents.length > 0 && (
-        <section>
-          <h2 className="text-[13px] font-bold text-slate-700 uppercase tracking-wide mb-3">Past events</h2>
-          <div className="grid sm:grid-cols-3 gap-4">
-            {pastEvents.map(e => <SuggestCard key={e.id} event={e} />)}
-          </div>
-        </section>
+      {tab === 'events' ? (
+        <>
+          <section className="mb-10">
+            <h2 className="text-[13px] font-bold text-slate-700 uppercase tracking-wide mb-3">Upcoming events</h2>
+            {upcomingEvents.length === 0 ? (
+              <Card className="p-8 text-center text-[13px] text-slate-400"><Calendar size={22} className="mx-auto mb-2 text-slate-300" />No upcoming events right now.</Card>
+            ) : (
+              <div className="grid sm:grid-cols-3 gap-4">
+                {upcomingEvents.map(e => <SuggestCard key={e.id} event={e} />)}
+              </div>
+            )}
+          </section>
+
+          {pastEvents.length > 0 && (
+            <section>
+              <h2 className="text-[13px] font-bold text-slate-700 uppercase tracking-wide mb-3">Past events</h2>
+              <div className="grid sm:grid-cols-3 gap-4">
+                {pastEvents.map(e => <SuggestCard key={e.id} event={e} />)}
+              </div>
+            </section>
+          )}
+        </>
+      ) : (
+        <OrgDiscussion org={org} />
       )}
 
       <p className="text-[12px] text-slate-400 mt-10"><Link to="/" className="font-semibold text-[#1a1a2e] hover:text-[#e94560]">Back to all events</Link></p>

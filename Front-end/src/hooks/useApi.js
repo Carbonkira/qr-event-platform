@@ -62,6 +62,12 @@ export function useOrgInvites(id, enabled = true) {
 export function usePublicOrg(slug) {
   return useAsync(() => (slug ? api.getPublicOrg(slug) : Promise.resolve(null)), [slug])
 }
+export function useDiscussionThreads(orgId, enabled = true) {
+  return useAsync(() => (enabled && orgId ? api.getDiscussionThreads(orgId) : Promise.resolve([])), [orgId, enabled])
+}
+export function useDiscussionThread(threadId) {
+  return useAsync(() => (threadId ? api.getDiscussionThread(threadId) : Promise.resolve(null)), [threadId])
+}
 export function useTaskTemplates() {
   return useAsync(() => api.getTaskTemplates(), [])
 }

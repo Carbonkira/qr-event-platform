@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\AttendanceController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\EventController;
 use App\Http\Controllers\Api\FeedbackController;
+use App\Http\Controllers\Api\DiscussionController;
 use App\Http\Controllers\Api\FeedbackSummaryController;
 use App\Http\Controllers\Api\InviteController;
 use App\Http\Controllers\Api\OrganizationController;
@@ -116,6 +117,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/orgs/{organization}/invites', [OrgController::class, 'storeInvite'])->middleware('throttle:20,1');
     Route::delete('/orgs/{organization}/invites/{invite}', [OrgController::class, 'destroyInvite']);
     Route::post('/invites/{token}/accept', [InviteController::class, 'accept']);
+
+    Route::get('/orgs/{organization}/discussion', [DiscussionController::class, 'index']);
+    Route::post('/orgs/{organization}/discussion', [DiscussionController::class, 'store']);
+    Route::get('/discussion/threads/{thread}', [DiscussionController::class, 'show']);
+    Route::post('/discussion/threads/{thread}/replies', [DiscussionController::class, 'storeReply']);
 
     Route::get('/task-templates', [TaskTemplateController::class, 'index']);
     Route::post('/task-templates', [TaskTemplateController::class, 'store']);

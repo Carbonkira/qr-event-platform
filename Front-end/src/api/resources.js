@@ -220,6 +220,20 @@ export function getPublicOrg(slug) {
   return api.get(`/org/${slug}`)
 }
 
+// ─── Discussion boards (per-organization) ───
+export function getDiscussionThreads(orgId) {
+  return api.get(`/orgs/${orgId}/discussion`)
+}
+export function createDiscussionThread(orgId, payload) {
+  return api.post(`/orgs/${orgId}/discussion`, payload)
+}
+export function getDiscussionThread(threadId) {
+  return api.get(`/discussion/threads/${threadId}`)
+}
+export function replyToDiscussionThread(threadId, body) {
+  return api.post(`/discussion/threads/${threadId}/replies`, { body })
+}
+
 // ─── Task Templates ───
 export function getTaskTemplates() {
   return api.get('/task-templates')

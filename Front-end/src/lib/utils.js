@@ -16,6 +16,18 @@ export const fmtDateLong = (d) => d ? new Date(d).toLocaleDateString('en-PH', { 
 export const fmtTime = (t) => { if (!t) return ''; const [h, m] = t.split(':'); const ampm = h >= 12 ? 'PM' : 'AM'; return `${h % 12 || 12}:${m} ${ampm}` }
 export const monthDay = (d) => { const dt = new Date(d); return { month: dt.toLocaleDateString('en-US', { month: 'short' }).toUpperCase(), day: dt.getDate(), weekday: dt.toLocaleDateString('en-US', { weekday: 'short' }) } }
 
+export function timeAgo(iso) {
+  if (!iso) return ''
+  const seconds = Math.floor((Date.now() - new Date(iso).getTime()) / 1000)
+  if (seconds < 60) return 'just now'
+  const units = [['year', 31536000], ['month', 2592000], ['day', 86400], ['hour', 3600], ['minute', 60]]
+  for (const [label, secs] of units) {
+    const n = Math.floor(seconds / secs)
+    if (n >= 1) return `${n} ${label}${n > 1 ? 's' : ''} ago`
+  }
+  return 'just now'
+}
+
 export function getUserLocale() {
   const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || ''
   if (tz.includes('Manila')) return { city: 'Metro Manila', region: 'NCR', country: 'Philippines', flag: '🇵🇭' }
