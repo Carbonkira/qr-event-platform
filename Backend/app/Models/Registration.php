@@ -25,6 +25,7 @@ class Registration extends Model
         'payment_status',
         'payment_ref',
         'payment_screenshot',
+        'reminder_sent_at',
     ];
 
     // Exposed as paymentScreenshotUrl (camelCased at the response boundary)
@@ -48,6 +49,7 @@ class Registration extends Model
             'is_walk_in' => 'boolean',
             'needs_certificate' => 'boolean',
             'waitlisted' => 'boolean',
+            'reminder_sent_at' => 'datetime',
         ];
     }
 
