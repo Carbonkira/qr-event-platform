@@ -25,6 +25,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->api(append: [
             \App\Http\Middleware\ConvertCamelCaseRequestToSnakeCase::class,
             \App\Http\Middleware\ConvertSnakeCaseResponseToCamelCase::class,
+            \App\Http\Middleware\AddSecurityHeaders::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

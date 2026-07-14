@@ -46,9 +46,12 @@ Route::middleware('throttle:30,1')->group(function () {
     // on-site kiosk flow. Pre-event registration (below, authenticated) is the norm.
     Route::post('/events/{event}/walk-in', [RegistrationController::class, 'walkIn']);
     Route::post('/events/{event}/feedback', [FeedbackController::class, 'store']);
+    // Both keyed by something guessable with no account behind them (an
+    // email, a sequential id) - unthrottled, either could be scripted to
+    // enumerate who's registered for what.
+    Route::get('/pass/lookup', [RegistrationController::class, 'lookup']);
+    Route::get('/registrations/{registration}', [RegistrationController::class, 'show']);
 });
-Route::get('/pass/lookup', [RegistrationController::class, 'lookup']);
-Route::get('/registrations/{registration}', [RegistrationController::class, 'show']);
 // Embedded as an <img> in confirmation/reminder emails, so it has to be
 // fetchable by the recipient's mail client with no auth header.
 Route::get('/registrations/{registration}/qr.png', [QrCodeController::class, 'show']);
