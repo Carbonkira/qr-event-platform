@@ -29,7 +29,13 @@ export async function validateResetToken(email, token) {
   return valid
 }
 export async function logout() {
-  try { await api.post('/auth/logout') } finally { setToken(null) }
+  // Logging out locally (clearing the token/user state) has to succeed
+  // even if the server-side call fails - e.g. the token was already
+  // invalid (expired, or revoked by logging in elsewhere - see
+  // AuthController::login's single-session policy), which 401s here and,
+  // uncaught, used to leave the UI looking still logged in since neither
+  // setUser(null) nor the post-logout redirect ever ran.
+  try { await api.post('/auth/logout') } catch { /* best-effort */ } finally { setToken(null) }
 }
 export function me() {
   return api.get('/auth/me')

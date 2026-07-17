@@ -17,18 +17,25 @@ export default function Home() {
   const now = new Date()
 
   const query = q.trim().toLowerCase()
-  let events = events0.filter(e => {
+  let filtered = events0.filter(e => {
     if (!query) return true
     const haystack = [e.title, e.description, e.venue, e.location, e.organizedBy, e.industry, e.type, ...(e.tags || [])]
       .filter(Boolean).join(' ').toLowerCase()
     return haystack.includes(query)
   })
-  if (filter === 'upcoming') events = events.filter(e => new Date(e.date) >= new Date(now.toDateString()))
-  events = events.sort((a, b) => new Date(a.date) - new Date(b.date))
+  if (filter === 'upcoming') filtered = filtered.filter(e => new Date(e.date) >= new Date(now.toDateString()))
+
+  // Sliced from `filtered` (not sorted by date) so it keeps the backend's
+  // own ordering - nearest-first when sorted by distance - while still
+  // respecting the same upcoming/search filters as the list below. Slicing
+  // from the unfiltered events0 instead was the actual bug: "Suggested for
+  // you" could show an already-past event even with the Upcoming tab active.
+  const suggested = filtered.slice(0, 3)
+
+  const events = [...filtered].sort((a, b) => new Date(a.date) - new Date(b.date))
 
   const groups = {}
   events.forEach(e => { (groups[e.date] = groups[e.date] || []).push(e) })
-  const suggested = events0.slice(0, 3)
 
   return (
     <div className="max-w-5xl mx-auto px-5 py-8">

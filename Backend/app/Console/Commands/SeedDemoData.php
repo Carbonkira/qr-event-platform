@@ -61,7 +61,12 @@ class SeedDemoData extends Command
                 'venue' => 'Innovation Hub', 'location' => 'Downtown Campus',
                 'daysAgo' => 24, 'capacity' => 40, 'attendeeCount' => 31, 'attendedCount' => 27,
                 'description' => 'A hands-on walkthrough of building and shipping a real web app from scratch - HTML/CSS/JS fundamentals through deploying your first project.',
-                'image' => 'https://loremflickr.com/800/450/coding,laptop,programming?lock=101',
+                // loremflickr.com used to serve these but is flaky enough in
+                // practice (intermittent 500s) that it broke real event
+                // images shown live on the homepage - picsum.photos doesn't
+                // do topic keywords, but /seed/{n}/... is a stable, reliable
+                // stand-in.
+                'image' => 'https://picsum.photos/seed/101/800/450',
             ],
             [
                 'title' => 'Founders Coffee Chat',
@@ -69,7 +74,7 @@ class SeedDemoData extends Command
                 'venue' => 'The Roastery', 'location' => 'Arts District',
                 'daysAgo' => 15, 'capacity' => 20, 'attendeeCount' => 18, 'attendedCount' => 16,
                 'description' => 'An informal morning meetup for early-stage founders to swap notes, find collaborators, and commiserate over coffee.',
-                'image' => 'https://loremflickr.com/800/450/coffee,meeting,networking?lock=102',
+                'image' => 'https://picsum.photos/seed/102/800/450',
             ],
             [
                 'title' => 'AI Tools for Everyday Productivity',
@@ -77,7 +82,7 @@ class SeedDemoData extends Command
                 'venue' => 'Main Auditorium', 'location' => 'Downtown Campus',
                 'daysAgo' => 6, 'capacity' => 60, 'attendeeCount' => 52, 'attendedCount' => 45,
                 'description' => 'A practical look at the AI tools actually worth adding to your workflow this year, with live demos and Q&A.',
-                'image' => 'https://loremflickr.com/800/450/artificial-intelligence,technology,office?lock=103',
+                'image' => 'https://picsum.photos/seed/103/800/450',
             ],
         ];
 
@@ -88,7 +93,7 @@ class SeedDemoData extends Command
                 'venue' => 'Innovation Hub', 'location' => 'Downtown Campus',
                 'daysFromNow' => 3, 'capacity' => 100, 'status' => 'approved',
                 'description' => 'Kickoff night for our 48-hour weekend hackathon - team formation, theme reveal, and a keynote to get everyone fired up.',
-                'image' => 'https://loremflickr.com/800/450/hackathon,coding,team?lock=104',
+                'image' => 'https://picsum.photos/seed/104/800/450',
             ],
             [
                 'title' => 'Design Systems Deep Dive',
@@ -96,7 +101,7 @@ class SeedDemoData extends Command
                 'venue' => 'Studio B', 'location' => 'Arts District',
                 'daysFromNow' => 10, 'capacity' => 35, 'status' => 'approved',
                 'description' => 'Scaling design tokens and component libraries across teams, taught by people who\'ve actually done it at scale.',
-                'image' => 'https://loremflickr.com/800/450/design,ui,workspace?lock=105',
+                'image' => 'https://picsum.photos/seed/105/800/450',
             ],
             [
                 'title' => 'Startup Pitch Night',
@@ -104,7 +109,7 @@ class SeedDemoData extends Command
                 'venue' => 'Main Auditorium', 'location' => 'Downtown Campus',
                 'daysFromNow' => 18, 'capacity' => 80, 'status' => 'pending',
                 'description' => 'Five local founders pitch to a panel of investors and the room - open floor for questions after each round.',
-                'image' => 'https://loremflickr.com/800/450/startup,pitch,presentation?lock=106',
+                'image' => 'https://picsum.photos/seed/106/800/450',
             ],
         ];
 
