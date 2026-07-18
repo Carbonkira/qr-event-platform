@@ -16,10 +16,34 @@ export function AppProvider({ children }) {
   // On mount, if a token is stored, restore the session by asking the API who it is.
   useEffect(() => {
     if (!getToken()) { setAuthReady(true); return }
-    api.me()
-      .then(setUser)
-      .catch(() => setToken(null))
-      .finally(() => setAuthReady(true))
+    let cancelled = false
+
+    const restore = async () => {
+      try {
+        const u = await api.me()
+        if (!cancelled) setUser(u)
+      } catch (err) {
+        // Only a genuine 401 means the token itself is actually invalid
+        // (expired, revoked, logged in elsewhere) - that used to be the
+        // only case handled, but ANY failure (a network blip, or the
+        // backend still waking up after sitting idle, which is exactly the
+        // kind of gap "closed every tab for a while" produces) was treated
+        // the same way and silently deleted a perfectly good token, forcing
+        // a real re-login for no reason. One retry after a couple seconds
+        // covers the common cold-start case instead of giving up instantly.
+        if (err.status === 401) { setToken(null); return }
+        await new Promise(r => setTimeout(r, 2000))
+        try {
+          const u = await api.me()
+          if (!cancelled) setUser(u)
+        } catch (err2) {
+          if (err2.status === 401) setToken(null)
+        }
+      }
+    }
+
+    restore().finally(() => { if (!cancelled) setAuthReady(true) })
+    return () => { cancelled = true }
   }, [])
 
   // Requested once per app load here (not per-page, which is what used to
