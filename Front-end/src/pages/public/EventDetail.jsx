@@ -1,12 +1,12 @@
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import {
   ArrowLeft, Lock, Instagram, Linkedin, Facebook, Twitter, Globe, Briefcase, Award,
-  MapPin, Shield, ExternalLink, Ticket, UserCheck, CalendarPlus, Share2,
+  MapPin, Shield, ExternalLink, Ticket, UserCheck, CalendarPlus, Share2, CheckCircle2,
 } from 'lucide-react'
 import { Btn, Card, Badge, PriceTag } from '../../components/ui'
 import EventMap from '../../components/shared/EventMap'
 import { useApp } from '../../context/AppContext'
-import { useEvent } from '../../hooks/useApi'
+import { useEvent, useMyRegistrations } from '../../hooks/useApi'
 import { fmtDateLong, fmtTime, monthDay, downloadICS, googleCalUrl, shareEvent } from '../../lib/utils'
 
 const SOC = [['instagram', Instagram], ['linkedin', Linkedin], ['facebook', Facebook], ['twitter', Twitter], ['website', Globe]]
@@ -15,13 +15,20 @@ export default function EventDetail() {
   const { slug } = useParams()
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
-  const { addToast: toast } = useApp()
+  const { user, addToast: toast } = useApp()
   const { data: event, loading } = useEvent(slug)
   // Was fetching /events/:id/registrations for a count - that endpoint is
   // organizer-only, so an anonymous or non-organizer visitor silently got
   // 0 back regardless of real attendance. The event itself now carries its
   // own confirmed-registration count (see EventController::show).
   const registeredCount = event?.registrationsCount ?? 0
+  // This page always showed "Register" even to someone who already had a
+  // pass - reported live: close the tab, come back, and it looks like the
+  // site "forgot" you registered (harmless server-side - store() just
+  // returns the existing registration - but confusing since nothing here
+  // said you already had one).
+  const { data: myRegs } = useMyRegistrations(!!user)
+  const myRegistration = (myRegs || []).find(r => r.event?.id === event?.id)
 
   if (loading) return <div className="text-center py-20 text-slate-400 text-[13px]">Loading event…</div>
   if (!event) return <div className="text-center py-20 text-slate-500">Event not found.</div>
@@ -114,7 +121,12 @@ export default function EventDetail() {
                   <div className="flex justify-between text-[11px] mb-1.5"><span className="text-slate-500">{registeredCount} registered</span><span className="font-semibold">{event.capacity} cap</span></div>
                   <div className="h-1.5 rounded-full bg-slate-100"><div className="h-full rounded-full bg-[#1a1a2e] transition-all" style={{ width: `${Math.min(100, (registeredCount / event.capacity) * 100)}%` }} /></div>
                 </div>
-                {isFull ? <div className="text-center py-2 rounded-xl bg-amber-50 text-amber-700 text-[13px] font-semibold">Event is full</div> : (
+                {myRegistration ? (
+                  <div className="space-y-2">
+                    <div className="text-center py-2 rounded-xl bg-emerald-50 text-emerald-700 text-[13px] font-semibold flex items-center justify-center gap-1.5"><CheckCircle2 size={14} />You're registered</div>
+                    <Btn variant="secondary" size="lg" full icon={Ticket} onClick={() => navigate(`/pass/${myRegistration.id}`)}>View your pass</Btn>
+                  </div>
+                ) : isFull ? <div className="text-center py-2 rounded-xl bg-amber-50 text-amber-700 text-[13px] font-semibold">Event is full</div> : (
                   <div className="space-y-2">
                     <Btn variant="accent" size="lg" full icon={Ticket} onClick={() => navigate(`/events/${event.slug}/register`)}>{event.pricing === 'paid' ? 'Register & Pay' : 'Register'}</Btn>
                     {event.allowWalkIns && <Btn variant="secondary" size="md" full icon={UserCheck} onClick={() => navigate(`/events/${event.slug}/register?walkIn=1`)}>Walk-in (skip form)</Btn>}
