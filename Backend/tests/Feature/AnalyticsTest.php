@@ -42,18 +42,28 @@ class AnalyticsTest extends TestCase
         $this->assertSame(1, $response->json('totalRegistrations'));
     }
 
-    public function test_pending_approvals_count_is_scoped_to_the_organizers_own_events(): void
+    /**
+     * approve()/reject() are strictly admin-gated with no "you created this
+     * one" exception, so pendingApprovals must never be non-zero for a
+     * non-admin - it drives a banner that links straight to the admin-only
+     * Approvals page. Confirmed live by two independent testers: a
+     * non-admin saw "N events awaiting approval" and got "Admins only" on
+     * clicking through.
+     */
+    public function test_pending_approvals_is_always_zero_for_a_non_admin(): void
     {
         $owner = User::create(['name' => 'Owner', 'email' => 'owner@example.com', 'password' => bcrypt('password123')]);
-        $stranger = User::create(['name' => 'Stranger', 'email' => 'stranger@example.com', 'password' => bcrypt('password123')]);
         $ownerOrg = $this->makeOrganization($owner);
-        $strangerOrg = $this->makeOrganization($stranger);
-
         Event::create(['title' => 'Mine Pending', 'status' => 'pending', 'slug' => 'mine-pending-'.uniqid(), 'user_id' => $owner->id, 'organization_id' => $ownerOrg->id]);
-        Event::create(['title' => 'Theirs Pending', 'status' => 'pending', 'slug' => 'theirs-pending-'.uniqid(), 'user_id' => $stranger->id, 'organization_id' => $strangerOrg->id]);
+        // A pending, org-less event belonging to someone else entirely -
+        // this is what the reported bug actually surfaced: org-less events
+        // are deliberately "anyone's to manage" as a legacy-data safety net
+        // elsewhere in the app, but that should never extend to the
+        // strictly-admin approve/reject action.
+        Event::create(['title' => 'Unrelated Org-less Pending', 'status' => 'pending', 'slug' => 'unrelated-pending-'.uniqid()]);
 
         Sanctum::actingAs($owner);
-        $this->getJson('/api/analytics')->assertOk()->assertJsonPath('pendingApprovals', 1);
+        $this->getJson('/api/analytics')->assertOk()->assertJsonPath('pendingApprovals', 0);
     }
 
     public function test_a_co_member_sees_the_same_organizations_events_as_the_owner(): void

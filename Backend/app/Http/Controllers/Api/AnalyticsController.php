@@ -27,13 +27,11 @@ class AnalyticsController extends Controller
         $registrations = Registration::query();
         $feedback = Feedback::query();
         $events = Event::query();
-        $pending = Event::where('status', 'pending');
 
         if (! $isAdmin) {
             $registrations->whereIn('event_id', $ownedEventIds);
             $feedback->whereIn('event_id', $ownedEventIds);
             $events->whereIn('id', $ownedEventIds);
-            $pending->whereIn('id', $ownedEventIds);
         }
 
         $totalRegistrations = (clone $registrations)->count();
@@ -62,7 +60,12 @@ class AnalyticsController extends Controller
                 ? (string) round(($totalFeedback / $totalAttended) * 100)
                 : '0',
             'avgSatisfaction' => number_format($avgSatisfaction, 1),
-            'pendingApprovals' => $pending->count(),
+            // Only ever meaningful for an admin - EventController::approve()/
+            // reject() are strictly admin-gated with no "you created this
+            // org-less event" exception, so a non-admin seeing this banner
+            // could only ever click through to a permission-denied page.
+            // Confirmed live by two independent testers.
+            'pendingApprovals' => $isAdmin ? Event::where('status', 'pending')->count() : 0,
         ]);
     }
 }
