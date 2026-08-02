@@ -122,6 +122,14 @@ export function registerForEvent(eventId, payload) {
         Object.entries(value).forEach(([fieldId, fieldValue]) => form.append(`customData[${fieldId}]`, fieldValue))
         return
       }
+      // FormData stringifies everything - a JS boolean becomes the literal
+      // string "true"/"false", which Laravel's `boolean` rule actually
+      // rejects (it only accepts true/false/0/1/'0'/'1', not those two
+      // strings) - confirmed live: needsCertificate on a paid registration
+      // with a payment screenshot 422'd with "must be true or false" for
+      // exactly this reason, since that's the only path that forces
+      // multipart instead of plain JSON.
+      if (typeof value === 'boolean') { form.append(key, value ? '1' : '0'); return }
       form.append(key, value)
     })
     return api.post(`/events/${eventId}/register`, form)
