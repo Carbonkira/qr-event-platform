@@ -14,7 +14,7 @@ return [
     // see App\Services\Gemini for the actual HTTP call.
     'gemini' => [
         'key' => env('GEMINI_API_KEY'),
-        'model' => env('GEMINI_MODEL', 'gemini-flash-latest'),
+        'model' => env('GEMINI_MODEL', 'gemini-3.6-flash'),
     ],
 
     // Where the SPA is deployed - used to build links inside emails

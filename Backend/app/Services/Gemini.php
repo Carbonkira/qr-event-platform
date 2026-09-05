@@ -25,7 +25,7 @@ class Gemini
      */
     public static function generate(string $prompt, int $maxOutputTokens = 1024): string
     {
-        $model = config('services.gemini.model', 'gemini-flash-latest');
+        $model = config('services.gemini.model', 'gemini-3.6-flash');
         $key = config('services.gemini.key');
         $url = "https://generativelanguage.googleapis.com/v1beta/models/{$model}:generateContent?key={$key}";
         $payload = [
@@ -34,13 +34,16 @@ class Gemini
             ],
             'generationConfig' => [
                 'maxOutputTokens' => $maxOutputTokens,
-                // The "-latest" flash alias is a hybrid-reasoning model that
-                // otherwise burns several hundred tokens "thinking" before
-                // writing anything - on a small maxOutputTokens budget that
-                // eats the entire budget and truncates the actual answer.
-                // These are short, single-turn writing tasks with nothing
-                // to reason about, so thinking is switched off outright.
-                'thinkingConfig' => ['thinkingBudget' => 0],
+                // Flash models are hybrid-reasoning and otherwise burn
+                // several hundred tokens "thinking" before writing anything
+                // - on a small maxOutputTokens budget that eats the entire
+                // budget and truncates the actual answer, which is exactly
+                // what these short, single-turn writing tasks hit. The
+                // older "-latest" alias allowed thinkingBudget=0 to switch
+                // it off outright; gemini-3.6-flash rejects 0 with a 400
+                // (confirmed live) and requires a non-zero minimum, so 1 is
+                // the closest thing to "off" this model generation allows.
+                'thinkingConfig' => ['thinkingBudget' => 1],
             ],
         ];
 
@@ -68,9 +71,22 @@ class Gemini
             throw new RuntimeException('Gemini request failed: '.$response->body());
         }
 
-        $text = $response->json('candidates.0.content.parts.0.text');
+        // A hybrid-reasoning model's answer isn't always one single part -
+        // confirmed live, this can come back as two or more parts.text
+        // entries that need concatenating. Reading only parts.0 (the
+        // original approach) silently dropped the back half of real
+        // answers rather than erroring, which is worse than a crash: it
+        // looked like a short-but-valid summary instead of a truncated one.
+        // Any part flagged "thought" is the model's internal reasoning
+        // trace, not the actual answer, and is skipped.
+        $parts = $response->json('candidates.0.content.parts', []);
+        $text = collect($parts)
+            ->reject(fn ($part) => $part['thought'] ?? false)
+            ->pluck('text')
+            ->filter(fn ($t) => is_string($t))
+            ->implode('');
 
-        if (! is_string($text)) {
+        if ($text === '') {
             throw new RuntimeException('Gemini returned no text content.');
         }
 
