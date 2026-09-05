@@ -30,38 +30,43 @@ export default function AiSummaryCard({ eventId, className = '' }) {
   const [summary, setSummary] = useState(null)
   const [loading, setLoading] = useState(true)
   const [regenerating, setRegenerating] = useState(false)
+  // Separate from `summary` on purpose - a real "no feedback yet" response
+  // and a failed request (the AI provider's own capacity, most often) used
+  // to render as the exact same "Not enough feedback yet" message, which is
+  // actively misleading when a completed event already has plenty of
+  // feedback and the request just failed.
+  const [error, setError] = useState(null)
+
+  const load = (refresh) => {
+    const setBusy = refresh ? setRegenerating : setLoading
+    setBusy(true)
+    setError(null)
+    return getFeedbackSummary(eventId, refresh)
+      .then(data => { setSummary(data) })
+      .catch(err => { setError(err.message || "Couldn't generate a summary right now.") })
+      .finally(() => setBusy(false))
+  }
 
   useEffect(() => {
     let cancelled = false
-    setLoading(true)
     setSummary(null)
-    getFeedbackSummary(eventId)
-      .then(data => { if (!cancelled) setSummary(data) })
-      .catch(() => { if (!cancelled) setSummary({ summary: null }) })
-      .finally(() => { if (!cancelled) setLoading(false) })
+    load(false).then(() => {})
     return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [eventId])
-
-  const regenerate = async () => {
-    setRegenerating(true)
-    try {
-      const data = await getFeedbackSummary(eventId, true)
-      setSummary(data)
-    } catch {
-      // keep showing the previous summary if regeneration fails
-    } finally {
-      setRegenerating(false)
-    }
-  }
 
   return (
     <Card className={`p-5 ${className}`}>
       <div className="flex items-center justify-between mb-3">
         <p className="font-bold text-[14px] flex items-center gap-2"><Sparkles size={15} className="text-[#e94560]" />AI Summary</p>
-        <Btn variant="ghost" size="sm" icon={RefreshCw} onClick={regenerate} disabled={loading || regenerating} loading={regenerating}>Regenerate</Btn>
+        <Btn variant="ghost" size="sm" icon={RefreshCw} onClick={() => load(true)} disabled={loading || regenerating} loading={regenerating}>Regenerate</Btn>
       </div>
       {loading ? (
         <div className="flex items-center justify-center py-8"><span className="w-5 h-5 border-2 border-slate-300 border-t-[#1a1a2e] rounded-full animate-spin" /></div>
+      ) : error ? (
+        <div className="text-[13px] text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3.5 py-3 leading-relaxed">
+          {error} <button type="button" onClick={() => load(true)} className="font-semibold underline">Try again</button>
+        </div>
       ) : summary?.summary ? (
         <ReactMarkdown remarkPlugins={[remarkGfm]} components={SUMMARY_MARKDOWN_COMPONENTS}>{summary.summary}</ReactMarkdown>
       ) : (

@@ -58,7 +58,19 @@ class FeedbackSummaryController extends Controller
 
         $prompt = $this->buildPrompt($event, $feedback);
 
-        $event->ai_summary = Gemini::generate($prompt, 3072);
+        try {
+            $generated = Gemini::generate($prompt, 3072);
+        } catch (\Throwable $e) {
+            // Almost always Google's shared flash capacity being temporarily
+            // overloaded (confirmed live, even after Gemini::generate's own
+            // retry) - never let a third-party provider's transient outage
+            // read as "not enough feedback yet" or a bare crash to the
+            // organizer; give them something they can act on instead.
+            report($e);
+            abort(503, "The AI summary service is temporarily busy - please try again in a moment.");
+        }
+
+        $event->ai_summary = $generated;
         $event->ai_summary_generated_at = now();
         $event->save();
 
