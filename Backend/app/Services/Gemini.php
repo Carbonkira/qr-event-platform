@@ -47,12 +47,20 @@ class Gemini
         // Google's shared flash capacity returns a 503 UNAVAILABLE
         // ("experiencing high demand... usually temporary") often enough in
         // practice that a bare pass-through breaks this feature for reasons
-        // that have nothing to do with our own code - confirmed live. One
-        // retry after a short pause is exactly what Google's own message
-        // recommends, and clears most of these without the caller noticing.
+        // that have nothing to do with our own code, our API key, or our
+        // billing tier - confirmed live, and confirmed this hits paid
+        // accounts too, not just the free tier. A 503 means "no server has
+        // room right now," not "something is wrong with this request," so
+        // it's worth more than one retry - exponential backoff (1s, then
+        // 3s) roughly matches how quickly this class of outage tends to
+        // clear without holding the request open too long to be usable in
+        // a request/response cycle.
         $response = Http::post($url, $payload);
-        if ($response->status() === 503) {
-            usleep(1_500_000);
+        foreach ([1_000_000, 3_000_000] as $delayMicroseconds) {
+            if ($response->status() !== 503) {
+                break;
+            }
+            usleep($delayMicroseconds);
             $response = Http::post($url, $payload);
         }
 
