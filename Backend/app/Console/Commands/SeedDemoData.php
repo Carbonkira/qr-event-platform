@@ -5,8 +5,8 @@ namespace App\Console\Commands;
 use App\Models\Event;
 use App\Models\Feedback;
 use App\Models\Organization;
+use App\Models\Organizer;
 use App\Models\Registration;
-use App\Models\User;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Hash;
 
@@ -34,17 +34,17 @@ class SeedDemoData extends Command
         $email = $this->option('email');
         $password = $this->option('password');
 
-        $user = User::updateOrCreate(
+        $user = Organizer::updateOrCreate(
             ['email' => $email],
             [
                 'name' => 'Demo Organizer',
                 'password' => Hash::make($password),
             ]
         );
-        // Neither is mass-assignable (see User::$fillable) - both are
+        // None of these are mass-assignable (see Organizer::$fillable) -
         // deliberately excluded from ordinary create()/update() calls, so
         // they need a separate forceFill, same as the seeder does.
-        $user->forceFill(['role' => 'admin', 'email_verified_at' => now()])->save();
+        $user->forceFill(['role' => 'admin', 'email_verified_at' => now(), 'approval_status' => 'approved', 'approved_at' => now()])->save();
 
         Organization::query()->first()?->update([
             'name' => 'QRMeets Community',
@@ -142,8 +142,8 @@ class SeedDemoData extends Command
                     'start_time' => '10:00', 'end_time' => '14:00',
                     'organized_by' => 'Demo Organizer', 'industry' => $spec['industry'],
                     'capacity' => $spec['capacity'], 'status' => 'completed', 'feedback_enabled' => true,
-                    'requires_certificate' => false, 'pricing' => 'free', 'price' => 0, 'allow_walk_ins' => true,
-                    'socials' => [], 'custom_fields' => [], 'tags' => $spec['tags'], 'user_id' => $user->id,
+                    'pricing' => 'free', 'price' => 0, 'allow_walk_ins' => true,
+                    'socials' => [], 'custom_fields' => [], 'tags' => $spec['tags'], 'organizer_id' => $user->id,
                     'image' => $spec['image'],
                 ]
             );
@@ -186,8 +186,8 @@ class SeedDemoData extends Command
                     'start_time' => '10:00', 'end_time' => '14:00',
                     'organized_by' => 'Demo Organizer', 'industry' => $spec['industry'],
                     'capacity' => $spec['capacity'], 'status' => $spec['status'], 'feedback_enabled' => true,
-                    'requires_certificate' => false, 'pricing' => 'free', 'price' => 0, 'allow_walk_ins' => true,
-                    'socials' => [], 'custom_fields' => [], 'tags' => $spec['tags'], 'user_id' => $user->id,
+                    'pricing' => 'free', 'price' => 0, 'allow_walk_ins' => true,
+                    'socials' => [], 'custom_fields' => [], 'tags' => $spec['tags'], 'organizer_id' => $user->id,
                     'image' => $spec['image'],
                 ]
             );

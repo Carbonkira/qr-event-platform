@@ -7,13 +7,17 @@ import { useApp } from '../../context/AppContext'
 // Shown right after account creation, before the user has clicked the real
 // verification link sent to their inbox (see Backend's AuthController -
 // the link itself is a signed URL that hits the backend directly and
-// redirects to /email-verified, not this page).
+// redirects to /email-verified, not this page). Everything but a handful of
+// escape-hatch actions (log out, resend, edit your own profile) is blocked
+// until then - see routes/api.php's 'verified' gate - so this page can't
+// offer a way "in" to the app before that, only a way to confirm it's done.
 export default function VerifyEmail() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
-  const { user, resendVerificationEmail, addToast } = useApp()
+  const { user, refreshUser, resendVerificationEmail, addToast } = useApp()
   const email = searchParams.get('email') || user?.email
   const [resending, setResending] = useState(false)
+  const [checking, setChecking] = useState(false)
 
   const resend = async () => {
     setResending(true)
@@ -27,15 +31,28 @@ export default function VerifyEmail() {
     }
   }
 
+  const checkVerified = async () => {
+    setChecking(true)
+    try {
+      const fresh = await refreshUser()
+      if (fresh.emailVerifiedAt) navigate('/my-events')
+      else addToast("Still not verified — click the link in your email first", 'error')
+    } catch (err) {
+      addToast(err.message || 'Could not check verification status', 'error')
+    } finally {
+      setChecking(false)
+    }
+  }
+
   return (
     <div className="max-w-md mx-auto px-5 py-16 text-center">
       <Card className="p-8">
         <div className="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-4"><MailCheck size={30} className="text-[#1a1a2e]" /></div>
         <h1 className="text-xl font-extrabold mb-1">Check your inbox</h1>
-        <p className="text-[13px] text-slate-500 mb-6">We sent a verification link to {email ? <b className="text-slate-700">{email}</b> : 'your email'}. Click it to verify your account — you can keep using the app in the meantime.</p>
+        <p className="text-[13px] text-slate-500 mb-6">We sent a verification link to {email ? <b className="text-slate-700">{email}</b> : 'your email'}. Click it to verify your account - you'll need to before you can do anything else.</p>
         <div className="space-y-2">
+          <Btn variant="accent" size="lg" full loading={checking} onClick={checkVerified}>I've verified — Continue</Btn>
           <Btn variant="secondary" size="lg" full icon={RefreshCw} loading={resending} onClick={resend}>Resend email</Btn>
-          <Btn variant="accent" size="lg" full onClick={() => navigate('/my-events')}>Go to My Events</Btn>
         </div>
       </Card>
     </div>

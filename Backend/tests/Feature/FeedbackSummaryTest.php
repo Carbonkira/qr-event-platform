@@ -4,8 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Event;
 use App\Models\Organization;
-use App\Models\Registration;
-use App\Models\User;
+use App\Models\Organizer;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Laravel\Sanctum\Sanctum;
@@ -27,12 +26,14 @@ class FeedbackSummaryTest extends TestCase
         return $event;
     }
 
-    private function actingAsOrganizer(): User
+    private function actingAsOrganizer(): Organizer
     {
-        $user = User::create(['name' => 'Org', 'email' => 'org@example.com', 'password' => bcrypt('password123')]);
-        Sanctum::actingAs($user);
+        $organizer = Organizer::create(['name' => 'Org', 'email' => 'org@example.com', 'password' => bcrypt('password123')]);
+        // Neither is mass-assignable (see Organizer::$fillable).
+        $organizer->forceFill(['email_verified_at' => now(), 'approval_status' => 'approved'])->save();
+        Sanctum::actingAs($organizer);
 
-        return $user;
+        return $organizer;
     }
 
     public function test_feedback_summary_requires_authentication(): void
@@ -87,11 +88,11 @@ class FeedbackSummaryTest extends TestCase
 
     public function test_a_stranger_cannot_view_someone_elses_feedback_summary(): void
     {
-        $owner = User::create(['name' => 'Owner', 'email' => 'owner@example.com', 'password' => bcrypt('password123')]);
+        $owner = Organizer::create(['name' => 'Owner', 'email' => 'owner@example.com', 'password' => bcrypt('password123')]);
         $org = Organization::create(['name' => "Owner's Org", 'slug' => 'owners-org-'.uniqid()]);
         $org->members()->attach($owner->id, ['role' => 'owner']);
         $event = Event::create([
-            'title' => 'Owned Event', 'status' => 'approved', 'slug' => 'owned-event-'.uniqid(), 'user_id' => $owner->id, 'organization_id' => $org->id,
+            'title' => 'Owned Event', 'status' => 'approved', 'slug' => 'owned-event-'.uniqid(), 'organizer_id' => $owner->id, 'organization_id' => $org->id,
             'type' => 'Meetup', 'venue' => 'Venue', 'date' => '2026-08-01',
             'start_time' => '10:00', 'end_time' => '12:00', 'capacity' => 50,
         ]);

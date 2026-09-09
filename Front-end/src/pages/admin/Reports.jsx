@@ -37,10 +37,9 @@ export default function Reports() {
     setDownloadingId(event.id)
     try {
       const regs = await getRegistrations(event.id)
-      let csv = 'Name,Email,Attended,Certificate,Feedback\n'
+      let csv = 'Name,Email,Attended,Feedback\n'
       regs.forEach(r => {
-        const cert = !r.needsCertificate ? 'N/A' : r.feedbackSubmitted ? 'Eligible' : 'Awaiting feedback'
-        csv += `"${r.name}","${r.email}","${r.attended ? 'Yes' : 'No'}","${cert}","${r.feedbackSubmitted ? 'Yes' : 'No'}"\n`
+        csv += `"${r.name}","${r.email}","${r.attended ? 'Yes' : 'No'}","${r.feedbackSubmitted ? 'Yes' : 'No'}"\n`
       })
       const blob = new Blob([csv], { type: 'text/csv' })
       const a = document.createElement('a')

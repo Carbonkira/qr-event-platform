@@ -4,8 +4,9 @@ namespace Tests\Feature;
 
 use App\Models\Event;
 use App\Models\Organization;
+use App\Models\Organizer;
+use App\Models\Participant;
 use App\Models\Registration;
-use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
@@ -14,12 +15,24 @@ class DiscussionControllerTest extends TestCase
 {
     use RefreshDatabase;
 
-    private function makeUser(string $email = 'user@example.com'): User
+    private function makeOrganizer(string $email = 'user@example.com'): Organizer
     {
-        return User::create(['name' => 'Test User', 'email' => $email, 'password' => bcrypt('password123')]);
+        $organizer = Organizer::create(['name' => 'Test Organizer', 'email' => $email, 'password' => bcrypt('password123')]);
+        // email_verified_at isn't mass-assignable (see Organizer::$fillable).
+        $organizer->forceFill(['email_verified_at' => now(), 'approval_status' => 'approved'])->save();
+
+        return $organizer;
     }
 
-    private function makeOrg(User $owner): Organization
+    private function makeParticipant(string $email = 'participant@example.com'): Participant
+    {
+        $participant = Participant::create(['name' => 'Test Participant', 'email' => $email, 'password' => bcrypt('password123')]);
+        $participant->forceFill(['email_verified_at' => now()])->save();
+
+        return $participant;
+    }
+
+    private function makeOrg(Organizer $owner): Organization
     {
         $org = Organization::create(['name' => 'Acme', 'slug' => 'acme-'.uniqid()]);
         $org->members()->attach($owner->id, ['role' => 'owner']);
@@ -29,7 +42,7 @@ class DiscussionControllerTest extends TestCase
 
     public function test_a_member_can_create_and_list_threads(): void
     {
-        $owner = $this->makeUser();
+        $owner = $this->makeOrganizer();
         $org = $this->makeOrg($owner);
 
         Sanctum::actingAs($owner);
@@ -38,37 +51,50 @@ class DiscussionControllerTest extends TestCase
         $response = $this->getJson("/api/orgs/{$org->id}/discussion")->assertOk();
         $this->assertCount(1, $response->json());
         $this->assertSame('Setup help?', $response->json('0.title'));
+        $this->assertSame($owner->id, $response->json('0.author.id'));
     }
 
     public function test_a_registrant_who_is_not_a_member_can_view_and_post(): void
     {
-        $owner = $this->makeUser('owner@example.com');
+        $owner = $this->makeOrganizer('owner@example.com');
         $org = $this->makeOrg($owner);
-        $event = Event::create(['title' => 'Workshop', 'status' => 'approved', 'slug' => 'workshop', 'user_id' => $owner->id, 'organization_id' => $org->id]);
-        $registrant = $this->makeUser('registrant@example.com');
-        Registration::create(['event_id' => $event->id, 'user_id' => $registrant->id, 'name' => 'Registrant', 'email' => 'registrant@example.com', 'qr_code' => 'QR1']);
+        $event = Event::create(['title' => 'Workshop', 'status' => 'approved', 'slug' => 'workshop', 'organizer_id' => $owner->id, 'organization_id' => $org->id]);
+        $registrant = $this->makeParticipant('registrant@example.com');
+        Registration::create(['event_id' => $event->id, 'participant_id' => $registrant->id, 'name' => 'Registrant', 'email' => 'registrant@example.com', 'qr_code' => 'QR1']);
 
         Sanctum::actingAs($registrant);
         $this->getJson("/api/orgs/{$org->id}/discussion")->assertOk();
-        $this->postJson("/api/orgs/{$org->id}/discussion", ['title' => 'Question', 'body' => 'What should I bring?'])->assertCreated();
+        $response = $this->postJson("/api/orgs/{$org->id}/discussion", ['title' => 'Question', 'body' => 'What should I bring?'])->assertCreated();
+        $this->assertSame($registrant->id, $response->json('author.id'));
     }
 
     public function test_a_stranger_with_no_membership_or_registration_is_forbidden(): void
     {
-        $owner = $this->makeUser('owner@example.com');
+        $owner = $this->makeOrganizer('owner@example.com');
         $org = $this->makeOrg($owner);
-        $stranger = $this->makeUser('stranger@example.com');
+        $stranger = $this->makeOrganizer('stranger@example.com');
 
         Sanctum::actingAs($stranger);
         $this->getJson("/api/orgs/{$org->id}/discussion")->assertForbidden();
         $this->postJson("/api/orgs/{$org->id}/discussion", ['title' => 'Hi', 'body' => 'Let me in?'])->assertForbidden();
     }
 
+    /** Neither account type gets a free pass just for being logged in and verified. */
+    public function test_a_participant_with_no_registration_for_this_organization_is_forbidden(): void
+    {
+        $owner = $this->makeOrganizer('owner@example.com');
+        $org = $this->makeOrg($owner);
+        $stranger = $this->makeParticipant('stranger@example.com');
+
+        Sanctum::actingAs($stranger);
+        $this->getJson("/api/orgs/{$org->id}/discussion")->assertForbidden();
+    }
+
     public function test_a_member_of_a_different_organization_cannot_access_this_ones_discussion(): void
     {
-        $ownerA = $this->makeUser('a@example.com');
+        $ownerA = $this->makeOrganizer('a@example.com');
         $orgA = $this->makeOrg($ownerA);
-        $ownerB = $this->makeUser('b@example.com');
+        $ownerB = $this->makeOrganizer('b@example.com');
         $this->makeOrg($ownerB);
 
         Sanctum::actingAs($ownerB);
@@ -77,7 +103,7 @@ class DiscussionControllerTest extends TestCase
 
     public function test_viewing_a_thread_includes_its_replies_and_a_member_can_reply(): void
     {
-        $owner = $this->makeUser();
+        $owner = $this->makeOrganizer();
         $org = $this->makeOrg($owner);
         Sanctum::actingAs($owner);
         $thread = $this->postJson("/api/orgs/{$org->id}/discussion", ['title' => 'Setup help?', 'body' => 'Anyone free?'])->json();
@@ -87,16 +113,39 @@ class DiscussionControllerTest extends TestCase
         $response = $this->getJson("/api/discussion/threads/{$thread['id']}")->assertOk();
         $this->assertCount(1, $response->json('replies'));
         $this->assertSame("I'm in!", $response->json('replies.0.body'));
+        $this->assertSame($owner->id, $response->json('replies.0.author.id'));
+    }
+
+    /** A Participant's reply is attributed to participant_user_id, not organizer_user_id - see DiscussionController::authorColumn(). */
+    public function test_a_registrants_reply_is_attributed_to_the_participant_author_column(): void
+    {
+        $owner = $this->makeOrganizer('owner@example.com');
+        $org = $this->makeOrg($owner);
+        $event = Event::create(['title' => 'Workshop', 'status' => 'approved', 'slug' => 'workshop', 'organizer_id' => $owner->id, 'organization_id' => $org->id]);
+        $registrant = $this->makeParticipant('registrant@example.com');
+        Registration::create(['event_id' => $event->id, 'participant_id' => $registrant->id, 'name' => 'Registrant', 'email' => 'registrant@example.com', 'qr_code' => 'QR1']);
+
+        Sanctum::actingAs($owner);
+        $thread = $this->postJson("/api/orgs/{$org->id}/discussion", ['title' => 'Setup help?', 'body' => 'Anyone free?'])->json();
+
+        Sanctum::actingAs($registrant);
+        $reply = $this->postJson("/api/discussion/threads/{$thread['id']}/replies", ['body' => "I'll be there!"])->assertCreated();
+
+        $this->assertDatabaseHas('discussion_replies', [
+            'id' => $reply->json('id'),
+            'organizer_user_id' => null,
+            'participant_user_id' => $registrant->id,
+        ]);
     }
 
     public function test_a_stranger_cannot_view_or_reply_to_a_thread(): void
     {
-        $owner = $this->makeUser('owner@example.com');
+        $owner = $this->makeOrganizer('owner@example.com');
         $org = $this->makeOrg($owner);
         Sanctum::actingAs($owner);
         $thread = $this->postJson("/api/orgs/{$org->id}/discussion", ['title' => 'Setup help?', 'body' => 'Anyone free?'])->json();
 
-        $stranger = $this->makeUser('stranger@example.com');
+        $stranger = $this->makeOrganizer('stranger@example.com');
         Sanctum::actingAs($stranger);
         $this->getJson("/api/discussion/threads/{$thread['id']}")->assertForbidden();
         $this->postJson("/api/discussion/threads/{$thread['id']}/replies", ['body' => 'Let me in'])->assertForbidden();
@@ -104,7 +153,7 @@ class DiscussionControllerTest extends TestCase
 
     public function test_title_and_body_are_required_to_create_a_thread(): void
     {
-        $owner = $this->makeUser();
+        $owner = $this->makeOrganizer();
         $org = $this->makeOrg($owner);
         Sanctum::actingAs($owner);
 

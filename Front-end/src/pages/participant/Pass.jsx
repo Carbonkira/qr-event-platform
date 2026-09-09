@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import QRCode from 'qrcode'
-import { ArrowLeft, Award, Calendar, MapPin, Hourglass } from 'lucide-react'
+import { ArrowLeft, Calendar, MapPin, Hourglass, Clock3, CircleAlert } from 'lucide-react'
 import { Btn, Card } from '../../components/ui'
-import FellowAttendees from '../../components/participant/FellowAttendees'
 import { useRegistration } from '../../hooks/useApi'
 import { fmtDate, fmtTime } from '../../lib/utils'
 
@@ -27,6 +26,8 @@ export default function Pass() {
   }, [registration?.qrCode])
 
   const event = registration?.event || registration
+  const paymentPending = registration?.paymentStatus === 'pending'
+  const paymentRejected = registration?.paymentStatus === 'rejected'
   const feedbackWanted = !!registration && registration.attended && !registration.feedbackSubmitted && (event?.feedbackEnabled ?? true)
   const canGiveFeedback = feedbackWanted && event?.status === 'completed'
   const feedbackNotYetOpen = feedbackWanted && event?.status !== 'completed'
@@ -62,8 +63,24 @@ export default function Pass() {
         <p className="text-[12px] text-slate-500 mb-5">{event.title}</p>
 
         <div className="rounded-2xl bg-slate-50 border border-slate-200 p-4 mb-4">
-          {qrDataUrl ? <img src={qrDataUrl} alt="QR pass" className="mx-auto w-[180px] h-[180px]" /> : <div className="w-[180px] h-[180px] mx-auto flex items-center justify-center text-slate-400 text-[12px]">Generating QR…</div>}
-          <p className="text-[10px] font-mono text-slate-400 mt-2">{registration.qrCode}</p>
+          {paymentPending ? (
+            <div className="w-[180px] h-[180px] mx-auto flex flex-col items-center justify-center gap-2 text-center px-3">
+              <Clock3 size={22} className="text-amber-500" />
+              <p className="text-[12px] font-semibold text-amber-700">Payment under review</p>
+              <p className="text-[11px] text-slate-400">Your QR pass appears here once the organizer verifies it.</p>
+            </div>
+          ) : paymentRejected ? (
+            <div className="w-[180px] h-[180px] mx-auto flex flex-col items-center justify-center gap-2 text-center px-3">
+              <CircleAlert size={22} className="text-rose-500" />
+              <p className="text-[12px] font-semibold text-rose-600">Payment not verified</p>
+              <p className="text-[11px] text-slate-400">Contact the organizer to resolve this.</p>
+            </div>
+          ) : qrDataUrl ? (
+            <img src={qrDataUrl} alt="QR pass" className="mx-auto w-[180px] h-[180px]" />
+          ) : (
+            <div className="w-[180px] h-[180px] mx-auto flex items-center justify-center text-slate-400 text-[12px]">Generating QR…</div>
+          )}
+          {!paymentPending && !paymentRejected && <p className="text-[10px] font-mono text-slate-400 mt-2">{registration.qrCode}</p>}
         </div>
 
         {(event.date || event.venue) && (
@@ -71,11 +88,6 @@ export default function Pass() {
             {event.date && <div className="flex justify-between text-[11px]"><span className="text-emerald-600/70 flex items-center gap-1"><Calendar size={11} />Date</span><span className="font-semibold text-emerald-800 text-right ml-2">{fmtDate(event.date)}</span></div>}
             {event.startTime && <div className="flex justify-between text-[11px]"><span className="text-emerald-600/70">Time</span><span className="font-semibold text-emerald-800 text-right ml-2">{fmtTime(event.startTime)}</span></div>}
             {event.venue && <div className="flex justify-between text-[11px]"><span className="text-emerald-600/70 flex items-center gap-1"><MapPin size={11} />Venue</span><span className="font-semibold text-emerald-800 text-right ml-2">{event.venue}</span></div>}
-            {registration.needsCertificate && (
-              <div className="pt-1.5 border-t border-emerald-100 flex items-center gap-1.5 text-[11px] text-violet-700 font-semibold">
-                <Award size={11} />{registration.feedbackSubmitted ? 'Certificate requested - eligible' : 'Certificate requested - leave feedback first'}
-              </div>
-            )}
           </div>
         )}
 
@@ -86,8 +98,6 @@ export default function Pass() {
           </div>
         )}
       </Card>
-
-      {event.id && <FellowAttendees eventId={event.id} />}
     </div>
   )
 }

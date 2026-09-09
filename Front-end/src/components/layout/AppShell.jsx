@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState, lazy, Suspense } from 'react'
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
-import { Plus, ChevronDown, LogOut, MailWarning, Hourglass, MessageSquare, FileText, ClipboardList, Building2, Users2, User as UserIcon, Menu, X, Compass, CalendarDays } from 'lucide-react'
+import { Plus, ChevronDown, LogOut, MailWarning, Hourglass, MessageSquare, FileText, ClipboardList, Building2, User as UserIcon, Menu, X, Compass, CalendarDays } from 'lucide-react'
 import { Btn, Logo } from '../ui'
 import { cn } from '../../lib/utils'
 import { useApp } from '../../context/AppContext'
-import { useAdminEvents, useAnalytics, useConnections } from '../../hooks/useApi'
+import { useAdminEvents, useAnalytics } from '../../hooks/useApi'
 
 // Lazy - AppShell renders on every route, and CreateEventModal pulls in
 // LocationPicker's Google Maps SDK. Loading it eagerly here meant every
@@ -34,11 +34,8 @@ const MANAGE_ITEMS = [
 export default function AppShell() {
   const location = useLocation()
   const navigate = useNavigate()
-  const { user, logout, addToast, resendVerificationEmail, place } = useApp()
-  const { data: ownEvents } = useAdminEvents(!!user)
-  const { data: analytics } = useAnalytics(!!user)
-  const { data: connections } = useConnections(!!user)
-  const incomingCount = connections?.incoming?.length || 0
+  const { user, accountType, logout, addToast, resendVerificationEmail, place } = useApp()
+  const { data: analytics } = useAnalytics(accountType === 'organizer')
   const [createOpen, setCreateOpen] = useState(false)
   const [resending, setResending] = useState(false)
   const [manageOpen, setManageOpen] = useState(false)
@@ -47,7 +44,11 @@ export default function AppShell() {
   const manageRef = useRef(null)
   const profileRef = useRef(null)
 
-  const canManage = user?.role === 'admin' || (ownEvents || []).length > 0
+  // A Participant account can never host anything (genuinely separate
+  // account types, see Backend's Organizer/Participant models) - "Manage"
+  // and "Create Event" are Organizer-only, not tied to having hosted
+  // something yet.
+  const canManage = accountType === 'organizer'
 
   useEffect(() => {
     const onClick = (e) => {
@@ -58,13 +59,13 @@ export default function AppShell() {
     return () => document.removeEventListener('mousedown', onClick)
   }, [])
 
-  // The desktop nav (Explore/My Events/Organizations/Connections/Manage)
+  // The desktop nav (Explore/My Events/Organizations/Manage)
   // has no room to fit on a phone-width screen - it's swapped for a
   // hamburger-triggered panel below md:, closed automatically on navigation.
   useEffect(() => { setMobileOpen(false) }, [location.pathname])
 
   const onCreateClick = () => {
-    if (!user) { navigate('/login?next=/my-events'); return }
+    if (!user) { navigate('/organizer/register'); return }
     setCreateOpen(true)
   }
 
@@ -95,12 +96,6 @@ export default function AppShell() {
             <Link to="/" className={navLinkClass(location.pathname === '/')}>Explore</Link>
             <Link to="/my-events" className={navLinkClass(location.pathname.startsWith('/my-events'))}>My Events</Link>
             <Link to="/organizations" className={navLinkClass(location.pathname.startsWith('/organizations') || location.pathname.startsWith('/org/'))}>Organizations</Link>
-            {user && (
-              <Link to="/connections" className={cn(navLinkClass(location.pathname.startsWith('/connections')), 'flex items-center gap-1.5')}>
-                <Users2 size={14} />Connections
-                {incomingCount > 0 && <span className="min-w-4 h-4 px-1 rounded-full bg-[#e94560] text-white text-[10px] font-bold flex items-center justify-center">{incomingCount}</span>}
-              </Link>
-            )}
             {canManage && (
               <div className="relative" ref={manageRef}>
                 <button onClick={() => setManageOpen(o => !o)} className={cn(navLinkClass(location.pathname.startsWith('/organizer/') && !location.pathname.startsWith('/organizer/events')), 'flex items-center gap-1')}>
@@ -121,7 +116,9 @@ export default function AppShell() {
           </nav>
 
           <div className="flex items-center gap-2 flex-shrink-0">
-            <Btn variant="accent" size="md" icon={Plus} onClick={onCreateClick}><span className="hidden sm:inline">Create Event</span></Btn>
+            {(!user || accountType === 'organizer') && (
+              <Btn variant="accent" size="md" icon={Plus} onClick={onCreateClick}><span className="hidden sm:inline">Create Event</span></Btn>
+            )}
             {user ? (
               <div className="relative hidden md:block" ref={profileRef}>
                 <button onClick={() => setProfileOpen(o => !o)} className="w-9 h-9 rounded-full overflow-hidden bg-gradient-to-br from-[#e94560] to-[#6d28d9] flex items-center justify-center text-white font-bold text-[13px] flex-shrink-0">
@@ -151,12 +148,6 @@ export default function AppShell() {
               <Link to="/" className="flex items-center gap-2.5 px-2.5 py-2.5 rounded-xl text-[14px] font-medium text-slate-700 hover:bg-slate-50"><Compass size={16} className="text-slate-400" />Explore</Link>
               <Link to="/my-events" className="flex items-center gap-2.5 px-2.5 py-2.5 rounded-xl text-[14px] font-medium text-slate-700 hover:bg-slate-50"><CalendarDays size={16} className="text-slate-400" />My Events</Link>
               <Link to="/organizations" className="flex items-center gap-2.5 px-2.5 py-2.5 rounded-xl text-[14px] font-medium text-slate-700 hover:bg-slate-50"><Building2 size={16} className="text-slate-400" />Organizations</Link>
-              {user && (
-                <Link to="/connections" className="flex items-center gap-2.5 px-2.5 py-2.5 rounded-xl text-[14px] font-medium text-slate-700 hover:bg-slate-50">
-                  <Users2 size={16} className="text-slate-400" /><span className="flex-1">Connections</span>
-                  {incomingCount > 0 && <span className="min-w-5 h-5 px-1.5 rounded-full bg-[#e94560] text-white text-[10px] font-bold flex items-center justify-center">{incomingCount}</span>}
-                </Link>
-              )}
 
               {canManage && (
                 <>
@@ -187,7 +178,7 @@ export default function AppShell() {
 
       {user && !user.emailVerifiedAt && (
         <div className="px-5 py-2.5 bg-amber-50 border-b border-amber-200 flex items-center justify-center gap-3 flex-wrap">
-          <p className="text-[12px] text-amber-700 flex items-center gap-1.5"><MailWarning size={13} />Verify your email ({user.email}) to make sure you don't miss event notifications.</p>
+          <p className="text-[12px] text-amber-700 flex items-center gap-1.5"><MailWarning size={13} />Verify your email ({user.email}) to continue - most actions are locked until you do.</p>
           <button onClick={resend} disabled={resending} className="text-[12px] font-semibold text-amber-800 underline hover:text-amber-900 disabled:opacity-50">{resending ? 'Sending…' : 'Resend link'}</button>
         </div>
       )}
@@ -208,7 +199,6 @@ export default function AppShell() {
                 <Link to="/organizations" className="block text-[13px] text-slate-600 hover:text-[#e94560]">Organizations</Link>
                 <Link to="/my-events" className="block text-[13px] text-slate-600 hover:text-[#e94560]">My events</Link>
                 <Link to="/find-pass" className="block text-[13px] text-slate-600 hover:text-[#e94560]">Find my pass</Link>
-                {user && <Link to="/connections" className="block text-[13px] text-slate-600 hover:text-[#e94560]">My connections</Link>}
               </div>
             </div>
             <div>

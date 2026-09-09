@@ -28,7 +28,7 @@ export default function RegisterOrganizer() {
     setLoading(true)
     setErrors({})
     try {
-      await createAccount(form)
+      await createAccount('organizer', form)
       const next = searchParams.get('next')
       navigate(next || `/organizer/verify-email?email=${encodeURIComponent(form.email)}`)
     } catch (err) {

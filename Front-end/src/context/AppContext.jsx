@@ -1,11 +1,16 @@
 import { createContext, useContext, useState, useCallback, useEffect } from 'react'
 import * as api from '../api/resources'
-import { getToken, setToken } from '../api/client'
+import { getToken, setToken, getAccountType } from '../api/client'
 
 const AppContext = createContext()
 
 export function AppProvider({ children }) {
-  const [user, setUser] = useState(null) // { id, name, email, institution, role }
+  const [user, setUser] = useState(null) // { id, name, email, institution, role? }
+  // 'organizer' | 'participant' | null - genuinely separate account types
+  // (see Backend's Organizer/Participant models), not a role flag on one
+  // shared account. Set at login/register time, restored from client.js's
+  // stored value on mount.
+  const [accountType, setAccountTypeState] = useState(() => getAccountType())
   const [authReady, setAuthReady] = useState(false)
   const [toasts, setToasts] = useState([])
   const [coords, setCoords] = useState(null)
@@ -15,7 +20,11 @@ export function AppProvider({ children }) {
 
   // On mount, if a token is stored, restore the session by asking the API who it is.
   useEffect(() => {
-    if (!getToken()) { setAuthReady(true); return }
+    // Both are always set together (see login/createAccount below) - a
+    // token with no known account type shouldn't happen, but would 404
+    // against /auth/null/me forever rather than cleanly failing, so treat
+    // it the same as no session at all.
+    if (!getToken() || !getAccountType()) { setAuthReady(true); return }
     let cancelled = false
 
     const restore = async () => {
@@ -79,7 +88,7 @@ export function AppProvider({ children }) {
   // this tab back to the login screen instead of leaving it looking live
   // while every request silently fails.
   useEffect(() => {
-    const onSessionRevoked = () => setUser(null)
+    const onSessionRevoked = () => { setUser(null); setAccountTypeState(null) }
     window.addEventListener('auth:session-revoked', onSessionRevoked)
     return () => window.removeEventListener('auth:session-revoked', onSessionRevoked)
   }, [])
@@ -102,23 +111,29 @@ export function AppProvider({ children }) {
     return () => window.removeEventListener('pageshow', onPageShow)
   }, [])
 
-  const login = useCallback(async (email, password) => {
-    const u = await api.login(email, password)
+  // `type` is 'organizer' or 'participant' - genuinely separate accounts
+  // (see Backend's Organizer/Participant models), so every caller has to
+  // say which one it means (RegisterOrganizer.jsx / Login.jsx's toggle
+  // always pass 'organizer'; Register.jsx's embedded account step always
+  // passes 'participant', since registering for an event is participant-only).
+  const login = useCallback(async (type, email, password) => {
+    const u = await api.login(type, email, password)
     setUser(u)
+    setAccountTypeState(type)
     return u
   }, [])
 
-  // Backs both "become an organizer" and the account-creation step of event
-  // registration — there's only one account type (see Backend's User model).
-  const createAccount = useCallback(async (payload) => {
-    const u = await api.createAccount(payload)
+  const createAccount = useCallback(async (type, payload) => {
+    const u = await api.createAccount(type, payload)
     setUser(u)
+    setAccountTypeState(type)
     return u
   }, [])
 
   const logout = useCallback(async () => {
     await api.logout()
     setUser(null)
+    setAccountTypeState(null)
   }, [])
 
   const updateProfile = useCallback(async (payload) => {
@@ -156,7 +171,7 @@ export function AppProvider({ children }) {
 
   return (
     <AppContext.Provider value={{
-      user, authReady, login, createAccount, logout, updateProfile, uploadAvatar, refreshUser, resendVerificationEmail,
+      user, accountType, authReady, login, createAccount, logout, updateProfile, uploadAvatar, refreshUser, resendVerificationEmail,
       toasts, addToast, removeToast,
       coords, place, locationStatus,
     }}>

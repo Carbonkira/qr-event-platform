@@ -4,9 +4,11 @@ import { Mail, Send, CheckCircle2 } from 'lucide-react'
 import { Btn, Input, Card } from '../../components/ui'
 import { forgotPassword } from '../../api/resources'
 import { useApp } from '../../context/AppContext'
+import { cn } from '../../lib/utils'
 
 export default function ForgotPassword() {
   const { addToast } = useApp()
+  const [type, setType] = useState('organizer')
   const [email, setEmail] = useState('')
   const [sent, setSent] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -17,7 +19,7 @@ export default function ForgotPassword() {
     setLoading(true)
     setError('')
     try {
-      await forgotPassword(email)
+      await forgotPassword(type, email)
       setSent(true)
     } catch (err) {
       setError(err.errors?.email?.[0])
@@ -40,6 +42,10 @@ export default function ForgotPassword() {
           <>
             <h1 className="text-xl font-extrabold mb-1">Forgot your password?</h1>
             <p className="text-[13px] text-slate-500 mb-6">Enter your email and we'll send you a reset link.</p>
+            <div className="flex gap-1.5 p-1 rounded-xl bg-slate-100 mb-5">
+              <button type="button" onClick={() => setType('organizer')} className={cn('flex-1 py-2 rounded-lg text-[12px] font-semibold transition-all', type === 'organizer' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-500')}>Organizer</button>
+              <button type="button" onClick={() => setType('participant')} className={cn('flex-1 py-2 rounded-lg text-[12px] font-semibold transition-all', type === 'participant' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-500')}>Participant</button>
+            </div>
             <form onSubmit={submit} className="space-y-4">
               <Input label="Email" type="email" icon={Mail} value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com" error={error} required />
               <Btn type="submit" variant="accent" size="lg" full icon={Send} loading={loading}>Send Reset Link</Btn>

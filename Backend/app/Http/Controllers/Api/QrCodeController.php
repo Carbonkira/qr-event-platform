@@ -17,6 +17,16 @@ class QrCodeController extends Controller
      */
     public function show(Registration $registration)
     {
+        // Same payment gate as RegistrationController::show() - the pass
+        // isn't valid until the organizer verifies a paid registration, so
+        // the PNG itself must 403 rather than render a QR that would scan
+        // successfully at check-in before that happens.
+        abort_if(
+            in_array($registration->payment_status, ['pending', 'rejected'], true),
+            403,
+            'Payment not yet verified for this registration.'
+        );
+
         $result = Builder::create()
             ->writer(new PngWriter())
             ->data($registration->qr_code)

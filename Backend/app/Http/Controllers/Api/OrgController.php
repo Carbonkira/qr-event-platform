@@ -6,7 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Mail\OrganizationInviteMail;
 use App\Models\Organization;
 use App\Models\OrganizationInvite;
-use App\Models\User;
+use App\Models\Organizer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
@@ -85,8 +85,19 @@ class OrgController extends Controller
         ]);
     }
 
+    /**
+     * Admin-only: an organizer can no longer spin up their own organization -
+     * the admin creates it (becoming its owner) and then invites organizers
+     * into it via the existing storeInvite()/InviteController::accept() flow,
+     * same as inviting anyone else. This is what "an organizer needs the
+     * admin's permission" actually means in practice - there's no
+     * organization to create an event under until the admin has put them
+     * in one.
+     */
     public function store(Request $request)
     {
+        abort_unless($request->user()->isAdmin(), 403, 'Only an admin can create an organization.');
+
         $data = $request->validate(array_merge(self::PROFILE_FIELDS, [
             'name' => ['required', 'string', 'max:255'],
         ]));
@@ -132,7 +143,7 @@ class OrgController extends Controller
     }
 
     /** Owner-only: remove a member. The last owner can't be removed (an org must always have one). */
-    public function removeMember(Request $request, Organization $organization, User $user)
+    public function removeMember(Request $request, Organization $organization, Organizer $user)
     {
         $this->authorizeOwner($request, $organization);
 

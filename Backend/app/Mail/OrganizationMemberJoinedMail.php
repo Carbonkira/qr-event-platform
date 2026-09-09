@@ -3,7 +3,7 @@
 namespace App\Mail;
 
 use App\Models\Organization;
-use App\Models\User;
+use App\Models\Organizer;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
 use Illuminate\Queue\SerializesModels;
@@ -12,7 +12,7 @@ class OrganizationMemberJoinedMail extends Mailable
 {
     use Queueable, SerializesModels;
 
-    public function __construct(public Organization $organization, public User $newMember)
+    public function __construct(public Organization $organization, public Organizer $newMember)
     {
     }
 

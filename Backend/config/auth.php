@@ -4,7 +4,11 @@ return [
 
     'defaults' => [
         'guard' => 'web',
-        'passwords' => 'users',
+        // Never actually resolved without an explicit broker name - both
+        // AuthControllers always call Password::broker('organizers'|
+        // 'participants') explicitly (see OrganizerAuthController/
+        // ParticipantAuthController). Laravel just requires some default.
+        'passwords' => 'organizers',
     ],
 
     // Sanctum registers its own 'sanctum' guard driver at boot time (used by
@@ -18,16 +22,34 @@ return [
     ],
 
     'providers' => [
+        // Legacy - App\Models\User now points at the renamed
+        // legacy_users_backup table (see accounts:split-users), kept only
+        // as a rollback source. Nothing in the running app resolves the
+        // 'web' guard (see bootstrap/app.php), so this is harmless deadweight.
         'users' => [
             'driver' => 'eloquent',
             'model' => App\Models\User::class,
         ],
+        'organizers' => [
+            'driver' => 'eloquent',
+            'model' => App\Models\Organizer::class,
+        ],
+        'participants' => [
+            'driver' => 'eloquent',
+            'model' => App\Models\Participant::class,
+        ],
     ],
 
     'passwords' => [
-        'users' => [
-            'provider' => 'users',
-            'table' => 'password_reset_tokens',
+        'organizers' => [
+            'provider' => 'organizers',
+            'table' => 'organizer_password_reset_tokens',
+            'expire' => 60,
+            'throttle' => 60,
+        ],
+        'participants' => [
+            'provider' => 'participants',
+            'table' => 'participant_password_reset_tokens',
             'expire' => 60,
             'throttle' => 60,
         ],

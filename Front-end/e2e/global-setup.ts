@@ -12,7 +12,7 @@ const execFileAsync = promisify(execFile)
 // registerable. This creates (or refreshes) a dedicated, always-future,
 // approved event so registration tests don't rot with the calendar.
 const TINKER_SCRIPT = `
-$u = App\\Models\\User::first();
+$u = App\\Models\\Organizer::first();
 App\\Models\\Event::updateOrCreate(
   ['slug' => 'e2e-fixture-event'],
   [
@@ -30,7 +30,6 @@ App\\Models\\Event::updateOrCreate(
     'capacity' => 100,
     'status' => 'approved',
     'feedback_enabled' => true,
-    'requires_certificate' => false,
     'pricing' => 'free',
     'price' => 0,
     'allow_walk_ins' => true,
@@ -45,7 +44,7 @@ App\\Models\\Event::updateOrCreate(
       ['id' => 'fq1', 'label' => 'What is one thing we could improve?', 'type' => 'text', 'required' => true],
     ],
     'tags' => [],
-    'user_id' => $u->id,
+    'organizer_id' => $u->id,
   ]
 );
 
@@ -66,14 +65,13 @@ App\\Models\\Event::updateOrCreate(
     'capacity' => 1,
     'status' => 'approved',
     'feedback_enabled' => true,
-    'requires_certificate' => false,
     'pricing' => 'free',
     'price' => 0,
     'allow_walk_ins' => true,
     'socials' => [],
     'custom_fields' => [],
     'tags' => [],
-    'user_id' => $u->id,
+    'organizer_id' => $u->id,
   ]
 );
 

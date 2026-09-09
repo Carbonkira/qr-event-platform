@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import {
   ArrowLeft, Pencil, ScanLine, Download, Lock, Hourglass, Copy, Check, X,
   Users, CheckCircle2, MessageSquare, Star, CheckSquare, Square, Plus,
-  Search as SearchIcon, FileSpreadsheet, Award, Clock3, MapPinned, Eye,
+  Search as SearchIcon, FileSpreadsheet, Clock3, MapPinned, Eye,
   Trash2, UserPlus, Copy as CopyIcon, Send, Upload, ArrowUpCircle, ListPlus, Ban, MoreVertical, DollarSign,
 } from 'lucide-react'
 import { Card, Badge, Btn, Input, Toggle, KPI, PriceTag, StarRating, Modal } from '../../components/ui'
@@ -121,8 +121,8 @@ export default function EventDetail() {
     catch (err) { addToast(err.message || 'Failed to update payment', 'error') }
   }
 
-  const openEditGuest = (r) => { setGuestModal({ mode: 'edit', registration: r }); setGuestForm({ name: r.name, email: r.email, customData: { ...(r.customData || {}) }, needsCertificate: !!r.needsCertificate, attended: !!r.attended }) }
-  const openAddGuest = () => { setGuestModal({ mode: 'add' }); setGuestForm({ name: '', email: '', customData: {}, needsCertificate: false, attended: false }) }
+  const openEditGuest = (r) => { setGuestModal({ mode: 'edit', registration: r }); setGuestForm({ name: r.name, email: r.email, customData: { ...(r.customData || {}) }, attended: !!r.attended }) }
+  const openAddGuest = () => { setGuestModal({ mode: 'add' }); setGuestForm({ name: '', email: '', customData: {}, attended: false }) }
   const closeGuestModal = () => { setGuestModal(null); setGuestForm(null) }
 
   const saveGuest = async () => {
@@ -183,8 +183,8 @@ export default function EventDetail() {
   const onSubmitForApproval = async () => {
     setWorkflowLoading(true)
     try {
-      const updated = await submitEvent(event.id)
-      addToast(updated?.status === 'approved' ? 'Event is live!' : 'Submitted for approval', 'success')
+      await submitEvent(event.id)
+      addToast('Submitted for approval', 'success')
       refetch()
     } catch (err) {
       const firstError = err.errors ? Object.values(err.errors)[0]?.[0] : null
@@ -234,21 +234,16 @@ export default function EventDetail() {
     }
   }
 
-  // Feedback is required before a certificate goes out - "Needs Cert" alone
-  // used to just mean "requested one at signup," with no signal on whether
-  // they've actually earned it yet.
-  const certStatus = (r) => !r.needsCertificate ? 'N/A' : r.feedbackSubmitted ? 'Eligible' : 'Awaiting feedback'
-
   const exportGuests = () => {
-    let csv = `Name,Email,Status,Check-in,Certificate,Feedback,Payment Ref,Payment Status\n`
-    regs.forEach(r => { csv += `"${r.name}","${r.email}","${r.attended ? 'Checked in' : 'Registered'}","${r.checkInTime || ''}","${certStatus(r)}","${r.feedbackSubmitted ? 'Yes' : 'No'}","${r.paymentRef || ''}","${r.paymentStatus || 'n/a'}"\n` })
+    let csv = `Name,Email,Status,Check-in,Feedback,Payment Ref,Payment Status\n`
+    regs.forEach(r => { csv += `"${r.name}","${r.email}","${r.attended ? 'Checked in' : 'Registered'}","${r.checkInTime || ''}","${r.feedbackSubmitted ? 'Yes' : 'No'}","${r.paymentRef || ''}","${r.paymentStatus || 'n/a'}"\n` })
     downloadCsv(csv, `guests-${event.slug}.csv`)
     addToast('Guest list exported!', 'success')
   }
 
   const exportReport = () => {
-    let csv = `POST-EVENT REPORT\n${event.title}\n\nDate,${fmtDateLong(event.date)}\nVenue,${event.venue}\nLocation,${event.location}\nOrganized by,${event.organizedBy}\nLocale,${locale.city} (${locale.region}, ${locale.country})\n\nMETRICS\nRegistered,${regs.length}\nAttended,${att.length}\nAttendance Rate,${regs.length ? ((att.length / regs.length) * 100).toFixed(1) : 0}%\nFeedback,${fb.length}\nAvg Satisfaction,${avg}\nCertificates eligible,${regs.filter(r => r.needsCertificate && r.feedbackSubmitted).length}\nCertificates awaiting feedback,${regs.filter(r => r.needsCertificate && !r.feedbackSubmitted).length}\n\nATTENDANCE\nName,Email,Check-in,Certificate,Feedback\n`
-    regs.forEach(r => { csv += `"${r.name}","${r.email}","${r.checkInTime || ''}","${certStatus(r)}","${r.feedbackSubmitted ? 'Yes' : 'No'}"\n` })
+    let csv = `POST-EVENT REPORT\n${event.title}\n\nDate,${fmtDateLong(event.date)}\nVenue,${event.venue}\nLocation,${event.location}\nOrganized by,${event.organizedBy}\nLocale,${locale.city} (${locale.region}, ${locale.country})\n\nMETRICS\nRegistered,${regs.length}\nAttended,${att.length}\nAttendance Rate,${regs.length ? ((att.length / regs.length) * 100).toFixed(1) : 0}%\nFeedback,${fb.length}\nAvg Satisfaction,${avg}\n\nATTENDANCE\nName,Email,Check-in,Feedback\n`
+    regs.forEach(r => { csv += `"${r.name}","${r.email}","${r.checkInTime || ''}","${r.feedbackSubmitted ? 'Yes' : 'No'}"\n` })
     downloadCsv(csv, `report-${event.slug}.csv`)
     addToast('Report downloaded!', 'success')
   }
@@ -257,7 +252,6 @@ export default function EventDetail() {
   if (guestSearch) guestList = guestList.filter(r => r.name.toLowerCase().includes(guestSearch.toLowerCase()) || r.email.toLowerCase().includes(guestSearch.toLowerCase()))
   if (guestFilter === 'checked-in') guestList = guestList.filter(r => r.attended)
   if (guestFilter === 'not-in') guestList = guestList.filter(r => !r.attended)
-  if (guestFilter === 'cert') guestList = guestList.filter(r => r.needsCertificate)
   if (guestFilter === 'walk-in') guestList = guestList.filter(r => r.isWalkIn)
   if (guestFilter === 'waitlist') guestList = guestList.filter(r => r.waitlisted)
   const waitlistCount = regs.filter(r => r.waitlisted).length
@@ -407,7 +401,7 @@ export default function EventDetail() {
               <input value={guestSearch} onChange={e => setGuestSearch(e.target.value)} placeholder="Search name or email…" className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-200 bg-white text-[13px] outline-none focus:border-[#1a1a2e]" />
             </div>
             <select value={guestFilter} onChange={e => setGuestFilter(e.target.value)} className="px-3 py-2 rounded-xl border border-slate-200 bg-white text-[13px] outline-none">
-              <option value="all">All</option><option value="checked-in">Checked in</option><option value="not-in">Not checked in</option><option value="cert">Needs certificate</option><option value="walk-in">Walk-ins</option><option value="waitlist">Waitlisted</option>
+              <option value="all">All</option><option value="checked-in">Checked in</option><option value="not-in">Not checked in</option><option value="walk-in">Walk-ins</option><option value="waitlist">Waitlisted</option>
             </select>
           </div>
           <div className="space-y-2">
@@ -421,9 +415,6 @@ export default function EventDetail() {
                   {r.waitlisted && <Badge color="violet" size="xs"><ListPlus size={9} />Waitlist</Badge>}
                   {r.paymentStatus === 'pending' && <Badge color="amber" size="xs"><Clock3 size={9} />Pay?</Badge>}
                   {r.paymentStatus === 'verified' && <Badge color="green" size="xs"><Check size={9} />Paid</Badge>}
-                  {r.needsCertificate && (r.feedbackSubmitted
-                    ? <Badge color="violet" size="xs"><Award size={9} />Cert eligible</Badge>
-                    : <Badge color="amber" size="xs"><Award size={9} />Cert - awaiting feedback</Badge>)}
                   {r.attended ? <Badge color="green" size="xs"><CheckCircle2 size={9} />In</Badge> : <Badge color="slate" size="xs">Not in</Badge>}
                   {r.feedbackSubmitted && <Badge color="amber" size="xs"><Star size={9} />FB</Badge>}
                 </div>
@@ -445,7 +436,6 @@ export default function EventDetail() {
                 {(event.customFields || []).map(cf => (
                   <Input key={cf.id} label={cf.label} value={guestForm.customData[cf.id] || ''} onChange={e => setGuestForm(f => ({ ...f, customData: { ...f.customData, [cf.id]: e.target.value } }))} />
                 ))}
-                {event.requiresCertificate && <Toggle checked={guestForm.needsCertificate} onChange={v => setGuestForm(f => ({ ...f, needsCertificate: v }))} icon={Award} label="Needs certificate" color="#6d28d9" />}
                 <Toggle checked={guestForm.attended} onChange={v => setGuestForm(f => ({ ...f, attended: v }))} icon={CheckCircle2} label="Checked in" color="#0f9d8f" />
                 <div className="flex gap-2 pt-2">
                   <Btn variant="ghost" full onClick={closeGuestModal}>Cancel</Btn>
@@ -543,7 +533,7 @@ export default function EventDetail() {
         <Card className="p-6">
           <div className="flex items-center justify-between mb-5"><div><h3 className="font-extrabold text-[16px]">Post-Event Report</h3><p className="text-[12px] text-slate-400">Summary for HQ reporting</p></div><Btn variant="primary" icon={Download} onClick={exportReport}>Download CSV</Btn></div>
           <div className="grid sm:grid-cols-2 gap-2.5 mb-5">
-            {[['Event', event.title], ['Date', fmtDate(event.date)], ['Venue', event.venue], ['Locale', `${event.location} · ${locale.region}`], ['Registered', regs.length], ['Attended', `${att.length} (${regs.length ? ((att.length / regs.length) * 100).toFixed(0) : 0}%)`], ['Certificates eligible', regs.filter(r => r.needsCertificate && r.feedbackSubmitted).length], ['Feedback', fb.length], ['Avg Satisfaction', avg]].map(([k, v]) => (
+            {[['Event', event.title], ['Date', fmtDate(event.date)], ['Venue', event.venue], ['Locale', `${event.location} · ${locale.region}`], ['Registered', regs.length], ['Attended', `${att.length} (${regs.length ? ((att.length / regs.length) * 100).toFixed(0) : 0}%)`], ['Feedback', fb.length], ['Avg Satisfaction', avg]].map(([k, v]) => (
               <div key={k} className="p-3 rounded-lg bg-slate-50 border border-slate-200"><p className="text-[10px] font-bold text-slate-400 uppercase">{k}</p><p className="text-[13px] font-semibold text-slate-700 mt-0.5">{String(v)}</p></div>
             ))}
           </div>

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Plus, Trash2, ArrowLeft, MapPin, MapPinned, Image as ImageIcon, Users, Ticket, DollarSign, UserCheck, Lock, Award, MessageSquare, Tag, Send, Upload, X } from 'lucide-react'
+import { Plus, Trash2, ArrowLeft, MapPin, MapPinned, Image as ImageIcon, Users, Ticket, DollarSign, UserCheck, Lock, MessageSquare, Tag, Send, Upload, X } from 'lucide-react'
 import { Btn, Card, Input, Select, Textarea, Toggle } from '../../components/ui'
 import LocationPicker from '../../components/shared/LocationPicker'
 import { useAdminEvents, useMyOrgs } from '../../hooks/useApi'
@@ -33,7 +33,7 @@ function formFromEvent(event) {
     venue: event.venue || '', location: event.location || '', lat: event.lat ?? null, lng: event.lng ?? null,
     date: event.date || '', startTime: event.startTime || '', endTime: event.endTime || '',
     organizedBy: event.organizedBy || '', industry: event.industry || 'Technology', capacity: String(event.capacity ?? ''),
-    feedbackEnabled: event.feedbackEnabled ?? true, image: event.image || '', requiresCertificate: !!event.requiresCertificate,
+    feedbackEnabled: event.feedbackEnabled ?? true, image: event.image || '',
     pricing: event.pricing || 'free', price: String(event.price || ''), allowWalkIns: !!event.allowWalkIns,
     privacyPolicyUrl: event.privacyPolicyUrl || '',
     customFields: (event.customFields || []).map((f, i) => ({ id: f.id || `cf-${i}`, ...f })),
@@ -206,7 +206,6 @@ export default function EditEvent() {
         {form.pricing === 'paid' && <Input label="Price (₱)" value={form.price} onChange={e => up('price', e.target.value)} type="number" icon={DollarSign} />}
         <Toggle checked={form.allowWalkIns} onChange={v => up('allowWalkIns', v)} icon={UserCheck} label="Allow walk-ins" color="#0f9d8f" />
         <Toggle checked={form.isPrivate} onChange={v => up('isPrivate', v)} icon={Lock} label="Private event" color="#e94560" />
-        <Toggle checked={form.requiresCertificate} onChange={v => up('requiresCertificate', v)} icon={Award} label="Certificate of attendance" color="#6d28d9" />
         <Toggle checked={form.feedbackEnabled} onChange={v => up('feedbackEnabled', v)} icon={MessageSquare} label="Collect feedback" color="#1a1a2e" />
         <Input label="Tags" value={form.tags} onChange={e => up('tags', e.target.value)} icon={Tag} placeholder="AI, Networking" />
       </div>

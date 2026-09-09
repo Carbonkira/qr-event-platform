@@ -9,7 +9,8 @@ import { createOrg, updateOrg, uploadOrgLogo, removeOrgMember, inviteToOrg, revo
 const MAX_LOGO_BYTES = 5 * 1024 * 1024 // 5MB — matches other image uploads
 
 export default function Organizations() {
-  const { addToast } = useApp()
+  const { addToast, user } = useApp()
+  const isAdmin = user?.role === 'admin'
   const { data: orgs, loading, refetch } = useMyOrgs()
   const [creating, setCreating] = useState(false)
   const [newName, setNewName] = useState('')
@@ -36,10 +37,10 @@ export default function Organizations() {
     <div className="max-w-3xl space-y-5">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div><h1 className="text-2xl font-extrabold">My Organizations</h1><p className="text-[13px] text-slate-500">Every organization you belong to</p></div>
-        <Btn variant="accent" icon={Plus} onClick={() => setCreating(o => !o)}>New Organization</Btn>
+        {isAdmin && <Btn variant="accent" icon={Plus} onClick={() => setCreating(o => !o)}>New Organization</Btn>}
       </div>
 
-      {creating && (
+      {isAdmin && creating && (
         <Card className="p-5">
           <form onSubmit={createNew} className="flex items-end gap-2">
             <div className="flex-1"><Input label="Organization name" value={newName} onChange={e => setNewName(e.target.value)} placeholder="e.g. Acme Robotics Club" autoFocus required /></div>
@@ -51,7 +52,9 @@ export default function Organizations() {
       {loading ? (
         <div className="text-center py-10 text-slate-400 text-[13px]">Loading…</div>
       ) : (orgs || []).length === 0 ? (
-        <Card className="p-10 text-center text-[13px] text-slate-400">You don't belong to any organization yet.</Card>
+        <Card className="p-10 text-center text-[13px] text-slate-400">
+          {isAdmin ? 'You don\'t belong to any organization yet.' : "You don't belong to any organization yet - ask your admin to invite you to one."}
+        </Card>
       ) : (
         <div className="space-y-4">
           {orgs.map(org => <OrgCard key={org.id} org={org} onSaved={refetch} />)}

@@ -3,8 +3,9 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Mail\PaymentRejectedMail;
+use App\Mail\PaymentVerifiedMail;
 use App\Mail\RegistrationConfirmedMail;
-use App\Models\Connection;
 use App\Models\Event;
 use App\Models\Registration;
 use Illuminate\Http\Request;
@@ -26,7 +27,6 @@ class RegistrationController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255'],
             'custom_data' => ['sometimes', 'nullable', 'array'],
-            'needs_certificate' => ['sometimes', 'boolean'],
             'payment_ref' => ['sometimes', 'nullable', 'string', 'max:255'],
             'payment_screenshot' => ['sometimes', 'nullable', 'image', 'max:5120'], // 5MB, matches the frontend's own limit
         ]);
@@ -38,7 +38,7 @@ class RegistrationController extends Controller
         // testing: a single attendee's repeat registrations accounted for
         // 3 of 5 "unique" check-ins at one test event.
         $existing = Registration::where('event_id', $event->id)
-            ->where('user_id', $request->user()->id)
+            ->where('participant_id', $request->user()->id)
             ->first();
 
         if ($existing) {
@@ -46,7 +46,7 @@ class RegistrationController extends Controller
         }
 
         $registration = $this->createRegistration($event, $data, $request, [
-            'user_id' => $request->user()->id,
+            'participant_id' => $request->user()->id,
             'is_walk_in' => false,
         ]);
 
@@ -66,11 +66,10 @@ class RegistrationController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255'],
             'custom_data' => ['sometimes', 'nullable', 'array'],
-            'needs_certificate' => ['sometimes', 'boolean'],
         ]);
 
         $registration = $this->createRegistration($event, $data, $request, [
-            'user_id' => null,
+            'participant_id' => null,
             'is_walk_in' => true,
             'attended' => true,
             'check_in_time' => now(),
@@ -89,12 +88,11 @@ class RegistrationController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255'],
             'custom_data' => ['sometimes', 'nullable', 'array'],
-            'needs_certificate' => ['sometimes', 'boolean'],
             'attended' => ['sometimes', 'boolean'],
         ]);
 
         $registration = $this->createRegistration($event, $data, $request, [
-            'user_id' => null,
+            'participant_id' => null,
             'is_walk_in' => false,
             'attended' => $data['attended'] ?? false,
             'check_in_time' => ($data['attended'] ?? false) ? now() : null,
@@ -135,7 +133,6 @@ class RegistrationController extends Controller
             'attended' => false,
             'check_in_time' => null,
             'feedback_submitted' => false,
-            'needs_certificate' => $data['needs_certificate'] ?? false,
             'waitlisted' => ! $isWalkIn && $this->isEventFull($event),
             'payment_status' => $paymentRef ? 'pending' : null,
             'payment_ref' => $paymentRef,
@@ -267,7 +264,7 @@ class RegistrationController extends Controller
                 'email' => $email,
                 'custom_data' => $customData,
             ], $request, [
-                'user_id' => null,
+                'participant_id' => null,
                 'is_walk_in' => false,
             ]);
 
@@ -290,56 +287,8 @@ class RegistrationController extends Controller
     }
 
     /**
-     * Fellow attendees, for the "Connect" surface on the participant pass
-     * page - discovery for the real connections feature (Connection model).
-     * Gated by the requester themselves being registered for this event, so
-     * it's not a way to enumerate an event's attendee list from the outside.
-     */
-    public function fellowAttendees(Request $request, Event $event)
-    {
-        $me = $request->user();
-        abort_unless(
-            Registration::where('event_id', $event->id)->where('user_id', $me->id)->exists(),
-            403,
-            'You must be registered for this event to see fellow attendees.'
-        );
-
-        $others = Registration::where('event_id', $event->id)
-            ->where('user_id', '!=', $me->id)
-            ->whereNotNull('user_id')
-            ->with('user:id,name,avatar')
-            ->get()
-            ->unique('user_id')
-            ->values();
-
-        $connections = Connection::involving($me->id)->get();
-
-        $attendees = $others->map(function (Registration $reg) use ($me, $connections) {
-            $user = $reg->user;
-            $conn = $connections->first(fn (Connection $c) => $c->requester_id === $user->id || $c->recipient_id === $user->id);
-
-            $status = 'none';
-            if ($conn && $conn->status === 'accepted') {
-                $status = 'connected';
-            } elseif ($conn && $conn->status === 'pending') {
-                $status = $conn->requester_id === $me->id ? 'pendingSent' : 'pendingReceived';
-            }
-
-            return [
-                'id' => $user->id,
-                'name' => $user->name,
-                'avatar' => $user->avatar,
-                'connectionStatus' => $status,
-                'connectionId' => $status === 'none' ? null : $conn->id,
-            ];
-        });
-
-        return response()->json($attendees->values());
-    }
-
-    /**
      * Organizer edits a guest's details - name, email, custom answers,
-     * certificate/attendance flags. Anything not sent is left unchanged.
+     * attendance flag. Anything not sent is left unchanged.
      */
     public function update(Request $request, Registration $registration)
     {
@@ -347,7 +296,6 @@ class RegistrationController extends Controller
             'name' => ['sometimes', 'required', 'string', 'max:255'],
             'email' => ['sometimes', 'required', 'string', 'email', 'max:255'],
             'custom_data' => ['sometimes', 'nullable', 'array'],
-            'needs_certificate' => ['sometimes', 'boolean'],
             'attended' => ['sometimes', 'boolean'],
         ]);
 
@@ -375,7 +323,7 @@ class RegistrationController extends Controller
     public function mine(Request $request)
     {
         $registrations = Registration::with('event')
-            ->where('user_id', $request->user()->id)
+            ->where('participant_id', $request->user()->id)
             ->orderByDesc('created_at')
             ->get();
 
@@ -413,20 +361,35 @@ class RegistrationController extends Controller
      */
     public function show(Registration $registration)
     {
+        // A paid registration's pass isn't valid for check-in until the
+        // organizer verifies the payment - withholding the QR code itself
+        // (not just hiding it client-side) means it can't leak through this
+        // endpoint before that happens. Free/walk-in registrations never
+        // set payment_status, so this is a no-op for them.
+        $paymentBlocked = in_array($registration->payment_status, ['pending', 'rejected'], true);
+
         return response()->json([
             'id' => $registration->id,
             'name' => $registration->name,
-            'qr_code' => $registration->qr_code,
+            'qr_code' => $paymentBlocked ? null : $registration->qr_code,
+            'payment_status' => $registration->payment_status,
             'event_id' => $registration->event_id,
             'attended' => $registration->attended,
             'feedback_submitted' => $registration->feedback_submitted,
-            'needs_certificate' => $registration->needs_certificate,
             'event' => $registration->event()->select('id', 'title', 'slug', 'date', 'start_time', 'end_time', 'venue', 'status', 'feedback_enabled')->first(),
         ]);
     }
 
     public function verifyPayment(Request $request, Registration $registration)
     {
+        // Without this, the registrant who owns this registration could
+        // authenticate as themselves and call this endpoint to unlock their
+        // own gated QR pass without actually paying - which would make the
+        // whole payment gate pointless. Same pattern (and the same "events
+        // with no organization stay open" carve-out) as
+        // EventController::authorizeOrgMember.
+        $this->authorizeOrgMember($request, $registration->event);
+
         $data = $request->validate([
             'approved' => ['required', 'boolean'],
         ]);
@@ -435,6 +398,34 @@ class RegistrationController extends Controller
             'payment_status' => $data['approved'] ? 'verified' : 'rejected',
         ]);
 
+        // Same non-fatal queue-and-log pattern as createRegistration() above
+        // - a broken mail config must never fail the actual verification.
+        try {
+            Mail::to($registration->email)->queue(
+                $data['approved']
+                    ? new PaymentVerifiedMail($registration)
+                    : new PaymentRejectedMail($registration)
+            );
+        } catch (\Throwable $e) {
+            Log::error('Failed to queue payment status email', ['registration_id' => $registration->id, 'error' => $e->getMessage()]);
+        }
+
         return response()->json($registration);
+    }
+
+    /**
+     * Same rule and the same "events with no organization stay open" carve-out
+     * as EventController::authorizeOrgMember - kept as its own copy here
+     * rather than a shared trait since that controller's version is private
+     * and this is the only other place that currently needs it.
+     */
+    private function authorizeOrgMember(Request $request, Event $event): void
+    {
+        abort_if(
+            $event->organization_id !== null
+                && ! $request->user()->organizations()->where('organizations.id', $event->organization_id)->exists(),
+            403,
+            'Only a member of this event\'s organization can do that.'
+        );
     }
 }

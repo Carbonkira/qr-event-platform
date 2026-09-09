@@ -4,10 +4,13 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Mail\EventCancelledMail;
+use App\Mail\EventSubmittedForApprovalMail;
 use App\Models\Event;
+use App\Models\Organizer;
 use App\Models\TaskTemplate;
 use App\Services\Gemini;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -172,27 +175,30 @@ class EventController extends Controller
         $data = $this->validated($request, draft: $saveAsDraft);
 
         $data['slug'] = $this->uniqueSlug($data['title']);
-        $data['user_id'] = $request->user()->id;
+        $data['organizer_id'] = $request->user()->id;
 
-        // organization_id is optional here rather than required: the
-        // frontend org picker (needed once someone belongs to more than
-        // one) ships in a later phase, so for now this defaults to the
-        // requester's only/first organization - explicit membership is
-        // still checked if one was actually passed, so nobody can assign
-        // their event to an organization they don't belong to.
+        // An organizer can only create an event under an organization the
+        // admin has already added them to (see OrgController::store() -
+        // organizations are admin-created now) - this is what "asking the
+        // admin's permission" actually enforces: no membership, no event,
+        // full stop. Picked via a dropdown on the frontend (CreateEventModal),
+        // not auto-defaulted, now that it's a hard requirement rather than a
+        // convenience for the common one-org case.
         $requestedOrgId = $request->input('organization_id');
-        if ($requestedOrgId) {
-            abort_unless(
-                $request->user()->organizations()->where('organizations.id', $requestedOrgId)->exists(),
-                403,
-                'You are not a member of that organization.'
-            );
-            $data['organization_id'] = $requestedOrgId;
-        } else {
-            $data['organization_id'] = $request->user()->organizations()->value('organizations.id');
-        }
+        abort_unless(
+            $requestedOrgId && $request->user()->organizations()->where('organizations.id', $requestedOrgId)->exists(),
+            403,
+            'You must belong to an organization to create an event - ask your admin to invite you to one.'
+        );
+        $data['organization_id'] = $requestedOrgId;
 
-        $data['status'] = $saveAsDraft ? 'draft' : $this->publishStatus($data['organization_id']);
+        // Every event needs the admin's explicit approval now, regardless of
+        // organization backing - previously an org vouched for its own
+        // events and skipped this, but now that every organization is
+        // itself admin-created, the admin already sits at the top of every
+        // chain anyway; this just makes that review actually happen instead
+        // of being implicit.
+        $data['status'] = $saveAsDraft ? 'draft' : 'pending';
 
         if ($data['is_private'] ?? false) {
             $data['private_link'] = $data['private_link'] ?? Str::random(16);
@@ -210,6 +216,10 @@ class EventController extends Controller
             foreach (($template->tasks ?? []) as $label) {
                 $event->tasks()->create(['label' => $label, 'done' => false]);
             }
+        }
+
+        if ($event->status === 'pending') {
+            $this->notifyAdminsEventNeedsApproval($event, $request->user());
         }
 
         return response()->json($event->load('tasks'), 201);
@@ -334,21 +344,26 @@ class EventController extends Controller
             );
         }
 
-        $event->update(['status' => $this->publishStatus($event->organization_id)]);
+        $event->update(['status' => 'pending']);
+        $this->notifyAdminsEventNeedsApproval($event, $request->user());
 
         return response()->json($event);
     }
 
     /**
-     * A real organization vouches for its own events - no need to make an
-     * org member wait on an unrelated platform admin to click approve.
-     * Only events with no organization (legacy rows, or the rare user who
-     * somehow belongs to none) still need a manual admin review, since
-     * there's no organization there to have already trusted the submitter.
+     * Every admin gets one - small platform, and an event sitting
+     * unapproved because the only admin who checks the Approvals page
+     * happened to miss it is worse than a couple of duplicate emails.
      */
-    private function publishStatus(?int $organizationId): string
+    private function notifyAdminsEventNeedsApproval(Event $event, ?Organizer $submitter): void
     {
-        return $organizationId !== null ? 'approved' : 'pending';
+        try {
+            foreach (Organizer::where('role', 'admin')->get() as $admin) {
+                Mail::to($admin->email)->queue(new EventSubmittedForApprovalMail($event, $submitter));
+            }
+        } catch (\Throwable $e) {
+            Log::error('Failed to queue event-submitted-for-approval email', ['event_id' => $event->id, 'error' => $e->getMessage()]);
+        }
     }
 
     /**
@@ -379,7 +394,7 @@ class EventController extends Controller
         $copy->slug = $this->uniqueSlug($copy->title);
         $copy->status = 'draft';
         $copy->private_link = $event->is_private ? Str::random(16) : null;
-        $copy->user_id = $request->user()->id;
+        $copy->organizer_id = $request->user()->id;
         // Anyone can duplicate anyone else's event (it becomes their own new
         // draft) - replicate() would otherwise carry over the *original*
         // event's organization_id even if the duplicator isn't a member of
@@ -474,7 +489,6 @@ class EventController extends Controller
             'capacity' => [...$required, 'integer', 'min:0'],
             'feedback_enabled' => ['sometimes', 'boolean'],
             'image' => ['sometimes', 'nullable', 'string', 'max:2048'],
-            'requires_certificate' => ['sometimes', 'boolean'],
             'pricing' => ['sometimes', Rule::in(['free', 'paid', 'walk-in'])],
             'price' => ['sometimes', 'numeric', 'min:0'],
             'allow_walk_ins' => ['sometimes', 'boolean'],

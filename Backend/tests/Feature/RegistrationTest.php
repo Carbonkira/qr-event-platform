@@ -3,8 +3,10 @@
 namespace Tests\Feature;
 
 use App\Models\Event;
+use App\Models\Organization;
+use App\Models\Organizer;
+use App\Models\Participant;
 use App\Models\Registration;
-use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Mail;
@@ -22,6 +24,33 @@ class RegistrationTest extends TestCase
             'type' => 'Meetup', 'venue' => 'Venue', 'date' => '2026-08-01',
             'start_time' => '10:00', 'end_time' => '12:00', 'capacity' => 0, 'allow_walk_ins' => true,
         ], $overrides));
+    }
+
+    private function makeUser(string $email = 'organizer@example.com'): Organizer
+    {
+        $organizer = Organizer::create(['name' => 'Organizer', 'email' => $email, 'password' => bcrypt('password123')]);
+        // Neither is mass-assignable (see Organizer::$fillable).
+        $organizer->forceFill(['email_verified_at' => now(), 'approval_status' => 'approved'])->save();
+
+        return $organizer;
+    }
+
+    private function makeParticipant(string $email = 'participant@example.com', bool $verified = true): Participant
+    {
+        $participant = Participant::create(['name' => 'Ana', 'email' => $email, 'password' => bcrypt('password123')]);
+        if ($verified) {
+            $participant->forceFill(['email_verified_at' => now()])->save();
+        }
+
+        return $participant;
+    }
+
+    private function makeOrganization(Organizer $owner): Organization
+    {
+        $org = Organization::create(['name' => "{$owner->name}'s Org", 'slug' => 'org-'.uniqid()]);
+        $org->members()->attach($owner->id, ['role' => 'owner']);
+
+        return $org;
     }
 
     public function test_a_registration_can_be_fetched_publicly_by_its_own_id_with_live_event_status(): void
@@ -47,6 +76,8 @@ class RegistrationTest extends TestCase
         // it, so the response has to stay limited to what the Pass page
         // actually renders. Locks in the fix for a real leak (email,
         // custom form answers, payment ref/screenshot were all exposed).
+        // paymentStatus itself is intentionally exposed (unlike the rest) -
+        // the Pass page needs it to render the "payment under review" state.
         $event = $this->makeEvent(['status' => 'approved']);
         $registration = $event->registrations()->create([
             'name' => 'Attendee', 'email' => 'secret@example.com', 'qr_code' => 'QR-2',
@@ -58,8 +89,72 @@ class RegistrationTest extends TestCase
         $response->assertJsonMissingPath('email');
         $response->assertJsonMissingPath('customData');
         $response->assertJsonMissingPath('paymentRef');
-        $response->assertJsonMissingPath('paymentStatus');
         $response->assertJsonMissingPath('paymentScreenshotUrl');
+        $this->assertSame('pending', $response->json('paymentStatus'));
+    }
+
+    public function test_qr_pass_is_withheld_until_payment_is_verified(): void
+    {
+        Mail::fake();
+        $organizer = $this->makeUser();
+        $org = $this->makeOrganization($organizer);
+        $event = $this->makeEvent(['status' => 'approved', 'pricing' => 'paid', 'price' => 500, 'organization_id' => $org->id]);
+        $registration = $event->registrations()->create([
+            'name' => 'Attendee', 'email' => 'attendee@example.com', 'qr_code' => 'QR-PAID-1',
+            'payment_ref' => 'REF-1', 'payment_status' => 'pending',
+        ]);
+
+        $pending = $this->getJson("/api/registrations/{$registration->id}")->assertOk();
+        $this->assertNull($pending->json('qrCode'));
+        $this->getJson("/api/registrations/{$registration->id}/qr.png")->assertForbidden();
+
+        Sanctum::actingAs($organizer);
+        $this->postJson("/api/registrations/{$registration->id}/verify-payment", ['approved' => true])->assertOk();
+        Mail::assertQueued(\App\Mail\PaymentVerifiedMail::class);
+
+        $verified = $this->getJson("/api/registrations/{$registration->id}")->assertOk();
+        $this->assertSame('QR-PAID-1', $verified->json('qrCode'));
+        $this->getJson("/api/registrations/{$registration->id}/qr.png")->assertOk();
+    }
+
+    public function test_rejecting_a_payment_queues_the_rejection_email_and_keeps_the_qr_withheld(): void
+    {
+        Mail::fake();
+        $organizer = $this->makeUser();
+        $org = $this->makeOrganization($organizer);
+        $event = $this->makeEvent(['status' => 'approved', 'pricing' => 'paid', 'price' => 500, 'organization_id' => $org->id]);
+        $registration = $event->registrations()->create([
+            'name' => 'Attendee', 'email' => 'attendee@example.com', 'qr_code' => 'QR-PAID-2',
+            'payment_ref' => 'REF-2', 'payment_status' => 'pending',
+        ]);
+
+        Sanctum::actingAs($organizer);
+        $this->postJson("/api/registrations/{$registration->id}/verify-payment", ['approved' => false])->assertOk();
+        Mail::assertQueued(\App\Mail\PaymentRejectedMail::class);
+
+        $rejected = $this->getJson("/api/registrations/{$registration->id}")->assertOk();
+        $this->assertNull($rejected->json('qrCode'));
+        $this->getJson("/api/registrations/{$registration->id}/qr.png")->assertForbidden();
+    }
+
+    public function test_a_stranger_cannot_verify_payment_for_someone_elses_event(): void
+    {
+        // Without this, the registrant who owns the registration (or anyone
+        // else with an account) could call verify-payment themselves and
+        // unlock their own gated QR pass without actually paying.
+        Mail::fake();
+        $organizer = $this->makeUser('owner@example.com');
+        $org = $this->makeOrganization($organizer);
+        $stranger = $this->makeUser('stranger@example.com');
+        $event = $this->makeEvent(['status' => 'approved', 'pricing' => 'paid', 'price' => 500, 'organization_id' => $org->id]);
+        $registration = $event->registrations()->create([
+            'name' => 'Attendee', 'email' => 'attendee@example.com', 'qr_code' => 'QR-PAID-3',
+            'payment_ref' => 'REF-3', 'payment_status' => 'pending',
+        ]);
+
+        Sanctum::actingAs($stranger);
+        $this->postJson("/api/registrations/{$registration->id}/verify-payment", ['approved' => true])->assertForbidden();
+        Mail::assertNotQueued(\App\Mail\PaymentVerifiedMail::class);
     }
 
     public function test_registering_for_an_event_requires_authentication(): void
@@ -71,19 +166,28 @@ class RegistrationTest extends TestCase
             ->assertUnauthorized();
     }
 
-    public function test_an_authenticated_user_can_register_and_the_registration_is_tied_to_their_account(): void
+    /** Registering for an event is strictly a Participant action - see EnsureParticipant. */
+    public function test_an_organizer_account_cannot_register_for_an_event(): void
     {
         Mail::fake();
         $event = $this->makeEvent();
-        $user = User::create(['name' => 'Ana', 'email' => 'ana@example.com', 'password' => bcrypt('password123')]);
-        // email_verified_at isn't mass-assignable (see User::$fillable).
-        $user->forceFill(['email_verified_at' => now()])->save();
-        Sanctum::actingAs($user);
+        Sanctum::actingAs($this->makeUser());
+
+        $this->postJson("/api/events/{$event->id}/register", ['name' => 'Ana', 'email' => 'ana@example.com'])
+            ->assertForbidden();
+    }
+
+    public function test_an_authenticated_participant_can_register_and_the_registration_is_tied_to_their_account(): void
+    {
+        Mail::fake();
+        $event = $this->makeEvent();
+        $participant = $this->makeParticipant('ana@example.com');
+        Sanctum::actingAs($participant);
 
         $response = $this->postJson("/api/events/{$event->id}/register", ['name' => 'Ana', 'email' => 'ana@example.com'])
             ->assertCreated();
 
-        $this->assertSame($user->id, $response->json('userId'));
+        $this->assertSame($participant->id, $response->json('participantId'));
         Mail::assertQueued(\App\Mail\RegistrationConfirmedMail::class);
     }
 
@@ -91,9 +195,8 @@ class RegistrationTest extends TestCase
     {
         Mail::fake();
         $event = $this->makeEvent();
-        $user = User::create(['name' => 'Ana', 'email' => 'ana@example.com', 'password' => bcrypt('password123')]);
-        $user->forceFill(['email_verified_at' => now()])->save();
-        Sanctum::actingAs($user);
+        $participant = $this->makeParticipant('ana@example.com');
+        Sanctum::actingAs($participant);
 
         $first = $this->postJson("/api/events/{$event->id}/register", ['name' => 'Ana', 'email' => 'ana@example.com'])
             ->assertCreated();
@@ -103,7 +206,7 @@ class RegistrationTest extends TestCase
 
         $this->assertSame($first->json('id'), $second->json('id'));
         $this->assertSame($first->json('qrCode'), $second->json('qrCode'));
-        $this->assertSame(1, Registration::where('event_id', $event->id)->where('user_id', $user->id)->count());
+        $this->assertSame(1, Registration::where('event_id', $event->id)->where('participant_id', $participant->id)->count());
     }
 
     public function test_registration_confirmed_email_renders_with_the_logo(): void
@@ -120,7 +223,7 @@ class RegistrationTest extends TestCase
     {
         Mail::fake();
         $event = $this->makeEvent();
-        $unverified = User::create(['name' => 'Ana', 'email' => 'ana@example.com', 'password' => bcrypt('password123')]);
+        $unverified = $this->makeParticipant('ana@example.com', verified: false);
         Sanctum::actingAs($unverified);
 
         $this->postJson("/api/events/{$event->id}/register", ['name' => 'Ana', 'email' => 'ana@example.com'])
@@ -136,14 +239,14 @@ class RegistrationTest extends TestCase
             ->assertCreated();
 
         $this->assertTrue($response->json('attended'));
-        $this->assertNull($response->json('userId'));
+        $this->assertNull($response->json('participantId'));
     }
 
     public function test_organizer_can_add_edit_and_remove_a_guest_by_hand(): void
     {
         Mail::fake();
         $event = $this->makeEvent();
-        Sanctum::actingAs(User::create(['name' => 'Org', 'email' => 'org@example.com', 'password' => bcrypt('password123')]));
+        Sanctum::actingAs($this->makeUser('org@example.com'));
 
         $added = $this->postJson("/api/events/{$event->id}/registrations", ['name' => 'Manual Guest', 'email' => 'manual@example.com'])
             ->assertCreated();
@@ -162,7 +265,7 @@ class RegistrationTest extends TestCase
     {
         Mail::fake();
         $event = $this->makeEvent();
-        Sanctum::actingAs(User::create(['name' => 'Org', 'email' => 'org@example.com', 'password' => bcrypt('password123')]));
+        Sanctum::actingAs($this->makeUser('org@example.com'));
 
         $first = $this->postJson("/api/events/{$event->id}/registrations", ['name' => 'First', 'email' => 'first@example.com'])->assertCreated();
         $second = $this->postJson("/api/events/{$event->id}/registrations", ['name' => 'Second', 'email' => 'second@example.com'])->assertCreated();
@@ -184,7 +287,7 @@ class RegistrationTest extends TestCase
     {
         Mail::fake();
         $event = $this->makeEvent(['capacity' => 1]);
-        Sanctum::actingAs(User::create(['name' => 'Org', 'email' => 'org@example.com', 'password' => bcrypt('password123')]));
+        Sanctum::actingAs($this->makeUser('org@example.com'));
 
         $first = $this->postJson("/api/events/{$event->id}/registrations", ['name' => 'First', 'email' => 'first@example.com'])->assertCreated();
         $second = $this->postJson("/api/events/{$event->id}/registrations", ['name' => 'Second', 'email' => 'second@example.com'])->assertCreated();
@@ -213,7 +316,7 @@ class RegistrationTest extends TestCase
     {
         Mail::fake();
         $event = $this->makeEvent();
-        Sanctum::actingAs(User::create(['name' => 'Org', 'email' => 'org@example.com', 'password' => bcrypt('password123')]));
+        Sanctum::actingAs($this->makeUser('org@example.com'));
 
         $event->registrations()->create(['name' => 'Existing', 'email' => 'existing@example.com', 'qr_code' => 'QR-EXISTING']);
 

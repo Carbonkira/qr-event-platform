@@ -30,7 +30,6 @@ export default function Confirm() {
     ['Date', event ? fmtDate(event.date) : null],
     ['Pass', registration.qrCode],
     ...(registration.paymentRef ? [['Payment Ref', registration.paymentRef]] : []),
-    ...(registration.needsCertificate ? [['Certificate', 'Requested ✓']] : []),
   ].filter(([, v]) => v)
 
   return (
@@ -53,7 +52,7 @@ export default function Confirm() {
         {registration.paymentStatus === 'pending' && (
           <div className="rounded-xl bg-amber-50 border border-amber-200 p-3 mb-4 flex items-start gap-2 text-left">
             <Clock3 size={15} className="text-amber-600 flex-shrink-0 mt-0.5" />
-            <p className="text-[12px] text-amber-700">Payment under review. Your pass works now — the organizer will confirm your payment shortly.</p>
+            <p className="text-[12px] text-amber-700">Payment under review. Your QR pass will be emailed to you once the organizer verifies it.</p>
           </div>
         )}
 

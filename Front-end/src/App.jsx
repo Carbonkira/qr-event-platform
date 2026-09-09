@@ -34,7 +34,6 @@ const ParticipantFeedback = lazy(() => import('./pages/participant/Feedback'))
 const FeedbackDone = lazy(() => import('./pages/participant/FeedbackDone'))
 
 const MyEvents = lazy(() => import('./pages/MyEvents'))
-const MyConnections = lazy(() => import('./pages/MyConnections'))
 const AdminEventDetail = lazy(() => import('./pages/admin/EventDetail'))
 const EditEvent = lazy(() => import('./pages/admin/EditEvent'))
 const AdminFeedback = lazy(() => import('./pages/admin/Feedback'))
@@ -117,7 +116,12 @@ function AppRoutes() {
           <Route path="profile" element={<Navigate to="/organizer/profile" replace />} />
 
           <Route path="my-events" element={<ProtectedRoute><MyEvents /></ProtectedRoute>} />
-          <Route path="connections" element={<ProtectedRoute><MyConnections /></ProtectedRoute>} />
+
+          {/* Profile is the one /organizer/* page a Participant account can
+              also reach (name/email/password/avatar are generic to both
+              account types) - kept out of ManageLayout below, which blocks
+              everything else in this subtree to Organizer accounts only. */}
+          <Route path="organizer/profile" element={<ProtectedRoute><div className="max-w-6xl mx-auto px-5 py-8 w-full"><Profile /></div></ProtectedRoute>} />
 
           <Route path="organizer" element={<ProtectedRoute><ManageLayout /></ProtectedRoute>}>
             <Route index element={<Navigate to="/my-events" replace />} />
@@ -127,7 +131,6 @@ function AppRoutes() {
             <Route path="reports" element={<Reports />} />
             <Route path="templates" element={<Templates />} />
             <Route path="organizations" element={<Organizations />} />
-            <Route path="profile" element={<Profile />} />
             <Route path="approvals" element={<Approvals />} />
           </Route>
         </Route>

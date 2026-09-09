@@ -27,6 +27,12 @@ return Application::configure(basePath: dirname(__DIR__))
             \App\Http\Middleware\ConvertSnakeCaseResponseToCamelCase::class,
             \App\Http\Middleware\AddSecurityHeaders::class,
         ]);
+
+        $middleware->alias([
+            'organizer.approved' => \App\Http\Middleware\EnsureOrganizerApproved::class,
+            'organizer' => \App\Http\Middleware\EnsureOrganizer::class,
+            'participant' => \App\Http\Middleware\EnsureParticipant::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
         // Validation errors are rendered by Laravel's exception handler,

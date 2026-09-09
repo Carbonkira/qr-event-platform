@@ -1,5 +1,6 @@
 const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api'
 const TOKEN_KEY = 'qr_token'
+const ACCOUNT_TYPE_KEY = 'qr_account_type'
 
 export function getToken() {
   return localStorage.getItem(TOKEN_KEY)
@@ -7,6 +8,20 @@ export function getToken() {
 export function setToken(token) {
   if (token) localStorage.setItem(TOKEN_KEY, token)
   else localStorage.removeItem(TOKEN_KEY)
+}
+
+// Genuinely separate organizer/participant accounts (see Backend's
+// Organizer/Participant models) means every /auth/* call has to go to the
+// right table's endpoint - this is what remembers which one a stored token
+// belongs to, since the token itself doesn't say. Set at login/register
+// time (see resources.js), read by every subsequent /auth/me, /auth/logout,
+// profile edit, etc.
+export function getAccountType() {
+  return localStorage.getItem(ACCOUNT_TYPE_KEY)
+}
+export function setAccountType(type) {
+  if (type) localStorage.setItem(ACCOUNT_TYPE_KEY, type)
+  else localStorage.removeItem(ACCOUNT_TYPE_KEY)
 }
 
 export class ApiError extends Error {

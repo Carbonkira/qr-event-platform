@@ -24,7 +24,7 @@ class OrganizationInvite extends Model
 
     public function inviter(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'invited_by');
+        return $this->belongsTo(Organizer::class, 'invited_by');
     }
 
     public function isExpired(): bool
