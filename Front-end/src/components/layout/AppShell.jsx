@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, lazy, Suspense } from 'react'
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
-import { Plus, UserPlus, ChevronDown, LogOut, MailWarning, Hourglass, MessageSquare, FileText, ClipboardList, Building2, User as UserIcon, Menu, X, Compass, CalendarDays } from 'lucide-react'
+import { Plus, LogIn, ChevronDown, LogOut, MailWarning, Hourglass, MessageSquare, FileText, ClipboardList, Building2, User as UserIcon, Menu, X, Compass, CalendarDays } from 'lucide-react'
 import { Btn, Logo } from '../ui'
 import { cn } from '../../lib/utils'
 import { useApp } from '../../context/AppContext'
@@ -113,16 +113,8 @@ export default function AppShell() {
           </nav>
 
           <div className="flex items-center gap-2 flex-shrink-0">
-            {accountType === 'organizer' ? (
+            {accountType === 'organizer' && (
               <Btn variant="accent" size="md" icon={Plus} onClick={onCreateClick}><span className="hidden sm:inline">Create Event</span></Btn>
-            ) : !user && (
-              // "Create Event" doesn't mean anything to a logged-out visitor
-              // now that it requires an admin-approved organizer account
-              // with an organization already assigned - this points them at
-              // becoming an organizer instead of implying one click away.
-              <Link to="/organizer/register">
-                <Btn variant="accent" size="md" icon={UserPlus}><span className="hidden sm:inline">Sign Up</span></Btn>
-              </Link>
             )}
             {user ? (
               <div className="relative hidden md:block" ref={profileRef}>
@@ -138,7 +130,9 @@ export default function AppShell() {
                 )}
               </div>
             ) : (
-              <Link to="/login" className={cn(navLinkClass(location.pathname === '/login'), 'hidden md:inline-block')}>Log in</Link>
+              <Link to="/login" className="hidden md:inline-block">
+                <Btn variant="accent" size="md" icon={LogIn}>Log in</Btn>
+              </Link>
             )}
 
             <button onClick={() => setMobileOpen(o => !o)} className="md:hidden p-2 rounded-xl text-slate-600 hover:bg-slate-100 flex-shrink-0" aria-label={mobileOpen ? 'Close menu' : 'Open menu'}>
