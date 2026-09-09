@@ -55,11 +55,9 @@ export default function Login() {
         <p className="text-[13px] text-slate-500 text-center mt-4">
           <Link to="/forgot-password" className="font-semibold text-[#1a1a2e] hover:text-[#e94560]">Forgot your password?</Link>
         </p>
-        {type === 'organizer' && (
-          <p className="text-[13px] text-slate-500 text-center mt-2">
-            New here? <Link to="/organizer/register" className="font-semibold text-[#1a1a2e] hover:text-[#e94560]">Create an account</Link>
-          </p>
-        )}
+        <p className="text-[13px] text-slate-500 text-center mt-2">
+          New here? <Link to={type === 'organizer' ? '/organizer/register' : '/participant/register'} className="font-semibold text-[#1a1a2e] hover:text-[#e94560]">Create an account</Link>
+        </p>
       </Card>
     </div>
   )
