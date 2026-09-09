@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, lazy, Suspense } from 'react'
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
-import { Plus, ChevronDown, LogOut, MailWarning, Hourglass, MessageSquare, FileText, ClipboardList, Building2, User as UserIcon, Menu, X, Compass, CalendarDays } from 'lucide-react'
+import { Plus, UserPlus, ChevronDown, LogOut, MailWarning, Hourglass, MessageSquare, FileText, ClipboardList, Building2, User as UserIcon, Menu, X, Compass, CalendarDays } from 'lucide-react'
 import { Btn, Logo } from '../ui'
 import { cn } from '../../lib/utils'
 import { useApp } from '../../context/AppContext'
@@ -64,10 +64,7 @@ export default function AppShell() {
   // hamburger-triggered panel below md:, closed automatically on navigation.
   useEffect(() => { setMobileOpen(false) }, [location.pathname])
 
-  const onCreateClick = () => {
-    if (!user) { navigate('/organizer/register'); return }
-    setCreateOpen(true)
-  }
+  const onCreateClick = () => setCreateOpen(true)
 
   const onLogout = async () => {
     await logout()
@@ -116,8 +113,16 @@ export default function AppShell() {
           </nav>
 
           <div className="flex items-center gap-2 flex-shrink-0">
-            {(!user || accountType === 'organizer') && (
+            {accountType === 'organizer' ? (
               <Btn variant="accent" size="md" icon={Plus} onClick={onCreateClick}><span className="hidden sm:inline">Create Event</span></Btn>
+            ) : !user && (
+              // "Create Event" doesn't mean anything to a logged-out visitor
+              // now that it requires an admin-approved organizer account
+              // with an organization already assigned - this points them at
+              // becoming an organizer instead of implying one click away.
+              <Link to="/organizer/register">
+                <Btn variant="accent" size="md" icon={UserPlus}><span className="hidden sm:inline">Sign Up</span></Btn>
+              </Link>
             )}
             {user ? (
               <div className="relative hidden md:block" ref={profileRef}>

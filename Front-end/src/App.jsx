@@ -27,6 +27,7 @@ const ResetPassword = lazy(() => import('./pages/public/ResetPassword'))
 const InviteAccept = lazy(() => import('./pages/public/InviteAccept'))
 
 const Register = lazy(() => import('./pages/participant/Register'))
+const RegisterParticipant = lazy(() => import('./pages/participant/RegisterParticipant'))
 const Confirm = lazy(() => import('./pages/participant/Confirm'))
 const Pass = lazy(() => import('./pages/participant/Pass'))
 const FindPass = lazy(() => import('./pages/participant/FindPass'))
@@ -108,6 +109,8 @@ function AppRoutes() {
           <Route path="reset-password" element={<ResetPassword />} />
           <Route path="organizer/register" element={<RegisterOrganizer />} />
           <Route path="organizer/verify-email" element={<VerifyEmail />} />
+          <Route path="participant/register" element={<RegisterParticipant />} />
+          <Route path="participant/verify-email" element={<VerifyEmail />} />
           <Route path="email-verified" element={<EmailVerified />} />
           <Route path="invites/:token" element={<InviteAccept />} />
 
