@@ -32,7 +32,7 @@ class Organization extends Model
 
     public function members(): BelongsToMany
     {
-        return $this->belongsToMany(User::class, 'organization_members')
+        return $this->belongsToMany(Organizer::class, 'organization_members', 'organization_id', 'organizer_id')
             ->withPivot('role')
             ->withTimestamps();
     }
@@ -52,13 +52,13 @@ class Organization extends Model
         return $this->hasMany(DiscussionThread::class);
     }
 
-    public function isMember(User $user): bool
+    public function isMember(Organizer $organizer): bool
     {
-        return $this->members()->where('users.id', $user->id)->exists();
+        return $this->members()->where('organizers.id', $organizer->id)->exists();
     }
 
-    public function isOwner(User $user): bool
+    public function isOwner(Organizer $organizer): bool
     {
-        return $this->members()->where('users.id', $user->id)->wherePivot('role', 'owner')->exists();
+        return $this->members()->where('organizers.id', $organizer->id)->wherePivot('role', 'owner')->exists();
     }
 }

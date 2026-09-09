@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { ArrowLeft, User, Mail, Lock, Receipt, Ticket, Award, Send, Clock3, Upload, ImageDown, X, UserPlus, LogIn, MailCheck, RefreshCw, Pencil } from 'lucide-react'
-import { Btn, Input, Toggle, Card } from '../../components/ui'
+import { ArrowLeft, User, Mail, Lock, Receipt, Ticket, Send, Clock3, Upload, ImageDown, X, UserPlus, LogIn, MailCheck, RefreshCw, Pencil } from 'lucide-react'
+import { Btn, Input, Card } from '../../components/ui'
 import PasswordChecklist from '../../components/shared/PasswordChecklist'
 import { useEvent } from '../../hooks/useApi'
 import { registerForEvent, walkInForEvent } from '../../api/resources'
@@ -35,7 +35,7 @@ export default function Register() {
   const [correctedEmail, setCorrectedEmail] = useState('')
   const [savingEmail, setSavingEmail] = useState(false)
 
-  const [form, setForm] = useState({ name: '', email: '', customData: {}, needsCertificate: false })
+  const [form, setForm] = useState({ name: '', email: '', customData: {} })
   const [paymentRef, setPaymentRef] = useState('')
   const [screenshot, setScreenshot] = useState(null) // { file, previewUrl, name }
   const [errors, setErrors] = useState({})
@@ -128,9 +128,9 @@ export default function Register() {
     setAccountErrors({})
     try {
       if (accountMode === 'login') {
-        await login(accountForm.email, accountForm.password)
+        await login('participant', accountForm.email, accountForm.password)
       } else {
-        await createAccount(accountForm)
+        await createAccount('participant', accountForm)
       }
       // `user` effect above advances to the form step once context updates.
     } catch (err) {
@@ -145,9 +145,7 @@ export default function Register() {
 
   const validate = () => {
     const e = {}
-    if (!form.name.trim()) e.name = 'Required'
-    if (!form.email.trim() || !/\S+@\S+\.\S+/.test(form.email)) e.email = 'Valid email required'
-    ;(event.customFields || []).forEach(cf => { if (cf.required && !form.customData[cf.id]?.trim()) e[cf.id] = 'Required' })
+    ;(event.customFields || []).forEach(cf => { if (cf.required && !form.customData[cf.id]?.trim()) e[cf.id] = ['Required'] })
     setErrors(e)
     return Object.keys(e).length === 0
   }
@@ -164,7 +162,6 @@ export default function Register() {
     try {
       const registration = await registerForEvent(event.id, {
         name: form.name, email: form.email, customData: form.customData,
-        needsCertificate: form.needsCertificate,
         paymentRef: paymentRefValue, paymentScreenshot: screenshotFile || undefined,
       })
       addToast(event.pricing === 'paid' ? 'Payment submitted for verification!' : "You're registered!", 'success')
@@ -180,8 +177,8 @@ export default function Register() {
   const submitPayment = (e) => {
     e.preventDefault()
     const errs = {}
-    if (!paymentRef.trim()) errs.paymentRef = 'Reference number required'
-    if (!screenshot) errs.paymentScreenshot = 'Upload your payment screenshot'
+    if (!paymentRef.trim()) errs.paymentRef = ['Reference number required']
+    if (!screenshot) errs.paymentScreenshot = ['Upload your payment screenshot']
     if (Object.keys(errs).length) { setErrors(errs); return }
     doRegister(paymentRef, screenshot.file)
   }
@@ -258,12 +255,13 @@ export default function Register() {
         {step === 'form' && (
           <form onSubmit={proceedFromForm} className="space-y-4">
             {event.pricing === 'paid' && <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-200"><span className="text-[13px] font-semibold text-slate-600">Ticket price</span><span className="text-lg font-extrabold">₱{event.price}</span></div>}
-            <Input label="Full Name" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} icon={User} placeholder="Juan Dela Cruz" error={errors.name?.[0] || errors.name} required />
-            <Input label="Email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} icon={Mail} type="email" placeholder="juan@email.com" error={errors.email?.[0] || errors.email} required />
+            <div className="flex items-center gap-2.5 p-3 rounded-xl bg-slate-50 border border-slate-200">
+              <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center flex-shrink-0"><User size={14} className="text-slate-500" /></div>
+              <p className="text-[12px] text-slate-500 min-w-0 truncate">Registering as <span className="font-semibold text-slate-700">{form.name}</span> ({form.email})</p>
+            </div>
             {(event.customFields || []).map(cf => (
-              <Input key={cf.id} label={cf.label} value={form.customData[cf.id] || ''} onChange={setCustom(cf.id)} error={errors[cf.id]} required={cf.required} />
+              <Input key={cf.id} label={cf.label} value={form.customData[cf.id] || ''} onChange={setCustom(cf.id)} error={errors[cf.id]?.[0]} required={cf.required} />
             ))}
-            {event.requiresCertificate && <Toggle checked={form.needsCertificate} onChange={v => setForm(f => ({ ...f, needsCertificate: v }))} icon={Award} label="I need a Certificate of Attendance" desc="Prepared for qualifying attendees" color="#6d28d9" />}
             <Btn type="submit" variant="accent" size="lg" full icon={event.pricing === 'paid' ? Send : Ticket} loading={submitting}>{event.pricing === 'paid' ? 'Continue to Payment' : 'Complete Registration'}</Btn>
             {event.privacyPolicyUrl && <p className="text-[11px] text-slate-400 text-center">By registering you agree to the <a href={event.privacyPolicyUrl} target="_blank" rel="noreferrer" className="underline hover:text-slate-600">privacy policy</a>.</p>}
           </form>
@@ -285,7 +283,7 @@ export default function Register() {
               {event.organization && <p className="text-[11px] text-slate-400 mt-2">Pay to: <b className="text-slate-600">{event.organization.name}</b>{event.organization.email ? ` · ${event.organization.email}` : ''}</p>}
             </div>
 
-            <Input label="Payment Reference Number" value={paymentRef} onChange={e => setPaymentRef(e.target.value)} icon={Receipt} placeholder="e.g. 0029384756" error={errors.paymentRef?.[0] || errors.paymentRef} required />
+            <Input label="Payment Reference Number" value={paymentRef} onChange={e => setPaymentRef(e.target.value)} icon={Receipt} placeholder="e.g. 0029384756" error={errors.paymentRef?.[0]} required />
 
             <div>
               <label className="block text-[12px] font-semibold text-slate-600 mb-1.5">Payment Screenshot<span className="text-rose-500 ml-0.5">*</span></label>
@@ -308,7 +306,7 @@ export default function Register() {
 
             <div className="rounded-xl bg-amber-50 border border-amber-200 p-3 flex items-start gap-2">
               <Clock3 size={15} className="text-amber-600 flex-shrink-0 mt-0.5" />
-              <p className="text-[12px] text-amber-700">Your spot is reserved once submitted. The organizer will verify your payment — you'll still get your QR pass right away.</p>
+              <p className="text-[12px] text-amber-700">Your spot is reserved once submitted, but your QR pass won't be issued until the organizer verifies your payment.</p>
             </div>
 
             <Btn type="submit" variant="accent" size="lg" full icon={Send} loading={submitting}>Submit Payment Proof</Btn>

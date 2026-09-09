@@ -10,12 +10,12 @@
 <span style="font-size:14px;font-weight:800;color:#1a1a2e;vertical-align:middle;margin-left:8px;">QRMeets</span>
 </td></tr>
 <tr><td style="padding:16px 28px 8px;">
-<p style="font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#e94560;margin:0 0 8px;">New connection request</p>
-<h1 style="font-size:20px;margin:0 0 4px;">{{ $requester->name }} wants to connect</h1>
-<p style="font-size:13px;color:#5b5b6b;margin:0;">You met at an event on QRMeets. Accept to connect, or ignore if you'd rather not.</p>
+<p style="font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#e94560;margin:0 0 8px;">Security notice</p>
+<h1 style="font-size:20px;margin:0 0 4px;">Your password was changed</h1>
+<p style="font-size:13px;color:#5b5b6b;margin:0;">Hi {{ $user->name }}, the password on your account ({{ $user->email }}) was just changed. Every other device has been signed out as a precaution.</p>
 </td></tr>
-<tr><td style="padding:20px 28px;text-align:center;">
-<a href="{{ $connectionsUrl }}" style="display:inline-block;background:#1a1a2e;color:#ffffff;font-size:13px;font-weight:700;text-decoration:none;padding:12px 24px;border-radius:10px;">View request</a>
+<tr><td style="padding:8px 28px 20px;">
+<p style="font-size:12px;background:#fbf1e0;color:#b3760a;border-radius:8px;padding:10px 12px;margin:0;">If this wasn't you, reset your password right away and contact us - someone else may have access to your account.</p>
 </td></tr>
 </table>
 </td></tr>

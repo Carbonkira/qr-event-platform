@@ -32,6 +32,9 @@ export function usePublicEvents(params = {}) {
 export function useAdminEvents(enabled = true) {
   return useAsync(() => (enabled ? api.getAdminEvents() : Promise.resolve([])), [enabled])
 }
+export function usePendingOrganizers(enabled = true) {
+  return useAsync(() => (enabled ? api.getPendingOrganizers() : Promise.resolve([])), [enabled])
+}
 export function useEvent(slug) {
   return useAsync(() => (slug ? api.getEvent(slug) : Promise.resolve(null)), [slug])
 }
@@ -70,12 +73,6 @@ export function useDiscussionThreads(orgId, enabled = true) {
 }
 export function useDiscussionThread(threadId) {
   return useAsync(() => (threadId ? api.getDiscussionThread(threadId) : Promise.resolve(null)), [threadId])
-}
-export function useFellowAttendees(eventId, enabled = true) {
-  return useAsync(() => (enabled && eventId ? api.getFellowAttendees(eventId) : Promise.resolve([])), [eventId, enabled])
-}
-export function useConnections(enabled = true) {
-  return useAsync(() => (enabled ? api.getConnections() : Promise.resolve(null)), [enabled])
 }
 export function useTaskTemplates() {
   return useAsync(() => api.getTaskTemplates(), [])

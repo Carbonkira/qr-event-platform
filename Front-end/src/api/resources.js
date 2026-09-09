@@ -1,52 +1,58 @@
-import { api, setToken } from './client'
+import { api, setToken, getAccountType, setAccountType } from './client'
 
 // ─── Auth ───
-// There's only one kind of account - it can organize events and register
-// for other people's events at the same time (see Backend's User model).
-// `createAccount` backs both the "become an organizer" page and the
-// account-creation step baked into event registration.
-export async function login(email, password) {
-  const data = await api.post('/auth/login', { email, password })
+// Genuinely separate organizer/participant accounts (see Backend's
+// Organizer/Participant models) - every call below picks the right table's
+// endpoint. login/createAccount take an explicit `type` since the caller
+// always knows which one it means (Login.jsx's toggle, or Register.jsx's
+// embedded participant-only flow); everything else reads the type stashed
+// at that point (see client.js's getAccountType) since a token alone
+// doesn't say which table it belongs to.
+export async function login(type, email, password) {
+  const data = await api.post(`/auth/${type}/login`, { email, password })
   setToken(data.token)
+  setAccountType(type)
   return data.user
 }
-export async function createAccount(payload) {
-  const data = await api.post('/auth/register', payload)
+export async function createAccount(type, payload) {
+  const data = await api.post(`/auth/${type}/register`, payload)
   setToken(data.token)
+  setAccountType(type)
   return data.user
 }
 export function resendVerificationEmail() {
-  return api.post('/auth/email/verification-notification')
+  return api.post(`/auth/${getAccountType()}/email/verification-notification`)
 }
-export function forgotPassword(email) {
-  return api.post('/auth/forgot-password', { email })
+export function forgotPassword(type, email) {
+  return api.post(`/auth/${type}/forgot-password`, { email })
 }
-export function resetPassword(payload) {
-  return api.post('/auth/reset-password', payload)
+export function resetPassword(type, payload) {
+  return api.post(`/auth/${type}/reset-password`, payload)
 }
-export async function validateResetToken(email, token) {
-  const { valid } = await api.post('/auth/reset-password/validate', { email, token })
+export async function validateResetToken(type, email, token) {
+  const { valid } = await api.post(`/auth/${type}/reset-password/validate`, { email, token })
   return valid
 }
 export async function logout() {
-  // Logging out locally (clearing the token/user state) has to succeed
-  // even if the server-side call fails - e.g. the token was already
-  // invalid (expired, or revoked by logging in elsewhere - see
-  // AuthController::login's single-session policy), which 401s here and,
-  // uncaught, used to leave the UI looking still logged in since neither
-  // setUser(null) nor the post-logout redirect ever ran.
-  try { await api.post('/auth/logout') } catch { /* best-effort */ } finally { setToken(null) }
+  // Logging out locally (clearing the token/user/type state) has to
+  // succeed even if the server-side call fails - e.g. the token was
+  // already invalid (expired, or revoked by logging in elsewhere - see
+  // OrganizerAuthController/ParticipantAuthController's single-session
+  // policy), which 401s here and, uncaught, used to leave the UI looking
+  // still logged in since neither setUser(null) nor the post-logout
+  // redirect ever ran.
+  try { await api.post(`/auth/${getAccountType()}/logout`) } catch { /* best-effort */ } finally { setToken(null); setAccountType(null) }
 }
 export function me() {
-  return api.get('/auth/me')
+  return api.get(`/auth/${getAccountType()}/me`)
 }
 export function updateProfile(payload) {
-  return api.put('/auth/me', payload)
+  return api.put(`/auth/${getAccountType()}/me`, payload)
 }
 export function uploadAvatar(file) {
   const form = new FormData()
   form.append('avatar', file)
-  return api.post('/auth/me/avatar', form)
+  return api.post(`/auth/${getAccountType()}/me/avatar`, form)
 }
 
 // ─── Events ───
@@ -83,6 +89,15 @@ export function approveEvent(id) {
 }
 export function rejectEvent(id) {
   return api.post(`/events/${id}/reject`)
+}
+export function getPendingOrganizers() {
+  return api.get('/organizers/pending')
+}
+export function approveOrganizer(id) {
+  return api.post(`/organizers/${id}/approve`)
+}
+export function rejectOrganizer(id) {
+  return api.post(`/organizers/${id}/reject`)
 }
 export function submitEvent(id) {
   return api.post(`/events/${id}/submit`)
@@ -125,7 +140,7 @@ export function registerForEvent(eventId, payload) {
       // FormData stringifies everything - a JS boolean becomes the literal
       // string "true"/"false", which Laravel's `boolean` rule actually
       // rejects (it only accepts true/false/0/1/'0'/'1', not those two
-      // strings) - confirmed live: needsCertificate on a paid registration
+      // strings) - confirmed live: a boolean field on a paid registration
       // with a payment screenshot 422'd with "must be true or false" for
       // exactly this reason, since that's the only path that forces
       // multipart instead of plain JSON.
@@ -248,26 +263,6 @@ export function getDiscussionThread(threadId) {
 }
 export function replyToDiscussionThread(threadId, body) {
   return api.post(`/discussion/threads/${threadId}/replies`, { body })
-}
-
-// ─── Connections ───
-export function getFellowAttendees(eventId) {
-  return api.get(`/events/${eventId}/attendees`)
-}
-export function getConnections() {
-  return api.get('/connections')
-}
-export function sendConnectionRequest(recipientId) {
-  return api.post('/connections', { recipientId })
-}
-export function acceptConnection(id) {
-  return api.post(`/connections/${id}/accept`)
-}
-export function declineConnection(id) {
-  return api.post(`/connections/${id}/decline`)
-}
-export function removeConnection(id) {
-  return api.del(`/connections/${id}`)
 }
 
 // ─── Task Templates ───

@@ -28,7 +28,6 @@ class Event extends Model
         'status',
         'feedback_enabled',
         'image',
-        'requires_certificate',
         'pricing',
         'price',
         'allow_walk_ins',
@@ -39,7 +38,7 @@ class Event extends Model
         'tags',
         'ai_summary',
         'ai_summary_generated_at',
-        'user_id',
+        'organizer_id',
         'organization_id',
     ];
 
@@ -52,7 +51,6 @@ class Event extends Model
             'date' => 'date',
             'capacity' => 'integer',
             'feedback_enabled' => 'boolean',
-            'requires_certificate' => 'boolean',
             'price' => 'decimal:2',
             'allow_walk_ins' => 'boolean',
             'socials' => 'array',
@@ -87,9 +85,9 @@ class Event extends Model
         return $this->feedback_questions ?: self::defaultFeedbackQuestions();
     }
 
-    public function user(): BelongsTo
+    public function organizer(): BelongsTo
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(Organizer::class);
     }
 
     public function organization(): BelongsTo

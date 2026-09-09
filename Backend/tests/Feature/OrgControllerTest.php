@@ -3,7 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Organization;
-use App\Models\User;
+use App\Models\Organizer;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -14,14 +14,26 @@ class OrgControllerTest extends TestCase
 {
     use RefreshDatabase;
 
-    private function makeUser(string $email = 'user@example.com'): User
+    private function makeUser(string $email = 'user@example.com'): Organizer
     {
-        return User::create(['name' => 'Test User', 'email' => $email, 'password' => bcrypt('password123')]);
+        $organizer = Organizer::create(['name' => 'Test User', 'email' => $email, 'password' => bcrypt('password123')]);
+        // Neither is mass-assignable (see Organizer::$fillable).
+        $organizer->forceFill(['email_verified_at' => now(), 'approval_status' => 'approved'])->save();
+
+        return $organizer;
+    }
+
+    private function makeAdmin(string $email = 'admin@example.com'): Organizer
+    {
+        $admin = $this->makeUser($email);
+        $admin->forceFill(['role' => 'admin'])->save();
+
+        return $admin;
     }
 
     public function test_creating_an_organization_makes_the_creator_its_owner(): void
     {
-        Sanctum::actingAs($this->makeUser());
+        Sanctum::actingAs($this->makeAdmin());
 
         $response = $this->postJson('/api/orgs', ['name' => 'Acme Robotics Club'])->assertCreated();
 
@@ -29,9 +41,17 @@ class OrgControllerTest extends TestCase
         $this->assertSame('acme-robotics-club', $response->json('slug'));
     }
 
-    public function test_creating_two_organizations_with_the_same_name_gets_unique_slugs(): void
+    /** Organizations are admin-created now - an ordinary organizer can't self-serve one. */
+    public function test_a_non_admin_organizer_cannot_create_an_organization(): void
     {
         Sanctum::actingAs($this->makeUser());
+
+        $this->postJson('/api/orgs', ['name' => 'Not Allowed'])->assertForbidden();
+    }
+
+    public function test_creating_two_organizations_with_the_same_name_gets_unique_slugs(): void
+    {
+        Sanctum::actingAs($this->makeAdmin());
 
         $first = $this->postJson('/api/orgs', ['name' => 'Acme Club'])->assertCreated();
         $second = $this->postJson('/api/orgs', ['name' => 'Acme Club'])->assertCreated();
@@ -41,8 +61,8 @@ class OrgControllerTest extends TestCase
 
     public function test_mine_lists_organizations_the_user_belongs_to_with_their_role(): void
     {
-        $user = $this->makeUser();
-        Sanctum::actingAs($user);
+        $admin = $this->makeAdmin();
+        Sanctum::actingAs($admin);
         $this->postJson('/api/orgs', ['name' => 'My Club'])->assertCreated();
 
         $response = $this->getJson('/api/orgs/mine')->assertOk();

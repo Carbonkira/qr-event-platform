@@ -1,6 +1,6 @@
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import {
-  ArrowLeft, Lock, Instagram, Linkedin, Facebook, Twitter, Globe, Briefcase, Award,
+  ArrowLeft, Lock, Instagram, Linkedin, Facebook, Twitter, Globe, Briefcase,
   MapPin, Shield, ExternalLink, Ticket, UserCheck, CalendarPlus, Share2, CheckCircle2,
 } from 'lucide-react'
 import { Btn, Card, Badge, PriceTag } from '../../components/ui'
@@ -64,7 +64,7 @@ export default function EventDetail() {
 
       <div className="grid md:grid-cols-[1fr_300px] gap-6 items-start">
         <div>
-          <div className="flex items-center gap-2 mb-3"><Badge color="slate">{event.type}</Badge><Badge color="blue"><Briefcase size={10} />{event.industry}</Badge>{event.requiresCertificate && <Badge color="violet"><Award size={10} />Certificate</Badge>}</div>
+          <div className="flex items-center gap-2 mb-3"><Badge color="slate">{event.type}</Badge><Badge color="blue"><Briefcase size={10} />{event.industry}</Badge></div>
           <h1 className="text-[26px] font-extrabold tracking-tight leading-tight mb-4">{event.title}</h1>
 
           <div className="space-y-3 mb-6">

@@ -39,6 +39,20 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->role === 'admin';
     }
 
+    /**
+     * A prospective organizer must meet with the system admin before their
+     * account can do anything organizer-side (see EnsureOrganizerApproved) -
+     * `approval_status` is separate from `role` and, like it, only ever set
+     * via approve()/reject() or a manual forceFill (seeders/migration
+     * grandfathering), never mass-assignable. Every account that existed
+     * before this column was added was grandfathered straight to 'approved'
+     * in the same migration, so this only actually blocks new signups.
+     */
+    public function isOrganizerApproved(): bool
+    {
+        return $this->approval_status === 'approved';
+    }
+
     protected $hidden = [
         'password',
         'remember_token',
@@ -48,6 +62,7 @@ class User extends Authenticatable implements MustVerifyEmail
     {
         return [
             'email_verified_at' => 'datetime',
+            'approved_at' => 'datetime',
             'password' => 'hashed',
         ];
     }

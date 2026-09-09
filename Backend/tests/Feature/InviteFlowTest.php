@@ -6,7 +6,7 @@ use App\Mail\OrganizationInviteMail;
 use App\Mail\OrganizationMemberJoinedMail;
 use App\Models\Organization;
 use App\Models\OrganizationInvite;
-use App\Models\User;
+use App\Models\Organizer;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
 use Laravel\Sanctum\Sanctum;
@@ -16,12 +16,16 @@ class InviteFlowTest extends TestCase
 {
     use RefreshDatabase;
 
-    private function makeUser(string $email = 'user@example.com'): User
+    private function makeUser(string $email = 'user@example.com'): Organizer
     {
-        return User::create(['name' => 'Test User', 'email' => $email, 'password' => bcrypt('password123')]);
+        $user = Organizer::create(['name' => 'Test User', 'email' => $email, 'password' => bcrypt('password123')]);
+        // Neither is mass-assignable (see User::$fillable).
+        $user->forceFill(['email_verified_at' => now(), 'approval_status' => 'approved'])->save();
+
+        return $user;
     }
 
-    private function makeOrg(User $owner): Organization
+    private function makeOrg(Organizer $owner): Organization
     {
         $org = Organization::create(['name' => 'Acme', 'slug' => 'acme']);
         $org->members()->attach($owner->id, ['role' => 'owner']);

@@ -40,7 +40,7 @@ function AvatarUpload() {
 }
 
 function AccountCard() {
-  const { user, updateProfile, addToast } = useApp()
+  const { user, accountType, updateProfile, addToast } = useApp()
   const [form, setForm] = useState({ name: user?.name || '', email: user?.email || '', institution: user?.institution || '' })
   const [errors, setErrors] = useState({})
   const [saving, setSaving] = useState(false)
@@ -66,7 +66,7 @@ function AccountCard() {
     <Card className="p-5 space-y-4">
       <div>
         <p className="font-bold text-[14px]">My Account</p>
-        <p className="text-[11px] text-slate-400">Your personal login - manage your organizations from My Organizations</p>
+        <p className="text-[11px] text-slate-400">{accountType === 'organizer' ? 'Your personal login - manage your organizations from My Organizations' : 'Your personal login'}</p>
       </div>
       <AvatarUpload />
       <form onSubmit={save} className="space-y-4">

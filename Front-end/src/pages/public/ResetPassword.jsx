@@ -12,6 +12,9 @@ export default function ResetPassword() {
   const { addToast } = useApp()
   const token = searchParams.get('token') || ''
   const email = searchParams.get('email') || ''
+  // Appended by Organizer/Participant::sendPasswordResetNotification - the
+  // link itself says which account type it's for.
+  const type = searchParams.get('type') === 'participant' ? 'participant' : 'organizer'
   const [password, setPassword] = useState('')
   const [passwordConfirmation, setPasswordConfirmation] = useState('')
   const [errors, setErrors] = useState({})
@@ -23,10 +26,10 @@ export default function ResetPassword() {
 
   useEffect(() => {
     if (linkStatus !== 'checking') return
-    validateResetToken(email, token)
+    validateResetToken(type, email, token)
       .then(valid => setLinkStatus(valid ? 'valid' : 'invalid'))
       .catch(() => setLinkStatus('invalid'))
-  }, [linkStatus, email, token])
+  }, [linkStatus, email, token, type])
 
   const submit = async (e) => {
     e.preventDefault()
@@ -37,7 +40,7 @@ export default function ResetPassword() {
     setLoading(true)
     setErrors({})
     try {
-      await resetPassword({ token, email, password, passwordConfirmation })
+      await resetPassword(type, { token, email, password, passwordConfirmation })
       addToast('Password reset — please log in', 'success')
       navigate('/login')
     } catch (err) {

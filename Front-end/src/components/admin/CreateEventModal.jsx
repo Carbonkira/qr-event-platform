@@ -2,9 +2,9 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   X, Check, ChevronLeft, ChevronRight, Send, Wand2, MapPin, MapPinned,
-  Image as ImageIcon, AlertCircle, Ticket, DollarSign, UserCheck, Lock, Award,
+  Image as ImageIcon, AlertCircle, Ticket, DollarSign, UserCheck, Lock,
   MessageSquare, Instagram, Linkedin, Facebook, Globe, Shield, User, Mail,
-  Plus, Tag, Trash2, Hourglass, Upload, CheckCircle2,
+  Plus, Tag, Trash2, Hourglass, Upload,
 } from 'lucide-react'
 import { Modal, Btn, Input, Select, Textarea, Toggle, Badge } from '../ui'
 import LocationPicker from '../shared/LocationPicker'
@@ -24,7 +24,7 @@ const blankForm = () => ({
   title: '', type: 'Meetup', description: '', venue: '', location: '', lat: null, lng: null,
   date: '', startTime: '', endTime: '',
   organizedBy: '', industry: 'Technology', capacity: '50', organizationId: '',
-  image: '', pricing: 'free', price: '', allowWalkIns: true, isPrivate: false, requiresCertificate: false,
+  image: '', pricing: 'free', price: '', allowWalkIns: true, isPrivate: false,
   feedbackEnabled: true, privacyPolicyUrl: '', taskTemplateId: '',
   socials: { instagram: '', linkedin: '', facebook: '', website: '' },
   customFields: [], tags: '',
@@ -41,8 +41,9 @@ export default function CreateEventModal({ open, onClose, toast, onCreated }) {
   const navigate = useNavigate()
   const { data: templatesData } = useTaskTemplates()
   const templates = templatesData || []
-  const { data: orgsData } = useMyOrgs(open)
+  const { data: orgsData, loading: orgsLoading } = useMyOrgs(open)
   const orgs = orgsData || []
+  const noOrgs = !orgsLoading && orgs.length === 0
 
   const [form, setForm] = useState(blankForm)
   const [step, setStep] = useState(1)
@@ -54,8 +55,9 @@ export default function CreateEventModal({ open, onClose, toast, onCreated }) {
 
   useEffect(() => { if (open) { setForm(blankForm()); setStep(1); setImgError(''); setErrors({}) } }, [open])
 
-  // Auto-pick the user's only org and hide the picker; a picker only
-  // appears once someone actually belongs to more than one.
+  // Pre-select when there's only one choice - the dropdown still shows
+  // (organization is a required, explicit choice now, not an auto-default;
+  // see EventController::store()), just pre-filled for the common case.
   useEffect(() => {
     if (open && orgs.length === 1 && !form.organizationId) up('organizationId', String(orgs[0].id))
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -127,6 +129,11 @@ export default function CreateEventModal({ open, onClose, toast, onCreated }) {
   const handleClose = () => { onClose() }
 
   const submit = async (saveAsDraft = false) => {
+    if (!form.organizationId) {
+      toast?.('Choose an organization first', 'error')
+      setStep(1)
+      return
+    }
     if (!saveAsDraft && (!form.title.trim() || !form.venue.trim() || !form.date)) {
       toast?.('Fill in title, venue and date', 'error')
       setStep(1)
@@ -150,10 +157,7 @@ export default function CreateEventModal({ open, onClose, toast, onCreated }) {
         saveAsDraft,
       }
       const created = await createEvent(payload)
-      // Events under a real organization auto-approve (that org already
-      // vouches for the submitter) - only an org-less event still queues
-      // for a platform admin to review.
-      const message = saveAsDraft ? 'Draft saved!' : created?.status === 'approved' ? "Event is live!" : 'Submitted for approval!'
+      const message = saveAsDraft ? 'Draft saved!' : 'Submitted for approval!'
       toast?.(message, 'success')
       handleClose()
       onCreated?.(created)
@@ -190,12 +194,17 @@ export default function CreateEventModal({ open, onClose, toast, onCreated }) {
       </div>
 
       <div className="p-6 max-h-[60vh] overflow-y-auto">
-        {step === 1 && (
+        {noOrgs && (
+          <div className="rounded-xl bg-amber-50 border border-amber-200 p-5 text-center">
+            <Hourglass size={22} className="text-amber-600 mx-auto mb-2" />
+            <p className="text-[13px] font-bold text-amber-800 mb-1">You're not in an organization yet</p>
+            <p className="text-[12px] text-amber-700">Creating an event requires belonging to one - ask your admin to invite you to an organization first.</p>
+          </div>
+        )}
+        {!noOrgs && step === 1 && (
           <div className="space-y-4">
             <Input label="Event Title" value={form.title} onChange={e => up('title', e.target.value)} placeholder="Founder Networking Night" error={errors.title} required />
-            {orgs.length > 1 && (
-              <Select label="Organization" value={form.organizationId} onChange={e => up('organizationId', e.target.value)} options={orgs.map(o => ({ value: String(o.id), label: o.name }))} />
-            )}
+            <Select label="Organization" value={form.organizationId} onChange={e => up('organizationId', e.target.value)} options={orgs.map(o => ({ value: String(o.id), label: o.name }))} required />
             {/* Co-organizers are org members, not per-event - inviting someone
                 makes them a member of the whole organization (and every event
                 under it), reusing the invite flow already built for that. */}
@@ -248,7 +257,7 @@ export default function CreateEventModal({ open, onClose, toast, onCreated }) {
           </div>
         )}
 
-        {step === 2 && (
+        {!noOrgs && step === 2 && (
           <div className="space-y-5">
             <div>
               <p className="text-[12px] font-bold text-slate-700 mb-2">Pricing</p>
@@ -266,7 +275,6 @@ export default function CreateEventModal({ open, onClose, toast, onCreated }) {
             <div className="space-y-2.5">
               <Toggle checked={form.allowWalkIns} onChange={v => up('allowWalkIns', v)} icon={UserCheck} label="Allow walk-ins" desc="Let guests register on-site without filling the form" color="#0f9d8f" />
               <Toggle checked={form.isPrivate} onChange={v => up('isPrivate', v)} icon={Lock} label="Private event" desc="Only people with the invite link can view & register" color="#e94560" />
-              <Toggle checked={form.requiresCertificate} onChange={v => up('requiresCertificate', v)} icon={Award} label="Certificate of attendance" desc="Attendees can request a certificate" color="#6d28d9" />
               <Toggle checked={form.feedbackEnabled} onChange={v => up('feedbackEnabled', v)} icon={MessageSquare} label="Collect feedback" desc="Enable post-event ratings & comments" color="#1a1a2e" />
             </div>
 
@@ -289,7 +297,7 @@ export default function CreateEventModal({ open, onClose, toast, onCreated }) {
           </div>
         )}
 
-        {step === 3 && (
+        {!noOrgs && step === 3 && (
           <div className="space-y-4">
             <div className="rounded-xl bg-slate-50 border border-slate-200 p-4">
               <p className="text-[12px] font-bold text-slate-700 mb-1">Default registration fields</p>
@@ -348,29 +356,24 @@ export default function CreateEventModal({ open, onClose, toast, onCreated }) {
               </div>
             )}
 
-            {orgs.length > 0 ? (
-              <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-3 flex items-start gap-2">
-                <CheckCircle2 size={15} className="text-emerald-600 flex-shrink-0 mt-0.5" />
-                <p className="text-[12px] text-emerald-700">Your organization vouches for this event - it goes live <b>immediately</b>, no admin review needed.</p>
-              </div>
-            ) : (
-              <div className="rounded-xl bg-amber-50 border border-amber-200 p-3 flex items-start gap-2">
-                <Hourglass size={15} className="text-amber-600 flex-shrink-0 mt-0.5" />
-                <p className="text-[12px] text-amber-700">Your event will be submitted for <b>approval</b> before going live publicly.</p>
-              </div>
-            )}
+            <div className="rounded-xl bg-amber-50 border border-amber-200 p-3 flex items-start gap-2">
+              <Hourglass size={15} className="text-amber-600 flex-shrink-0 mt-0.5" />
+              <p className="text-[12px] text-amber-700">Every event needs the admin's approval before going live - your event will be submitted for review.</p>
+            </div>
           </div>
         )}
       </div>
 
-      <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between sticky bottom-0 bg-white rounded-b-2xl">
-        {step > 1 ? <Btn variant="ghost" icon={ChevronLeft} onClick={() => setStep(step - 1)}>Back</Btn> : <span />}
-        <div className="flex items-center gap-2">
-          <Btn variant="secondary" loading={loading} onClick={() => submit(true)}>Save Draft</Btn>
-          {step < 3 ? <Btn variant="primary" onClick={() => setStep(step + 1)}>Continue <ChevronRight size={15} /></Btn>
-            : <Btn variant="accent" icon={Send} loading={loading} onClick={() => submit(false)}>{orgs.length > 0 ? 'Publish Event' : 'Submit for Approval'}</Btn>}
+      {!noOrgs && (
+        <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between sticky bottom-0 bg-white rounded-b-2xl">
+          {step > 1 ? <Btn variant="ghost" icon={ChevronLeft} onClick={() => setStep(step - 1)}>Back</Btn> : <span />}
+          <div className="flex items-center gap-2">
+            <Btn variant="secondary" loading={loading} onClick={() => submit(true)}>Save Draft</Btn>
+            {step < 3 ? <Btn variant="primary" onClick={() => setStep(step + 1)}>Continue <ChevronRight size={15} /></Btn>
+              : <Btn variant="accent" icon={Send} loading={loading} onClick={() => submit(false)}>Submit for Approval</Btn>}
+          </div>
         </div>
-      </div>
+      )}
     </Modal>
   )
 }

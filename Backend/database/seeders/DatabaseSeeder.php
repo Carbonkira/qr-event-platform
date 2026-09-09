@@ -5,9 +5,10 @@ namespace Database\Seeders;
 use App\Models\Event;
 use App\Models\Feedback;
 use App\Models\Organization;
+use App\Models\Organizer;
+use App\Models\Participant;
 use App\Models\Registration;
 use App\Models\TaskTemplate;
-use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 
@@ -23,21 +24,20 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         // ─── Seeded organizer login ────────────────────────────────────
-        $admin = User::create([
+        $admin = Organizer::create([
             'name' => 'TechHub Admin',
             'email' => 'admin@techhub.ph',
             'password' => Hash::make('password'),
             'institution' => null,
             'email_verified_at' => now(),
         ]);
-        // 'role' isn't mass-assignable (see User::$fillable) so registration
-        // can never self-escalate to admin - the seeded demo account is set
-        // directly instead.
-        $admin->forceFill(['role' => 'admin'])->save();
+        // Neither is mass-assignable (see Organizer::$fillable) - role isn't,
+        // so registration can never self-escalate to admin; approval_status
+        // isn't, so a seeded account is grandfathered in the same way a real
+        // admin-approved organizer would be (see EnsureOrganizerApproved).
+        $admin->forceFill(['role' => 'admin', 'approval_status' => 'approved', 'approved_at' => now()])->save();
 
-        // ─── Organization (first insert into an empty table gets id=1 -
-        // BackfillOrganizations reassigns this specific row to the demo
-        // account rather than creating a duplicate) ──────────────────────
+        // ─── Organization (first insert into an empty table gets id=1) ──
         Organization::create([
             'name' => 'TechHub Manila',
             'description' => 'A community of builders, designers, and founders hosting events across Metro Manila.',
@@ -71,7 +71,6 @@ class DatabaseSeeder extends Seeder
             'status' => 'approved',
             'feedback_enabled' => true,
             'image' => 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=1200&q=80',
-            'requires_certificate' => true,
             'pricing' => 'free',
             'price' => 0,
             'allow_walk_ins' => true,
@@ -79,7 +78,7 @@ class DatabaseSeeder extends Seeder
             'privacy_policy_url' => 'https://techhub.ph/privacy',
             'custom_fields' => [['id' => 'cf1', 'label' => 'Dietary restrictions', 'type' => 'text', 'required' => false]],
             'tags' => ['AI', 'Education'],
-            'user_id' => $admin->id,
+            'organizer_id' => $admin->id,
         ], '2025-06-01T08:00:00', [
             ['label' => 'Send invitations', 'done' => true],
             ['label' => 'Confirm AV equipment', 'done' => true],
@@ -105,7 +104,6 @@ class DatabaseSeeder extends Seeder
             'status' => 'approved',
             'feedback_enabled' => true,
             'image' => 'https://images.unsplash.com/photo-1511795409834-ef04bbd61622?w=1200&q=80',
-            'requires_certificate' => false,
             'pricing' => 'paid',
             'price' => 500,
             'allow_walk_ins' => false,
@@ -116,7 +114,7 @@ class DatabaseSeeder extends Seeder
                 ['id' => 'cf2', 'label' => 'What are you building?', 'type' => 'text', 'required' => false],
             ],
             'tags' => ['Startup', 'Networking'],
-            'user_id' => $admin->id,
+            'organizer_id' => $admin->id,
         ], '2025-07-01T10:00:00', [
             ['label' => 'Book venue', 'done' => true],
             ['label' => 'Arrange catering', 'done' => false],
@@ -141,7 +139,6 @@ class DatabaseSeeder extends Seeder
             'status' => 'completed',
             'feedback_enabled' => true,
             'image' => 'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=1200&q=80',
-            'requires_certificate' => true,
             'pricing' => 'walk-in',
             'price' => 0,
             'allow_walk_ins' => true,
@@ -149,7 +146,7 @@ class DatabaseSeeder extends Seeder
             'privacy_policy_url' => 'https://techhub.ph/privacy',
             'custom_fields' => [],
             'tags' => ['Security'],
-            'user_id' => $admin->id,
+            'organizer_id' => $admin->id,
         ], '2025-06-15T14:00:00', [
             ['label' => 'Prepare slides', 'done' => true],
             ['label' => 'Test demo environment', 'done' => true],
@@ -174,7 +171,6 @@ class DatabaseSeeder extends Seeder
             'status' => 'pending',
             'feedback_enabled' => true,
             'image' => 'https://images.unsplash.com/photo-1531403009284-440f080d1e12?w=1200&q=80',
-            'requires_certificate' => false,
             'pricing' => 'free',
             'price' => 0,
             'allow_walk_ins' => true,
@@ -182,14 +178,13 @@ class DatabaseSeeder extends Seeder
             'privacy_policy_url' => '',
             'custom_fields' => [],
             'tags' => ['Design'],
-            'user_id' => $admin->id,
+            'organizer_id' => $admin->id,
         ], '2025-07-20T09:00:00', []);
 
-        // Demo participant account - same account model as the organizer
-        // above (User::events()/registrations()), just showing the other
-        // side: someone who registered for an event and could, just as
-        // easily, go create one of their own.
-        $participant = User::create([
+        // Demo participant account - a genuinely separate account type from
+        // the organizer above (see Participant model), showing the other
+        // side: someone who registered for an event.
+        $participant = Participant::create([
             'name' => 'Juan Dela Cruz',
             'email' => 'juan@edu.ph',
             'password' => Hash::make('password'),
@@ -199,7 +194,7 @@ class DatabaseSeeder extends Seeder
 
         // ─── Registrations (App.jsx:62-68) ─────────────────────────────
         $reg1 = $this->makeRegistration($event1, [
-            'user_id' => $participant->id,
+            'participant_id' => $participant->id,
             'name' => 'Juan Dela Cruz',
             'email' => 'juan@edu.ph',
             'custom_data' => ['cf1' => 'Vegetarian'],
@@ -208,7 +203,6 @@ class DatabaseSeeder extends Seeder
             'check_in_time' => null,
             'feedback_submitted' => false,
             'is_walk_in' => false,
-            'needs_certificate' => true,
         ], '2025-07-01T08:30:00');
 
         $this->makeRegistration($event1, [
@@ -220,7 +214,6 @@ class DatabaseSeeder extends Seeder
             'check_in_time' => null,
             'feedback_submitted' => false,
             'is_walk_in' => false,
-            'needs_certificate' => false,
         ], '2025-07-02T10:15:00');
 
         $this->makeRegistration($event2, [
@@ -232,7 +225,6 @@ class DatabaseSeeder extends Seeder
             'check_in_time' => null,
             'feedback_submitted' => false,
             'is_walk_in' => false,
-            'needs_certificate' => false,
         ], '2025-08-05T09:00:00');
 
         $reg4 = $this->makeRegistration($event3, [
@@ -244,7 +236,6 @@ class DatabaseSeeder extends Seeder
             'check_in_time' => '2025-07-10T13:05:00',
             'feedback_submitted' => true,
             'is_walk_in' => false,
-            'needs_certificate' => true,
         ], '2025-06-20T11:30:00');
 
         $reg5 = $this->makeRegistration($event3, [
@@ -256,7 +247,6 @@ class DatabaseSeeder extends Seeder
             'check_in_time' => '2025-07-10T13:12:00',
             'feedback_submitted' => true,
             'is_walk_in' => false,
-            'needs_certificate' => true,
         ], '2025-06-22T13:00:00');
 
         $this->makeRegistration($event3, [
@@ -268,7 +258,6 @@ class DatabaseSeeder extends Seeder
             'check_in_time' => '2025-07-10T13:00:00',
             'feedback_submitted' => false,
             'is_walk_in' => true,
-            'needs_certificate' => false,
         ], '2025-07-10T13:00:00');
 
         // ─── Feedback (App.jsx:70-72) ───────────────────────────────────

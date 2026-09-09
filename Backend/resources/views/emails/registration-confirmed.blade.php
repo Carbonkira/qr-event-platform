@@ -25,10 +25,16 @@ Hi {{ $registration->name }}, your spot is confirmed.
 <p style="font-size:12px;background:#f1ebfc;color:#6d28d9;border-radius:8px;padding:10px 12px;margin:0;">You don't need to do anything right now - hold onto this email. If you're promoted off the waitlist, your pass below becomes valid for check-in.</p>
 </td></tr>
 @endif
+@if ($registration->payment_status === 'pending')
+<tr><td style="padding:20px 28px;text-align:center;">
+<p style="font-size:12px;background:#fbf1e0;color:#b3760a;border-radius:8px;padding:14px 16px;margin:0;">Payment under review - we'll email your QR pass as soon as the organizer verifies it.</p>
+</td></tr>
+@else
 <tr><td style="padding:20px 28px;text-align:center;">
 <img src="{{ $qrUrl }}" width="200" height="200" alt="QR pass" style="border:1px solid #e2dfda;border-radius:12px;padding:12px;background:#f3f1ee;">
 <p style="font-family:monospace;font-size:11px;color:#8b8a99;margin:10px 0 0;">{{ $registration->qr_code }}</p>
 </td></tr>
+@endif
 <tr><td style="padding:0 28px 8px;">
 <table role="presentation" width="100%" style="background:#f3f1ee;border-radius:12px;">
 <tr><td style="padding:14px 16px;font-size:13px;">
@@ -40,11 +46,6 @@ Hi {{ $registration->name }}, your spot is confirmed.
 </td></tr>
 </table>
 </td></tr>
-@if ($registration->payment_status === 'pending')
-<tr><td style="padding:8px 28px;">
-<p style="font-size:12px;background:#fbf1e0;color:#b3760a;border-radius:8px;padding:10px 12px;margin:0;">Payment under review - your pass works now, we'll confirm shortly.</p>
-</td></tr>
-@endif
 <tr><td style="padding:20px 28px 28px;">
 <p style="font-size:11px;color:#8b8a99;margin:0;">Bring this email or your pass link to check in. You'll get a reminder before the event.</p>
 </td></tr>

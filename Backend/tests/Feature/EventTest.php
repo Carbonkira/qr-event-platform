@@ -3,10 +3,11 @@
 namespace Tests\Feature;
 
 use App\Mail\EventCancelledMail;
+use App\Mail\EventSubmittedForApprovalMail;
 use App\Models\Event;
 use App\Models\Organization;
+use App\Models\Organizer;
 use App\Models\Registration;
-use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
@@ -17,16 +18,16 @@ class EventTest extends TestCase
 {
     use RefreshDatabase;
 
-    private function makeUser(string $email = 'organizer@example.com'): User
+    private function makeUser(string $email = 'organizer@example.com'): Organizer
     {
-        $user = User::create(['name' => 'Organizer', 'email' => $email, 'password' => bcrypt('password123')]);
-        // email_verified_at isn't mass-assignable (see User::$fillable).
-        $user->forceFill(['email_verified_at' => now()])->save();
+        $organizer = Organizer::create(['name' => 'Organizer', 'email' => $email, 'password' => bcrypt('password123')]);
+        // Neither is mass-assignable (see Organizer::$fillable).
+        $organizer->forceFill(['email_verified_at' => now(), 'approval_status' => 'approved'])->save();
 
-        return $user;
+        return $organizer;
     }
 
-    private function makeOrganization(User $owner): Organization
+    private function makeOrganization(Organizer $owner): Organization
     {
         $org = Organization::create(['name' => "{$owner->name}'s Org", 'slug' => 'org-'.uniqid()]);
         $org->members()->attach($owner->id, ['role' => 'owner']);
@@ -40,9 +41,9 @@ class EventTest extends TestCase
         $stranger = $this->makeUser('stranger@example.com');
         $ownerOrg = $this->makeOrganization($owner);
         $strangerOrg = $this->makeOrganization($stranger);
-        Event::create(['title' => 'Mine', 'status' => 'approved', 'slug' => 'mine-'.uniqid(), 'user_id' => $owner->id, 'organization_id' => $ownerOrg->id]);
-        Event::create(['title' => 'Theirs', 'status' => 'approved', 'slug' => 'theirs-'.uniqid(), 'user_id' => $stranger->id, 'organization_id' => $strangerOrg->id]);
-        Event::create(['title' => 'Legacy', 'status' => 'approved', 'slug' => 'legacy-'.uniqid(), 'user_id' => null]);
+        Event::create(['title' => 'Mine', 'status' => 'approved', 'slug' => 'mine-'.uniqid(), 'organizer_id' => $owner->id, 'organization_id' => $ownerOrg->id]);
+        Event::create(['title' => 'Theirs', 'status' => 'approved', 'slug' => 'theirs-'.uniqid(), 'organizer_id' => $stranger->id, 'organization_id' => $strangerOrg->id]);
+        Event::create(['title' => 'Legacy', 'status' => 'approved', 'slug' => 'legacy-'.uniqid(), 'organizer_id' => null]);
 
         Sanctum::actingAs($owner);
         $titles = collect($this->getJson('/api/admin/events')->assertOk()->json())->pluck('title')->all();
@@ -56,7 +57,7 @@ class EventTest extends TestCase
         $admin->forceFill(['role' => 'admin'])->save();
         $owner = $this->makeUser('owner@example.com');
         $org = $this->makeOrganization($owner);
-        Event::create(['title' => 'Mine', 'status' => 'approved', 'slug' => 'mine-'.uniqid(), 'user_id' => $owner->id, 'organization_id' => $org->id]);
+        Event::create(['title' => 'Mine', 'status' => 'approved', 'slug' => 'mine-'.uniqid(), 'organizer_id' => $owner->id, 'organization_id' => $org->id]);
 
         Sanctum::actingAs($admin);
         $this->getJson('/api/admin/events')->assertOk()->assertJsonCount(1);
@@ -102,93 +103,138 @@ class EventTest extends TestCase
 
     public function test_an_unverified_account_cannot_create_an_event(): void
     {
-        $unverified = User::create(['name' => 'Unverified', 'email' => 'unverified@example.com', 'password' => bcrypt('password123')]);
+        $unverified = Organizer::create(['name' => 'Unverified', 'email' => 'unverified@example.com', 'password' => bcrypt('password123')]);
         Sanctum::actingAs($unverified);
 
         $this->postJson('/api/events', ['title' => 'My Draft Event', 'saveAsDraft' => true])
             ->assertForbidden();
     }
 
-    public function test_a_draft_can_be_saved_with_only_a_title(): void
+    public function test_a_pending_organizer_cannot_create_an_event(): void
     {
-        Sanctum::actingAs($this->makeUser());
+        // Verified but never admin-approved (see EnsureOrganizerApproved) -
+        // a different gate than email verification, checked separately.
+        $pending = Organizer::create(['name' => 'Pending', 'email' => 'pending@example.com', 'password' => bcrypt('password123')]);
+        $pending->forceFill(['email_verified_at' => now()])->save();
+        Sanctum::actingAs($pending);
 
         $this->postJson('/api/events', ['title' => 'My Draft Event', 'saveAsDraft' => true])
+            ->assertForbidden();
+    }
+
+    public function test_a_draft_can_be_saved_with_only_a_title_and_an_organization(): void
+    {
+        $user = $this->makeUser();
+        $org = $this->makeOrganization($user);
+        Sanctum::actingAs($user);
+
+        $this->postJson('/api/events', ['title' => 'My Draft Event', 'organizationId' => $org->id, 'saveAsDraft' => true])
             ->assertCreated()
             ->assertJsonPath('status', 'draft')
             ->assertJsonPath('title', 'My Draft Event');
     }
 
-    public function test_a_pending_event_requires_the_full_field_set(): void
+    /**
+     * Organizations are admin-created now (see OrgController::store()) - an
+     * organizer can only ever create an event under one they've actually
+     * been added to, so this is the hard "ask the admin's permission" gate
+     * in practice, not a validation nicety.
+     */
+    public function test_creating_an_event_without_belonging_to_any_organization_is_forbidden(): void
     {
         Sanctum::actingAs($this->makeUser());
 
-        $this->postJson('/api/events', ['title' => 'Incomplete Event'])
+        $this->postJson('/api/events', ['title' => 'My Draft Event', 'saveAsDraft' => true])
+            ->assertForbidden();
+    }
+
+    public function test_creating_an_event_under_an_organization_you_do_not_belong_to_is_forbidden(): void
+    {
+        $stranger = $this->makeUser('stranger@example.com');
+        $owner = $this->makeUser('owner@example.com');
+        $org = $this->makeOrganization($owner);
+
+        Sanctum::actingAs($stranger);
+        $this->postJson('/api/events', ['title' => 'Not Yours', 'organizationId' => $org->id, 'saveAsDraft' => true])
+            ->assertForbidden();
+    }
+
+    public function test_a_pending_event_requires_the_full_field_set(): void
+    {
+        $user = $this->makeUser();
+        $org = $this->makeOrganization($user);
+        Sanctum::actingAs($user);
+
+        $this->postJson('/api/events', ['title' => 'Incomplete Event', 'organizationId' => $org->id])
             ->assertStatus(422);
     }
 
     public function test_submitting_an_incomplete_draft_for_approval_fails_with_field_errors(): void
     {
         Sanctum::actingAs($user = $this->makeUser());
-        $event = Event::create(['title' => 'Bare Draft', 'status' => 'draft', 'user_id' => $user->id, 'slug' => 'bare-draft']);
+        $event = Event::create(['title' => 'Bare Draft', 'status' => 'draft', 'organizer_id' => $user->id, 'slug' => 'bare-draft']);
 
         $this->postJson("/api/events/{$event->id}/submit")
             ->assertStatus(422)
             ->assertJsonValidationErrors(['type', 'venue', 'date', 'startTime', 'endTime', 'capacity']);
     }
 
-    public function test_submitting_a_complete_draft_moves_it_to_pending(): void
+    public function test_submitting_a_complete_draft_moves_it_to_pending_and_notifies_admins(): void
     {
+        Mail::fake();
+        $admin = $this->makeUser('admin@example.com');
+        $admin->forceFill(['role' => 'admin'])->save();
         Sanctum::actingAs($user = $this->makeUser());
         $event = Event::create([
-            'title' => 'Complete Draft', 'status' => 'draft', 'user_id' => $user->id, 'slug' => 'complete-draft',
+            'title' => 'Complete Draft', 'status' => 'draft', 'organizer_id' => $user->id, 'slug' => 'complete-draft',
             'type' => 'Meetup', 'venue' => 'Venue', 'date' => '2026-08-01', 'start_time' => '10:00', 'end_time' => '12:00', 'capacity' => 30,
         ]);
 
         $this->postJson("/api/events/{$event->id}/submit")
             ->assertOk()
             ->assertJsonPath('status', 'pending');
+
+        Mail::assertQueued(EventSubmittedForApprovalMail::class, fn ($mail) => $mail->hasTo($admin->email));
     }
 
-    public function test_submitting_a_draft_for_an_organization_backed_event_is_auto_approved(): void
+    /**
+     * Previously an organization-backed event auto-approved (the org
+     * vouched for it); now every event needs the admin's explicit approval
+     * regardless of organization backing, since the admin already sits at
+     * the top of every chain (organizations are admin-created too).
+     */
+    public function test_submitting_a_draft_for_an_organization_backed_event_still_needs_admin_approval(): void
     {
         $user = $this->makeUser();
         $org = $this->makeOrganization($user);
         Sanctum::actingAs($user);
         $event = Event::create([
-            'title' => 'Club Meetup', 'status' => 'draft', 'user_id' => $user->id, 'organization_id' => $org->id, 'slug' => 'club-meetup',
+            'title' => 'Club Meetup', 'status' => 'draft', 'organizer_id' => $user->id, 'organization_id' => $org->id, 'slug' => 'club-meetup',
             'type' => 'Meetup', 'venue' => 'Venue', 'date' => '2026-08-01', 'start_time' => '10:00', 'end_time' => '12:00', 'capacity' => 30,
         ]);
 
         $this->postJson("/api/events/{$event->id}/submit")
             ->assertOk()
-            ->assertJsonPath('status', 'approved');
+            ->assertJsonPath('status', 'pending');
     }
 
-    public function test_creating_an_event_directly_for_an_organization_is_auto_approved(): void
+    public function test_creating_an_event_directly_for_an_organization_still_needs_admin_approval(): void
     {
+        Mail::fake();
+        $admin = $this->makeUser('admin@example.com');
+        $admin->forceFill(['role' => 'admin'])->save();
         $user = $this->makeUser();
-        $this->makeOrganization($user);
+        $org = $this->makeOrganization($user);
         Sanctum::actingAs($user);
 
         $this->postJson('/api/events', [
-            'title' => 'Club Meetup', 'type' => 'Meetup', 'venue' => 'Venue',
-            'date' => '2026-08-01', 'startTime' => '10:00', 'endTime' => '12:00', 'capacity' => 30,
-        ])
-            ->assertCreated()
-            ->assertJsonPath('status', 'approved');
-    }
-
-    public function test_creating_an_event_with_no_organization_still_needs_admin_approval(): void
-    {
-        Sanctum::actingAs($this->makeUser());
-
-        $this->postJson('/api/events', [
-            'title' => 'Solo Event', 'type' => 'Meetup', 'venue' => 'Venue',
+            'title' => 'Club Meetup', 'type' => 'Meetup', 'venue' => 'Venue', 'organizationId' => $org->id,
             'date' => '2026-08-01', 'startTime' => '10:00', 'endTime' => '12:00', 'capacity' => 30,
         ])
             ->assertCreated()
             ->assertJsonPath('status', 'pending');
+
+        Mail::assertQueued(EventSubmittedForApprovalMail::class, fn ($mail) => $mail->hasTo($admin->email));
     }
 
     public function test_only_the_owner_can_update_an_event(): void
@@ -196,7 +242,7 @@ class EventTest extends TestCase
         $owner = $this->makeUser('owner@example.com');
         $stranger = $this->makeUser('stranger@example.com');
         $org = $this->makeOrganization($owner);
-        $event = Event::create(['title' => 'Owned Event', 'status' => 'pending', 'user_id' => $owner->id, 'organization_id' => $org->id, 'slug' => 'owned-event', 'capacity' => 10]);
+        $event = Event::create(['title' => 'Owned Event', 'status' => 'pending', 'organizer_id' => $owner->id, 'organization_id' => $org->id, 'slug' => 'owned-event', 'capacity' => 10]);
 
         Sanctum::actingAs($stranger);
         $this->putJson("/api/events/{$event->id}", ['capacity' => 999])->assertForbidden();
@@ -213,7 +259,7 @@ class EventTest extends TestCase
         $coMember = $this->makeUser('comember@example.com');
         $org = $this->makeOrganization($creator);
         $org->members()->attach($coMember->id, ['role' => 'member']);
-        $event = Event::create(['title' => 'Club Event', 'status' => 'pending', 'user_id' => $creator->id, 'organization_id' => $org->id, 'slug' => 'club-event', 'capacity' => 10]);
+        $event = Event::create(['title' => 'Club Event', 'status' => 'pending', 'organizer_id' => $creator->id, 'organization_id' => $org->id, 'slug' => 'club-event', 'capacity' => 10]);
 
         Sanctum::actingAs($coMember);
         $this->putJson("/api/events/{$event->id}", ['capacity' => 50])->assertOk();
@@ -225,7 +271,7 @@ class EventTest extends TestCase
         $owner = $this->makeUser('owner@example.com');
         $stranger = $this->makeUser('stranger@example.com');
         $org = $this->makeOrganization($owner);
-        $event = Event::create(['title' => 'Owned Event', 'status' => 'pending', 'user_id' => $owner->id, 'organization_id' => $org->id, 'slug' => 'owned-event']);
+        $event = Event::create(['title' => 'Owned Event', 'status' => 'pending', 'organizer_id' => $owner->id, 'organization_id' => $org->id, 'slug' => 'owned-event']);
 
         Sanctum::actingAs($stranger);
         $this->deleteJson("/api/events/{$event->id}")->assertForbidden();
@@ -238,8 +284,8 @@ class EventTest extends TestCase
     {
         $owner = $this->makeUser();
         $org = $this->makeOrganization($owner);
-        $approved = Event::create(['title' => 'Live Event', 'status' => 'approved', 'user_id' => $owner->id, 'organization_id' => $org->id, 'slug' => 'live-event']);
-        $completed = Event::create(['title' => 'Done Event', 'status' => 'completed', 'user_id' => $owner->id, 'organization_id' => $org->id, 'slug' => 'done-event']);
+        $approved = Event::create(['title' => 'Live Event', 'status' => 'approved', 'organizer_id' => $owner->id, 'organization_id' => $org->id, 'slug' => 'live-event']);
+        $completed = Event::create(['title' => 'Done Event', 'status' => 'completed', 'organizer_id' => $owner->id, 'organization_id' => $org->id, 'slug' => 'done-event']);
 
         Sanctum::actingAs($owner);
         $this->deleteJson("/api/events/{$approved->id}")->assertStatus(422);
@@ -253,7 +299,7 @@ class EventTest extends TestCase
         Mail::fake();
         $owner = $this->makeUser();
         $org = $this->makeOrganization($owner);
-        $event = Event::create(['title' => 'Live Event', 'status' => 'approved', 'is_private' => false, 'user_id' => $owner->id, 'organization_id' => $org->id, 'slug' => 'live-event']);
+        $event = Event::create(['title' => 'Live Event', 'status' => 'approved', 'is_private' => false, 'organizer_id' => $owner->id, 'organization_id' => $org->id, 'slug' => 'live-event']);
         $r1 = Registration::create(['event_id' => $event->id, 'name' => 'A', 'email' => 'a@example.com', 'qr_code' => 'QR-A']);
         $r2 = Registration::create(['event_id' => $event->id, 'name' => 'B', 'email' => 'b@example.com', 'qr_code' => 'QR-B', 'waitlisted' => true]);
 
@@ -271,7 +317,7 @@ class EventTest extends TestCase
     {
         $owner = $this->makeUser();
         $org = $this->makeOrganization($owner);
-        $draft = Event::create(['title' => 'Draft Event', 'status' => 'draft', 'user_id' => $owner->id, 'organization_id' => $org->id, 'slug' => 'draft-event']);
+        $draft = Event::create(['title' => 'Draft Event', 'status' => 'draft', 'organizer_id' => $owner->id, 'organization_id' => $org->id, 'slug' => 'draft-event']);
 
         Sanctum::actingAs($owner);
         $this->postJson("/api/events/{$draft->id}/cancel")->assertStatus(422);
@@ -281,7 +327,7 @@ class EventTest extends TestCase
     public function test_a_legacy_event_with_no_owner_can_be_edited_by_anyone(): void
     {
         Sanctum::actingAs($this->makeUser());
-        $event = Event::create(['title' => 'Legacy Event', 'status' => 'pending', 'user_id' => null, 'slug' => 'legacy-event', 'capacity' => 10]);
+        $event = Event::create(['title' => 'Legacy Event', 'status' => 'pending', 'organizer_id' => null, 'slug' => 'legacy-event', 'capacity' => 10]);
 
         $this->putJson("/api/events/{$event->id}", ['capacity' => 50])->assertOk();
     }
@@ -290,19 +336,19 @@ class EventTest extends TestCase
     {
         $owner = $this->makeUser('owner@example.com');
         $other = $this->makeUser('other@example.com');
-        $event = Event::create(['title' => 'Original', 'status' => 'approved', 'user_id' => $owner->id, 'slug' => 'original']);
+        $event = Event::create(['title' => 'Original', 'status' => 'approved', 'organizer_id' => $owner->id, 'slug' => 'original']);
 
         Sanctum::actingAs($other);
         $response = $this->postJson("/api/events/{$event->id}/duplicate")->assertCreated();
 
-        $this->assertSame($other->id, $response->json('userId'));
+        $this->assertSame($other->id, $response->json('organizerId'));
         $this->assertSame('draft', $response->json('status'));
     }
 
     public function test_the_owner_can_mark_an_approved_event_completed(): void
     {
         $owner = $this->makeUser('owner@example.com');
-        $event = Event::create(['title' => 'Wrapped Up', 'status' => 'approved', 'user_id' => $owner->id, 'slug' => 'wrapped-up']);
+        $event = Event::create(['title' => 'Wrapped Up', 'status' => 'approved', 'organizer_id' => $owner->id, 'slug' => 'wrapped-up']);
 
         Sanctum::actingAs($owner);
         $this->postJson("/api/events/{$event->id}/complete")
@@ -315,7 +361,7 @@ class EventTest extends TestCase
         $owner = $this->makeUser('owner@example.com');
         $stranger = $this->makeUser('stranger@example.com');
         $org = $this->makeOrganization($owner);
-        $event = Event::create(['title' => 'Owned Event', 'status' => 'approved', 'user_id' => $owner->id, 'organization_id' => $org->id, 'slug' => 'owned-event']);
+        $event = Event::create(['title' => 'Owned Event', 'status' => 'approved', 'organizer_id' => $owner->id, 'organization_id' => $org->id, 'slug' => 'owned-event']);
 
         Sanctum::actingAs($stranger);
         $this->postJson("/api/events/{$event->id}/complete")->assertForbidden();
@@ -325,7 +371,7 @@ class EventTest extends TestCase
     public function test_a_pending_event_cannot_be_marked_completed(): void
     {
         $owner = $this->makeUser('owner@example.com');
-        $event = Event::create(['title' => 'Not Yet Approved', 'status' => 'pending', 'user_id' => $owner->id, 'slug' => 'not-yet-approved']);
+        $event = Event::create(['title' => 'Not Yet Approved', 'status' => 'pending', 'organizer_id' => $owner->id, 'slug' => 'not-yet-approved']);
 
         Sanctum::actingAs($owner);
         $this->postJson("/api/events/{$event->id}/complete")->assertStatus(422);
@@ -410,7 +456,7 @@ class EventTest extends TestCase
     public function test_only_an_admin_can_approve_or_reject_an_event_even_its_own_creator_cannot(): void
     {
         $organizer = $this->makeUser('organizer@example.com');
-        $event = Event::create(['title' => 'Pending Event', 'status' => 'pending', 'user_id' => $organizer->id, 'slug' => 'pending-event']);
+        $event = Event::create(['title' => 'Pending Event', 'status' => 'pending', 'organizer_id' => $organizer->id, 'slug' => 'pending-event']);
 
         Sanctum::actingAs($organizer);
         $this->postJson("/api/events/{$event->id}/approve")->assertForbidden();

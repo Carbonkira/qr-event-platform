@@ -11,7 +11,7 @@ class Registration extends Model
 {
     protected $fillable = [
         'event_id',
-        'user_id',
+        'participant_id',
         'name',
         'email',
         'custom_data',
@@ -20,7 +20,6 @@ class Registration extends Model
         'check_in_time',
         'feedback_submitted',
         'is_walk_in',
-        'needs_certificate',
         'waitlisted',
         'payment_status',
         'payment_ref',
@@ -47,7 +46,6 @@ class Registration extends Model
             'check_in_time' => 'datetime',
             'feedback_submitted' => 'boolean',
             'is_walk_in' => 'boolean',
-            'needs_certificate' => 'boolean',
             'waitlisted' => 'boolean',
             'reminder_sent_at' => 'datetime',
         ];
@@ -58,9 +56,9 @@ class Registration extends Model
         return $this->belongsTo(Event::class);
     }
 
-    public function user(): BelongsTo
+    public function participant(): BelongsTo
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(Participant::class);
     }
 
     public function feedback(): HasMany
