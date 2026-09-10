@@ -7,6 +7,7 @@ use App\Notifications\ResetPasswordNotification;
 use Illuminate\Auth\MustVerifyEmail as MustVerifyEmailTrait;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -35,6 +36,7 @@ class Organizer extends Authenticatable implements MustVerifyEmail
         'email',
         'password',
         'institution',
+        'requested_organization_id',
     ];
 
     protected $hidden = [
@@ -76,6 +78,12 @@ class Organizer extends Authenticatable implements MustVerifyEmail
     public function ownedOrganizationIds(): array
     {
         return $this->organizations()->wherePivot('role', 'owner')->pluck('organizations.id')->all();
+    }
+
+    /** The organization picked on the signup form, if any - see the requested_organization_id migration. */
+    public function requestedOrganization(): BelongsTo
+    {
+        return $this->belongsTo(Organization::class, 'requested_organization_id');
     }
 
     /**

@@ -20,7 +20,10 @@ class OrganizerApprovalController extends Controller
         $this->authorizeAdmin($request);
 
         return response()->json(
-            Organizer::where('approval_status', 'pending')->orderByDesc('created_at')->get()
+            Organizer::with('requestedOrganization:id,name')
+                ->where('approval_status', 'pending')
+                ->orderByDesc('created_at')
+                ->get()
         );
     }
 
@@ -37,6 +40,13 @@ class OrganizerApprovalController extends Controller
             'approved_at' => now(),
             'approved_by' => $request->user()->id,
         ])->save();
+
+        // Approving the account also grants the organization membership they
+        // asked for at signup (if any) - same 'member' role an invite
+        // acceptance grants, see InviteController::accept().
+        if ($user->requested_organization_id) {
+            $user->organizations()->syncWithoutDetaching([$user->requested_organization_id => ['role' => 'member']]);
+        }
 
         return response()->json($user);
     }

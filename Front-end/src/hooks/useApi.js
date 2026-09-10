@@ -56,6 +56,9 @@ export function useAnalytics(enabled = true) {
 export function useMyOrgs(enabled = true) {
   return useAsync(() => (enabled ? api.getMyOrgs() : Promise.resolve([])), [enabled])
 }
+export function useOrgList(enabled = true) {
+  return useAsync(() => (enabled ? api.getOrgList() : Promise.resolve([])), [enabled])
+}
 export function useOrgMembers(id, enabled = true) {
   return useAsync(() => (enabled ? api.getOrgMembers(id) : Promise.resolve([])), [id, enabled])
 }

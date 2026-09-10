@@ -10,6 +10,7 @@ import { Modal, Btn, Input, Select, Textarea, Toggle, Badge } from '../ui'
 import LocationPicker from '../shared/LocationPicker'
 import { createEvent, generateEventDescription, uploadEventImage } from '../../api/resources'
 import { useTaskTemplates, useMyOrgs } from '../../hooks/useApi'
+import { useApp } from '../../context/AppContext'
 import { cn, INDUSTRIES } from '../../lib/utils'
 
 const DEFAULT_FEEDBACK_QUESTIONS = [
@@ -39,11 +40,18 @@ const MAX_IMAGE_BYTES = 5 * 1024 * 1024 // 5MB — matches the backend's own lim
 // fresh data on mount, so no page-specific list-refresh wiring is needed.
 export default function CreateEventModal({ open, onClose, toast, onCreated }) {
   const navigate = useNavigate()
+  const { user } = useApp()
+  const isAdmin = user?.role === 'admin'
   const { data: templatesData } = useTaskTemplates()
   const templates = templatesData || []
+  // useMyOrgs() returns every organization for an admin (see
+  // OrgController::mine()), not just ones they personally belong to - an
+  // admin also isn't required to belong to one at all (see EventController
+  // ::store()'s admin bypass), so the "you're not in an org" block below is
+  // organizer-only.
   const { data: orgsData, loading: orgsLoading } = useMyOrgs(open)
   const orgs = orgsData || []
-  const noOrgs = !orgsLoading && orgs.length === 0
+  const noOrgs = !isAdmin && !orgsLoading && orgs.length === 0
 
   const [form, setForm] = useState(blankForm)
   const [step, setStep] = useState(1)
@@ -129,7 +137,7 @@ export default function CreateEventModal({ open, onClose, toast, onCreated }) {
   const handleClose = () => { onClose() }
 
   const submit = async (saveAsDraft = false) => {
-    if (!form.organizationId) {
+    if (!isAdmin && !form.organizationId) {
       toast?.('Choose an organization first', 'error')
       setStep(1)
       return
@@ -204,7 +212,13 @@ export default function CreateEventModal({ open, onClose, toast, onCreated }) {
         {!noOrgs && step === 1 && (
           <div className="space-y-4">
             <Input label="Event Title" value={form.title} onChange={e => up('title', e.target.value)} placeholder="Founder Networking Night" error={errors.title} required />
-            <Select label="Organization" value={form.organizationId} onChange={e => up('organizationId', e.target.value)} options={orgs.map(o => ({ value: String(o.id), label: o.name }))} required />
+            <Select
+              label="Organization"
+              value={form.organizationId}
+              onChange={e => up('organizationId', e.target.value)}
+              options={isAdmin ? [{ value: '', label: 'No organization' }, ...orgs.map(o => ({ value: String(o.id), label: o.name }))] : orgs.map(o => ({ value: String(o.id), label: o.name }))}
+              required={!isAdmin}
+            />
             {/* Co-organizers are org members, not per-event - inviting someone
                 makes them a member of the whole organization (and every event
                 under it), reusing the invite flow already built for that. */}

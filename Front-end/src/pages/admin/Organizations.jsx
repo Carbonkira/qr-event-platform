@@ -1,10 +1,10 @@
 import { useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Building2, Camera, Plus, Mail, X, UserMinus, ExternalLink } from 'lucide-react'
+import { Building2, Camera, Plus, Mail, X, UserMinus, ExternalLink, Trash2 } from 'lucide-react'
 import { Card, Btn, Input, Textarea, Badge } from '../../components/ui'
 import { useApp } from '../../context/AppContext'
 import { useMyOrgs, useOrgMembers, useOrgInvites } from '../../hooks/useApi'
-import { createOrg, updateOrg, uploadOrgLogo, removeOrgMember, inviteToOrg, revokeOrgInvite } from '../../api/resources'
+import { createOrg, updateOrg, uploadOrgLogo, removeOrgMember, inviteToOrg, revokeOrgInvite, deleteOrg } from '../../api/resources'
 
 const MAX_LOGO_BYTES = 5 * 1024 * 1024 // 5MB — matches other image uploads
 
@@ -36,7 +36,7 @@ export default function Organizations() {
   return (
     <div className="max-w-3xl space-y-5">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div><h1 className="text-2xl font-extrabold">My Organizations</h1><p className="text-[13px] text-slate-500">Every organization you belong to</p></div>
+        <div><h1 className="text-2xl font-extrabold">{isAdmin ? 'Organizations' : 'My Organizations'}</h1><p className="text-[13px] text-slate-500">{isAdmin ? 'Every organization on the platform' : 'Every organization you belong to'}</p></div>
         {isAdmin && <Btn variant="accent" icon={Plus} onClick={() => setCreating(o => !o)}>New Organization</Btn>}
       </div>
 
@@ -53,7 +53,7 @@ export default function Organizations() {
         <div className="text-center py-10 text-slate-400 text-[13px]">Loading…</div>
       ) : (orgs || []).length === 0 ? (
         <Card className="p-10 text-center text-[13px] text-slate-400">
-          {isAdmin ? 'You don\'t belong to any organization yet.' : "You don't belong to any organization yet - ask your admin to invite you to one."}
+          {isAdmin ? 'No organizations yet - create the first one above.' : "You don't belong to any organization yet - ask your admin to invite you to one."}
         </Card>
       ) : (
         <div className="space-y-4">
@@ -66,7 +66,13 @@ export default function Organizations() {
 
 function OrgCard({ org, onSaved }) {
   const { addToast, user } = useApp()
-  const isOwner = org.pivot?.role === 'owner'
+  const isAdmin = user?.role === 'admin'
+  const isTrueOwner = org.pivot?.role === 'owner'
+  // An admin manages every organization regardless of personal membership
+  // (see OrgController::authorizeOwner()'s admin bypass) - the badge below
+  // still reflects the real pivot role (or none) so it doesn't claim a
+  // membership that doesn't exist.
+  const isOwner = isTrueOwner || isAdmin
   const [form, setForm] = useState({
     name: org.name, description: org.description || '', email: org.email || '',
     organizedBy: org.organizedBy || '', industry: org.industry || '',
@@ -151,6 +157,20 @@ function OrgCard({ org, onSaved }) {
     }
   }
 
+  const [deleting, setDeleting] = useState(false)
+  const onDelete = async () => {
+    if (!confirm(`Delete "${org.name}"? Its events keep existing but become unaffiliated - members and pending invites are removed. This can't be undone.`)) return
+    setDeleting(true)
+    try {
+      await deleteOrg(org.id)
+      addToast('Organization deleted', 'success')
+      onSaved()
+    } catch (err) {
+      addToast(err.message || 'Failed to delete organization', 'error')
+      setDeleting(false)
+    }
+  }
+
   return (
     <Card className="p-5 space-y-4">
       <div className="flex items-center gap-3">
@@ -161,7 +181,14 @@ function OrgCard({ org, onSaved }) {
           <p className="font-bold text-[14px] truncate">{org.name}</p>
           <Link to={`/org/${org.slug}`} className="text-[11px] text-slate-400 hover:text-[var(--accent)] inline-flex items-center gap-1">/org/{org.slug}<ExternalLink size={10} /></Link>
         </div>
-        <Badge color={isOwner ? 'dark' : 'slate'}>{isOwner ? 'Owner' : 'Member'}</Badge>
+        {org.pivot?.role ? (
+          <Badge color={isTrueOwner ? 'dark' : 'slate'}>{isTrueOwner ? 'Owner' : 'Member'}</Badge>
+        ) : isAdmin && (
+          <Badge color="violet">Admin</Badge>
+        )}
+        {isAdmin && (
+          <button type="button" onClick={onDelete} disabled={deleting} className="p-1.5 text-slate-400 hover:text-rose-500 disabled:opacity-50 flex-shrink-0" title="Delete organization"><Trash2 size={15} /></button>
+        )}
       </div>
 
       {isOwner ? (

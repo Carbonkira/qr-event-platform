@@ -212,11 +212,19 @@ export function getAnalytics() {
 export function getMyOrgs() {
   return api.get('/orgs/mine')
 }
+// Public, minimal (id/name only) - the organizer signup form's organization
+// picker runs before any account/token exists.
+export function getOrgList() {
+  return api.get('/orgs/list')
+}
 export function createOrg(payload) {
   return api.post('/orgs', payload)
 }
 export function updateOrg(id, payload) {
   return api.put(`/orgs/${id}`, payload)
+}
+export function deleteOrg(id) {
+  return api.del(`/orgs/${id}`)
 }
 export async function uploadOrgLogo(id, file) {
   const form = new FormData()

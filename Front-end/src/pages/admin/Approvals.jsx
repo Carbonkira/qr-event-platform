@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Calendar, MapPin, Mail, Check, X, Hourglass, ShieldAlert, UserCog } from 'lucide-react'
+import { Calendar, MapPin, Mail, Check, X, Hourglass, ShieldAlert, UserCog, Building2 } from 'lucide-react'
 import { Card, Btn } from '../../components/ui'
 import { useAdminEvents, usePendingOrganizers } from '../../hooks/useApi'
 import { approveEvent, rejectEvent, approveOrganizer, rejectOrganizer } from '../../api/resources'
@@ -106,6 +106,9 @@ export default function Approvals() {
                     {o.institution && <span>{o.institution}</span>}
                     <span>Signed up {fmtDate(o.createdAt)}</span>
                   </div>
+                  {o.requestedOrganization && (
+                    <p className="mt-1 text-[12px] text-slate-500 flex items-center gap-1.5"><Building2 size={12} />Requested to join <span className="font-semibold text-slate-700">{o.requestedOrganization.name}</span></p>
+                  )}
                 </div>
                 <div className="flex gap-2 flex-shrink-0">
                   <Btn variant="secondary" size="sm" icon={X} onClick={() => onRejectOrganizer(o.id)}>Reject</Btn>

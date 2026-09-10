@@ -36,10 +36,31 @@ class OrgController extends Controller
         'privacy_policy_url' => ['sometimes', 'nullable', 'string', 'max:2048'],
     ];
 
-    /** Organizations the current user belongs to, with their role in each. */
+    /**
+     * Organizations the current user belongs to, with their role in each -
+     * except an admin, who manages every organization regardless of
+     * membership (see authorizeOwner()/members() below), so this returns
+     * the full list for them instead of just whichever ones they happen to
+     * have personally created.
+     */
     public function mine(Request $request)
     {
+        if ($request->user()->isAdmin()) {
+            return response()->json(Organization::orderBy('name')->get());
+        }
+
         return response()->json($request->user()->organizations()->get());
+    }
+
+    /**
+     * Public, minimal (id + name only) - the picker shown on the organizer
+     * signup form (before an account/token exists) and reused wherever else
+     * a lightweight "pick an org" dropdown is needed. Deliberately not the
+     * same as directory(), which only lists orgs with a public event.
+     */
+    public function list()
+    {
+        return response()->json(Organization::orderBy('name')->get(['id', 'name']));
     }
 
     /**
@@ -134,10 +155,14 @@ class OrgController extends Controller
         return response()->json($organization);
     }
 
-    /** Members of the organization, with their role - visible to any member. */
+    /** Members of the organization, with their role - visible to any member, or an admin. */
     public function members(Request $request, Organization $organization)
     {
-        abort_unless($organization->isMember($request->user()), 403, 'You are not a member of this organization.');
+        abort_unless(
+            $organization->isMember($request->user()) || $request->user()->isAdmin(),
+            403,
+            'You are not a member of this organization.'
+        );
 
         return response()->json($organization->members()->get());
     }
@@ -194,9 +219,30 @@ class OrgController extends Controller
         return response()->json(['message' => 'Invite revoked.']);
     }
 
+    /**
+     * Admin-only: delete an organization outright. Safe by construction, not
+     * by extra cleanup code here - events.organization_id is a nullable
+     * ->nullOnDelete() FK (an org's past events survive as unaffiliated,
+     * not deleted), while organization_members/organization_invites/
+     * discussion_threads all ->cascadeOnDelete() (see their migrations), so
+     * a plain delete() is enough.
+     */
+    public function destroy(Request $request, Organization $organization)
+    {
+        abort_unless($request->user()->isAdmin(), 403, 'Only an admin can delete an organization.');
+
+        $organization->delete();
+
+        return response()->json(['message' => 'Organization deleted.']);
+    }
+
     private function authorizeOwner(Request $request, Organization $organization): void
     {
-        abort_unless($organization->isOwner($request->user()), 403, 'Only an owner of this organization can do that.');
+        abort_unless(
+            $organization->isOwner($request->user()) || $request->user()->isAdmin(),
+            403,
+            'Only an owner of this organization can do that.'
+        );
     }
 
     private function uniqueSlug(string $name): string

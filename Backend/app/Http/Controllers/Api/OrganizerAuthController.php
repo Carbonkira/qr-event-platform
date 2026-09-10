@@ -36,6 +36,12 @@ class OrganizerAuthController extends Controller
             'email' => ['required', 'string', 'email', 'max:255', 'unique:organizers,email'],
             'password' => array_merge(['required', 'string'], $this->passwordRules()),
             'institution' => ['nullable', 'string', 'max:255'],
+            // Picked from a dropdown of admin-created organizations -
+            // optional (a signup with no organization yet is a valid state,
+            // same as it's always been). Membership itself is only granted
+            // once the admin approves the account, see
+            // OrganizerApprovalController::approve().
+            'organization_id' => ['nullable', 'integer', 'exists:organizations,id'],
         ]);
 
         $organizer = Organizer::create([
@@ -43,6 +49,7 @@ class OrganizerAuthController extends Controller
             'email' => $data['email'],
             'password' => Hash::make($data['password']),
             'institution' => $data['institution'] ?? null,
+            'requested_organization_id' => $data['organization_id'] ?? null,
         ]);
 
         $organizer->sendEmailVerificationNotification();

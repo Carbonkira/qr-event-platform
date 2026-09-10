@@ -159,6 +159,43 @@ class EventTest extends TestCase
             ->assertForbidden();
     }
 
+    /** An admin manages every organization already - no membership needed, and no organization needed at all. */
+    public function test_an_admin_can_create_an_event_with_no_organization(): void
+    {
+        $admin = $this->makeUser('admin@example.com');
+        $admin->forceFill(['role' => 'admin'])->save();
+
+        Sanctum::actingAs($admin);
+        $response = $this->postJson('/api/events', ['title' => 'Unaffiliated Event', 'saveAsDraft' => true])
+            ->assertCreated();
+
+        $this->assertNull($response->json('organizationId'));
+    }
+
+    public function test_an_admin_can_create_an_event_under_an_organization_they_do_not_belong_to(): void
+    {
+        $owner = $this->makeUser('owner@example.com');
+        $org = $this->makeOrganization($owner);
+        $admin = $this->makeUser('admin@example.com');
+        $admin->forceFill(['role' => 'admin'])->save();
+
+        Sanctum::actingAs($admin);
+        $response = $this->postJson('/api/events', ['title' => 'Admin Event', 'organizationId' => $org->id, 'saveAsDraft' => true])
+            ->assertCreated();
+
+        $this->assertSame($org->id, $response->json('organizationId'));
+    }
+
+    public function test_an_admin_cannot_create_an_event_under_a_nonexistent_organization(): void
+    {
+        $admin = $this->makeUser('admin@example.com');
+        $admin->forceFill(['role' => 'admin'])->save();
+
+        Sanctum::actingAs($admin);
+        $this->postJson('/api/events', ['title' => 'Bad Org Event', 'organizationId' => 999999, 'saveAsDraft' => true])
+            ->assertStatus(422);
+    }
+
     public function test_a_pending_event_requires_the_full_field_set(): void
     {
         $user = $this->makeUser();
@@ -262,6 +299,19 @@ class EventTest extends TestCase
         $event = Event::create(['title' => 'Club Event', 'status' => 'pending', 'organizer_id' => $creator->id, 'organization_id' => $org->id, 'slug' => 'club-event', 'capacity' => 10]);
 
         Sanctum::actingAs($coMember);
+        $this->putJson("/api/events/{$event->id}", ['capacity' => 50])->assertOk();
+        $this->assertSame(50, $event->fresh()->capacity);
+    }
+
+    public function test_an_admin_can_edit_an_event_under_an_organization_they_do_not_belong_to(): void
+    {
+        $owner = $this->makeUser('owner@example.com');
+        $org = $this->makeOrganization($owner);
+        $event = Event::create(['title' => 'Owned Event', 'status' => 'pending', 'organizer_id' => $owner->id, 'organization_id' => $org->id, 'slug' => 'owned-event', 'capacity' => 10]);
+        $admin = $this->makeUser('admin@example.com');
+        $admin->forceFill(['role' => 'admin'])->save();
+
+        Sanctum::actingAs($admin);
         $this->putJson("/api/events/{$event->id}", ['capacity' => 50])->assertOk();
         $this->assertSame(50, $event->fresh()->capacity);
     }
