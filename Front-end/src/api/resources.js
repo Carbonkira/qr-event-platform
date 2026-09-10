@@ -234,6 +234,12 @@ export async function uploadOrgLogo(id, file) {
 export function getOrgMembers(id) {
   return api.get(`/orgs/${id}/members`)
 }
+export function promoteOrgMember(id, userId) {
+  return api.post(`/orgs/${id}/members/${userId}/promote`)
+}
+export function demoteOrgMember(id, userId) {
+  return api.post(`/orgs/${id}/members/${userId}/demote`)
+}
 export function removeOrgMember(id, userId) {
   return api.del(`/orgs/${id}/members/${userId}`)
 }

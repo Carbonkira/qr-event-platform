@@ -167,6 +167,39 @@ class OrgController extends Controller
         return response()->json($organization->members()->get());
     }
 
+    /** Owner-only: promote a member to owner. Idempotent - promoting an existing owner is a no-op. */
+    public function promoteMember(Request $request, Organization $organization, Organizer $user)
+    {
+        $this->authorizeOwner($request, $organization);
+
+        abort_unless($organization->isMember($user), 404, 'Not a member of this organization.');
+
+        $organization->members()->updateExistingPivot($user->id, ['role' => 'owner']);
+
+        return response()->json($organization->members()->get());
+    }
+
+    /**
+     * Owner-only: demote an owner back to member. The last remaining owner
+     * can't be demoted (an org must always have one) - same guard as
+     * removeMember() below, since losing your only owner is the same
+     * failure mode whether they're removed or just stepped down.
+     */
+    public function demoteMember(Request $request, Organization $organization, Organizer $user)
+    {
+        $this->authorizeOwner($request, $organization);
+
+        $isDemotingLastOwner = $organization->isOwner($user)
+            && $organization->members()->wherePivot('role', 'owner')->count() === 1;
+        abort_if($isDemotingLastOwner, 422, "An organization must always have at least one owner.");
+
+        abort_unless($organization->isMember($user), 404, 'Not a member of this organization.');
+
+        $organization->members()->updateExistingPivot($user->id, ['role' => 'member']);
+
+        return response()->json($organization->members()->get());
+    }
+
     /** Owner-only: remove a member. The last owner can't be removed (an org must always have one). */
     public function removeMember(Request $request, Organization $organization, Organizer $user)
     {

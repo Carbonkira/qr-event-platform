@@ -1,10 +1,10 @@
 import { useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Building2, Camera, Plus, Mail, X, UserMinus, ExternalLink, Trash2 } from 'lucide-react'
+import { Building2, Camera, Plus, Mail, X, UserMinus, ExternalLink, Trash2, ArrowUpCircle, ArrowDownCircle } from 'lucide-react'
 import { Card, Btn, Input, Textarea, Badge } from '../../components/ui'
 import { useApp } from '../../context/AppContext'
 import { useMyOrgs, useOrgMembers, useOrgInvites } from '../../hooks/useApi'
-import { createOrg, updateOrg, uploadOrgLogo, removeOrgMember, inviteToOrg, revokeOrgInvite, deleteOrg } from '../../api/resources'
+import { createOrg, updateOrg, uploadOrgLogo, removeOrgMember, promoteOrgMember, demoteOrgMember, inviteToOrg, revokeOrgInvite, deleteOrg } from '../../api/resources'
 
 const MAX_LOGO_BYTES = 5 * 1024 * 1024 // 5MB — matches other image uploads
 
@@ -157,6 +157,26 @@ function OrgCard({ org, onSaved }) {
     }
   }
 
+  const promoteMember = async (memberId) => {
+    try {
+      await promoteOrgMember(org.id, memberId)
+      addToast('Promoted to owner', 'success')
+      refetchMembers()
+    } catch (err) {
+      addToast(err.message || 'Failed to promote member', 'error')
+    }
+  }
+
+  const demoteMember = async (memberId) => {
+    try {
+      await demoteOrgMember(org.id, memberId)
+      addToast('Demoted to member', 'success')
+      refetchMembers()
+    } catch (err) {
+      addToast(err.message || 'Failed to demote member', 'error')
+    }
+  }
+
   const [deleting, setDeleting] = useState(false)
   const onDelete = async () => {
     if (!confirm(`Delete "${org.name}"? Its events keep existing but become unaffiliated - members and pending invites are removed. This can't be undone.`)) return
@@ -229,9 +249,14 @@ function OrgCard({ org, onSaved }) {
               <span className="truncate">{m.name}{m.id === user?.id && ' (you)'}</span>
               <div className="flex items-center gap-2 flex-shrink-0">
                 <Badge color={m.pivot?.role === 'owner' ? 'dark' : 'slate'} size="xs">{m.pivot?.role}</Badge>
-                {isOwner && m.pivot?.role !== 'owner' && (
-                  <button type="button" onClick={() => kickMember(m.id)} className="p-1 text-slate-400 hover:text-rose-500" title="Remove member"><UserMinus size={13} /></button>
-                )}
+                {isOwner && (m.pivot?.role === 'owner' ? (
+                  <button type="button" onClick={() => demoteMember(m.id)} className="p-1 text-slate-400 hover:text-amber-500" title="Demote to member"><ArrowDownCircle size={13} /></button>
+                ) : (
+                  <>
+                    <button type="button" onClick={() => promoteMember(m.id)} className="p-1 text-slate-400 hover:text-emerald-500" title="Promote to owner"><ArrowUpCircle size={13} /></button>
+                    <button type="button" onClick={() => kickMember(m.id)} className="p-1 text-slate-400 hover:text-rose-500" title="Remove member"><UserMinus size={13} /></button>
+                  </>
+                ))}
               </div>
             </div>
           ))}
