@@ -208,7 +208,7 @@ export default function CreateEventModal({ open, onClose, toast, onCreated }) {
             {/* Co-organizers are org members, not per-event - inviting someone
                 makes them a member of the whole organization (and every event
                 under it), reusing the invite flow already built for that. */}
-            <p className="text-[11px] text-slate-400 -mt-1">Need co-organizers? <a href="/organizer/organizations" target="_blank" rel="noreferrer" className="font-semibold text-[#1a1a2e] hover:text-[#e94560]">Invite them to your organization ↗</a></p>
+            <p className="text-[11px] text-slate-400 -mt-1">Need co-organizers? <a href="/organizer/organizations" target="_blank" rel="noreferrer" className="font-semibold text-[#1a1a2e] hover:text-[var(--accent)]">Invite them to your organization ↗</a></p>
             <div className="grid grid-cols-2 gap-3">
               <Select label="Type" value={form.type} onChange={e => up('type', e.target.value)} options={['Meetup', 'Conference', 'Workshop', 'Seminar', 'Networking', 'Training'].map(v => ({ value: v, label: v }))} />
               <Select label="Industry" value={form.industry} onChange={e => up('industry', e.target.value)} options={INDUSTRIES.map(v => ({ value: v, label: v }))} />
@@ -274,7 +274,7 @@ export default function CreateEventModal({ open, onClose, toast, onCreated }) {
 
             <div className="space-y-2.5">
               <Toggle checked={form.allowWalkIns} onChange={v => up('allowWalkIns', v)} icon={UserCheck} label="Allow walk-ins" desc="Let guests register on-site without filling the form" color="#0f9d8f" />
-              <Toggle checked={form.isPrivate} onChange={v => up('isPrivate', v)} icon={Lock} label="Private event" desc="Only people with the invite link can view & register" color="#e94560" />
+              <Toggle checked={form.isPrivate} onChange={v => up('isPrivate', v)} icon={Lock} label="Private event" desc="Only people with the invite link can view & register" color="var(--accent)" />
               <Toggle checked={form.feedbackEnabled} onChange={v => up('feedbackEnabled', v)} icon={MessageSquare} label="Collect feedback" desc="Enable post-event ratings & comments" color="#1a1a2e" />
             </div>
 
@@ -311,7 +311,7 @@ export default function CreateEventModal({ open, onClose, toast, onCreated }) {
             <div>
               <div className="flex items-center justify-between mb-2">
                 <p className="text-[12px] font-bold text-slate-700">Custom fields</p>
-                <button type="button" onClick={addField} className="text-[11px] font-semibold text-[#e94560] flex items-center gap-1"><Plus size={12} />Add field</button>
+                <button type="button" onClick={addField} className="text-[11px] font-semibold text-[var(--accent)] flex items-center gap-1"><Plus size={12} />Add field</button>
               </div>
               {form.customFields.length === 0 ? <p className="text-[12px] text-slate-400 py-3 text-center bg-slate-50 rounded-xl">No custom fields. Add one to collect extra info (e.g. company name).</p> : (
                 <div className="space-y-2">
@@ -331,7 +331,7 @@ export default function CreateEventModal({ open, onClose, toast, onCreated }) {
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <p className="text-[12px] font-bold text-slate-700">Feedback form</p>
-                  <button type="button" onClick={addQuestion} className="text-[11px] font-semibold text-[#e94560] flex items-center gap-1"><Plus size={12} />Add question</button>
+                  <button type="button" onClick={addQuestion} className="text-[11px] font-semibold text-[var(--accent)] flex items-center gap-1"><Plus size={12} />Add question</button>
                 </div>
                 <div className="space-y-2">
                   {form.feedbackQuestions.map((q, i) => {

@@ -68,7 +68,7 @@ export default function OrgPublic() {
         <OrgDiscussion org={org} />
       )}
 
-      <p className="text-[12px] text-slate-400 mt-10"><Link to="/" className="font-semibold text-[#1a1a2e] hover:text-[#e94560]">Back to all events</Link></p>
+      <p className="text-[12px] text-slate-400 mt-10"><Link to="/" className="font-semibold text-[#1a1a2e] hover:text-[var(--accent)]">Back to all events</Link></p>
     </div>
   )
 }

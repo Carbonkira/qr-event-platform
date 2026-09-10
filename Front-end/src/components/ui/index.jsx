@@ -24,7 +24,7 @@ export const Btn = ({ children, onClick, variant = 'primary', size = 'md', icon:
   const sizes = { sm: 'px-3 py-1.5 text-xs', md: 'px-4 py-2.5 text-sm', lg: 'px-6 py-3.5 text-[15px]' }
   const variants = {
     primary: 'bg-[#1a1a2e] text-white hover:bg-[#2d2d44] shadow-sm',
-    accent: 'bg-[#e94560] text-white hover:bg-[#d63651] shadow-sm shadow-rose-200',
+    accent: 'bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)] shadow-sm shadow-[0_1px_4px_var(--accent-shadow)]',
     secondary: 'bg-white text-slate-700 border border-slate-200 hover:border-slate-300 hover:bg-slate-50',
     ghost: 'text-slate-600 hover:bg-slate-100',
     dark: 'bg-white/10 text-white border border-white/15 hover:bg-white/20 backdrop-blur',

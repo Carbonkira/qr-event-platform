@@ -39,7 +39,7 @@ export default function OrgDiscussion({ org }) {
     return (
       <Card className="p-8 text-center text-[13px] text-slate-500">
         <Lock size={22} className="mx-auto mb-2 text-slate-300" />
-        <Link to={`/login?next=/org/${org.slug}`} className="font-semibold text-[#1a1a2e] hover:text-[#e94560]">Log in</Link> to view this organization's discussion board.
+        <Link to={`/login?next=/org/${org.slug}`} className="font-semibold text-[#1a1a2e] hover:text-[var(--accent)]">Log in</Link> to view this organization's discussion board.
       </Card>
     )
   }

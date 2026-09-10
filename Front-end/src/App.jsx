@@ -50,6 +50,15 @@ function GlobalStyles() {
       @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
       *{box-sizing:border-box;margin:0;padding:0}
       body{font-family:'Inter',system-ui,sans-serif}
+      /* Accent shifts by the logged-in account's tier (set as data-role on
+         <html> by AppShell) - default is the site's original pink for
+         logged-out visitors, so nothing changes for anyone who isn't signed
+         in. Only CTA buttons/links/icon-accents read this; navy "ink",
+         semantic colors (errors, ratings), and chart palettes stay fixed. */
+      :root{--accent:#e94560;--accent-hover:#d63651;--accent-shadow:rgba(233,69,96,.35)}
+      html[data-role="admin"]{--accent:#b45309;--accent-hover:#92400e;--accent-shadow:rgba(180,83,9,.35)}
+      html[data-role="organizer"]{--accent:#6d28d9;--accent-hover:#5b21b6;--accent-shadow:rgba(109,40,217,.35)}
+      html[data-role="participant"]{--accent:#2563eb;--accent-hover:#1d4ed8;--accent-shadow:rgba(37,99,235,.35)}
       .animate-fade{animation:fade .3s ease}.animate-up{animation:up .35s cubic-bezier(.16,1,.3,1)}
       .animate-modal{animation:modal .25s cubic-bezier(.16,1,.3,1)}
       @keyframes fade{from{opacity:0}to{opacity:1}}

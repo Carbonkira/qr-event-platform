@@ -159,7 +159,7 @@ function OrgCard({ org, onSaved }) {
         </div>
         <div className="flex-1 min-w-0">
           <p className="font-bold text-[14px] truncate">{org.name}</p>
-          <Link to={`/org/${org.slug}`} className="text-[11px] text-slate-400 hover:text-[#e94560] inline-flex items-center gap-1">/org/{org.slug}<ExternalLink size={10} /></Link>
+          <Link to={`/org/${org.slug}`} className="text-[11px] text-slate-400 hover:text-[var(--accent)] inline-flex items-center gap-1">/org/{org.slug}<ExternalLink size={10} /></Link>
         </div>
         <Badge color={isOwner ? 'dark' : 'slate'}>{isOwner ? 'Owner' : 'Member'}</Badge>
       </div>

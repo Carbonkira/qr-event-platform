@@ -69,7 +69,7 @@ export default function Home() {
       {!q && filter === 'upcoming' && suggested.length > 0 && (
         <div className="mb-9">
           <div className="flex items-center gap-2 mb-3">
-            <Sparkles size={15} className="text-[#e94560]" />
+            <Sparkles size={15} className="text-[var(--accent)]" />
             <p className="text-[13px] font-bold text-slate-700">Suggested for you</p>
             <span className="text-[11px] text-slate-400">· {geoStatus === 'granted' ? 'nearest to you' : 'recently added'}</span>
           </div>

@@ -339,7 +339,7 @@ export default function EventDetail() {
           </div>
           {event.isPrivate && event.privateLink && (
             <Card className="p-4">
-              <p className="text-[12px] font-bold mb-2 flex items-center gap-1.5"><Lock size={13} className="text-[#e94560]" />Private invite link</p>
+              <p className="text-[12px] font-bold mb-2 flex items-center gap-1.5"><Lock size={13} className="text-[var(--accent)]" />Private invite link</p>
               <div className="flex items-center gap-2">
                 <code className="flex-1 text-[11px] bg-slate-50 px-3 py-2 rounded-lg border border-slate-200 text-slate-600 truncate">/events/{event.slug}?access={event.privateLink}</code>
                 <button onClick={() => { navigator.clipboard?.writeText(`${window.location.origin}/events/${event.slug}?access=${event.privateLink}`); addToast('Copied!', 'success') }} className="p-2 rounded-lg bg-slate-100 hover:bg-slate-200"><Copy size={14} /></button>

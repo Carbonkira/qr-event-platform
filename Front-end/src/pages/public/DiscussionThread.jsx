@@ -35,7 +35,7 @@ export default function DiscussionThread() {
       <div className="max-w-2xl mx-auto px-5 py-16 text-center">
         <Card className="p-8">
           <Lock size={22} className="mx-auto mb-2 text-slate-300" />
-          <p className="text-[13px] text-slate-500"><Link to={`/login?next=/org/${slug}/discussion/${threadId}`} className="font-semibold text-[#1a1a2e] hover:text-[#e94560]">Log in</Link> to view this thread.</p>
+          <p className="text-[13px] text-slate-500"><Link to={`/login?next=/org/${slug}/discussion/${threadId}`} className="font-semibold text-[#1a1a2e] hover:text-[var(--accent)]">Log in</Link> to view this thread.</p>
         </Card>
       </div>
     )

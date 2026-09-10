@@ -32,7 +32,7 @@ export default function EmailVerified() {
         <Btn variant="accent" size="lg" full onClick={() => navigate(user ? '/organizer' : '/login')}>
           {user ? 'Go to Dashboard' : 'Log In'}
         </Btn>
-        {!user && <p className="text-[13px] text-slate-500 text-center mt-4"><Link to="/" className="font-semibold text-[#1a1a2e] hover:text-[#e94560]">Back to home</Link></p>}
+        {!user && <p className="text-[13px] text-slate-500 text-center mt-4"><Link to="/" className="font-semibold text-[#1a1a2e] hover:text-[var(--accent)]">Back to home</Link></p>}
       </Card>
     </div>
   )
