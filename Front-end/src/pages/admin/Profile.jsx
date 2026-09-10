@@ -1,8 +1,9 @@
 import { useRef, useState } from 'react'
 import { User, Mail, GraduationCap, Lock, Camera } from 'lucide-react'
-import { Card, Btn, Input } from '../../components/ui'
+import { Card, Btn, Input, Badge } from '../../components/ui'
 import PasswordChecklist from '../../components/shared/PasswordChecklist'
 import { useApp } from '../../context/AppContext'
+import { roleBadge } from '../../lib/utils'
 
 const MAX_AVATAR_BYTES = 5 * 1024 * 1024 // 5MB — matches the backend's own limit
 
@@ -44,6 +45,7 @@ function AccountCard() {
   const [form, setForm] = useState({ name: user?.name || '', email: user?.email || '', institution: user?.institution || '' })
   const [errors, setErrors] = useState({})
   const [saving, setSaving] = useState(false)
+  const tier = roleBadge(user, accountType)
 
   const update = (k) => (e) => { setForm(f => ({ ...f, [k]: e.target.value })); setErrors(er => ({ ...er, [k]: undefined })) }
 
@@ -65,7 +67,7 @@ function AccountCard() {
   return (
     <Card className="p-5 space-y-4">
       <div>
-        <p className="font-bold text-[14px]">My Account</p>
+        <div className="flex items-center gap-2"><p className="font-bold text-[14px]">My Account</p>{tier && <Badge color={tier.color} size="xs">{tier.label}</Badge>}</div>
         <p className="text-[11px] text-slate-400">{accountType === 'organizer' ? 'Your personal login - manage your organizations from My Organizations' : 'Your personal login'}</p>
       </div>
       <AvatarUpload />

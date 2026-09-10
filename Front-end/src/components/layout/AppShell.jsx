@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState, lazy, Suspense } from 'react'
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { Plus, LogIn, ChevronDown, LogOut, MailWarning, Hourglass, MessageSquare, FileText, ClipboardList, Building2, User as UserIcon, Menu, X, Compass, CalendarDays } from 'lucide-react'
-import { Btn, Logo } from '../ui'
-import { cn } from '../../lib/utils'
+import { Btn, Logo, Badge } from '../ui'
+import { cn, roleBadge } from '../../lib/utils'
 import { useApp } from '../../context/AppContext'
 import { useAdminEvents, useAnalytics } from '../../hooks/useApi'
 
@@ -49,6 +49,7 @@ export default function AppShell() {
   // and "Create Event" are Organizer-only, not tied to having hosted
   // something yet.
   const canManage = accountType === 'organizer'
+  const tier = roleBadge(user, accountType)
 
   useEffect(() => {
     const onClick = (e) => {
@@ -123,7 +124,10 @@ export default function AppShell() {
                 </button>
                 {profileOpen && (
                   <div className="absolute top-full mt-1.5 right-0 w-52 bg-white rounded-xl border border-slate-200 shadow-lg py-1.5 z-50">
-                    <div className="px-3.5 py-2 border-b border-slate-100 mb-1"><p className="text-[13px] font-semibold text-slate-800 truncate">{user.name}</p><p className="text-[11px] text-slate-400 truncate">{user.email}</p></div>
+                    <div className="px-3.5 py-2 border-b border-slate-100 mb-1">
+                      <div className="flex items-center gap-1.5"><p className="text-[13px] font-semibold text-slate-800 truncate">{user.name}</p>{tier && <Badge color={tier.color} size="xs">{tier.label}</Badge>}</div>
+                      <p className="text-[11px] text-slate-400 truncate">{user.email}</p>
+                    </div>
                     <Link to="/organizer/profile" onClick={() => setProfileOpen(false)} className="flex items-center gap-2.5 px-3.5 py-2 text-[13px] font-medium text-slate-700 hover:bg-slate-50"><UserIcon size={15} className="text-slate-400" />Profile</Link>
                     <button onClick={onLogout} className="w-full flex items-center gap-2.5 px-3.5 py-2 text-[13px] font-medium text-slate-700 hover:bg-slate-50"><LogOut size={15} className="text-slate-400" />Log out</button>
                   </div>
@@ -163,7 +167,7 @@ export default function AppShell() {
               <div className="border-t border-slate-100 mt-2 pt-2">
                 {user ? (
                   <>
-                    <Link to="/organizer/profile" className="flex items-center gap-2.5 px-2.5 py-2.5 rounded-xl text-[14px] font-medium text-slate-700 hover:bg-slate-50"><UserIcon size={16} className="text-slate-400" />Profile ({user.name})</Link>
+                    <Link to="/organizer/profile" className="flex items-center gap-2.5 px-2.5 py-2.5 rounded-xl text-[14px] font-medium text-slate-700 hover:bg-slate-50"><UserIcon size={16} className="text-slate-400" /><span className="flex-1">Profile ({user.name})</span>{tier && <Badge color={tier.color} size="xs">{tier.label}</Badge>}</Link>
                     <button onClick={onLogout} className="w-full flex items-center gap-2.5 px-2.5 py-2.5 rounded-xl text-[14px] font-medium text-slate-700 hover:bg-slate-50"><LogOut size={16} className="text-slate-400" />Log out</button>
                   </>
                 ) : (
