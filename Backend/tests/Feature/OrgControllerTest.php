@@ -63,12 +63,31 @@ class OrgControllerTest extends TestCase
     {
         $admin = $this->makeAdmin();
         Sanctum::actingAs($admin);
-        $this->postJson('/api/orgs', ['name' => 'My Club'])->assertCreated();
+        $org = $this->postJson('/api/orgs', ['name' => 'My Club'])->assertCreated();
+        $organizer = $this->makeUser();
+        $organizer->organizations()->attach($org->json('id'), ['role' => 'member']);
 
+        Sanctum::actingAs($organizer);
         $response = $this->getJson('/api/orgs/mine')->assertOk();
 
         $this->assertCount(1, $response->json());
-        $this->assertSame('owner', $response->json('0.pivot.role'));
+        $this->assertSame('member', $response->json('0.pivot.role'));
+    }
+
+    /** An admin manages every organization, not just ones they personally belong to - see OrgController::mine(). */
+    public function test_mine_lists_every_organization_for_an_admin_regardless_of_membership(): void
+    {
+        $admin = $this->makeAdmin();
+        Sanctum::actingAs($admin);
+        $this->postJson('/api/orgs', ['name' => 'Admin-created Club'])->assertCreated();
+
+        $otherAdmin = $this->makeAdmin('other-admin@example.com');
+        Sanctum::actingAs($otherAdmin);
+        $this->postJson('/api/orgs', ['name' => 'Other Admin Club'])->assertCreated();
+
+        $response = $this->getJson('/api/orgs/mine')->assertOk();
+
+        $this->assertCount(2, $response->json());
     }
 
     public function test_only_an_owner_can_update_the_organization_profile(): void
@@ -112,5 +131,54 @@ class OrgControllerTest extends TestCase
         Sanctum::actingAs($owner);
         $response = $this->postJson("/api/orgs/{$org->id}/logo", ['logo' => $file])->assertOk();
         $this->assertNotEmpty($response->json('logo'));
+    }
+
+    public function test_list_is_public_and_returns_only_id_and_name(): void
+    {
+        Organization::create(['name' => 'Acme', 'slug' => 'acme', 'email' => 'hello@acme.test']);
+
+        $response = $this->getJson('/api/orgs/list')->assertOk();
+
+        $this->assertSame(['id', 'name'], array_keys($response->json('0')));
+    }
+
+    public function test_admin_can_manage_an_organization_they_do_not_belong_to(): void
+    {
+        $owner = $this->makeUser('owner@example.com');
+        $org = Organization::create(['name' => 'Acme', 'slug' => 'acme']);
+        $org->members()->attach($owner->id, ['role' => 'owner']);
+        $admin = $this->makeAdmin();
+
+        Sanctum::actingAs($admin);
+        $this->putJson("/api/orgs/{$org->id}", ['name' => 'Renamed by admin'])->assertOk();
+        $this->assertSame('Renamed by admin', $org->fresh()->name);
+        $this->getJson("/api/orgs/{$org->id}/members")->assertOk();
+    }
+
+    public function test_admin_can_delete_an_organization_and_its_events_survive_unaffiliated(): void
+    {
+        $admin = $this->makeAdmin();
+        Sanctum::actingAs($admin);
+        $org = $this->postJson('/api/orgs', ['name' => 'Acme'])->assertCreated();
+        $event = \App\Models\Event::create([
+            'title' => 'Meetup', 'slug' => 'meetup', 'organizer_id' => $admin->id,
+            'organization_id' => $org->json('id'), 'status' => 'approved', 'capacity' => 0,
+        ]);
+
+        $this->deleteJson("/api/orgs/{$org->json('id')}")->assertOk();
+
+        $this->assertDatabaseMissing('organizations', ['id' => $org->json('id')]);
+        $this->assertNull($event->fresh()->organization_id);
+    }
+
+    public function test_a_non_admin_cannot_delete_an_organization(): void
+    {
+        $owner = $this->makeUser('owner@example.com');
+        $org = Organization::create(['name' => 'Acme', 'slug' => 'acme']);
+        $org->members()->attach($owner->id, ['role' => 'owner']);
+
+        Sanctum::actingAs($owner);
+        $this->deleteJson("/api/orgs/{$org->id}")->assertForbidden();
+        $this->assertDatabaseHas('organizations', ['id' => $org->id]);
     }
 }

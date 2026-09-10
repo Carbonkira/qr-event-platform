@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Mail\EventCancelledMail;
 use App\Mail\EventSubmittedForApprovalMail;
 use App\Models\Event;
+use App\Models\Organization;
 use App\Models\Organizer;
 use App\Models\TaskTemplate;
 use App\Services\Gemini;
@@ -184,13 +185,24 @@ class EventController extends Controller
         // full stop. Picked via a dropdown on the frontend (CreateEventModal),
         // not auto-defaulted, now that it's a hard requirement rather than a
         // convenience for the common one-org case.
+        // An admin is exempt: they manage every organization already, don't
+        // need to personally belong to one, and can create an unaffiliated
+        // event (organization_id left null) just as easily as an org-backed one.
         $requestedOrgId = $request->input('organization_id');
-        abort_unless(
-            $requestedOrgId && $request->user()->organizations()->where('organizations.id', $requestedOrgId)->exists(),
-            403,
-            'You must belong to an organization to create an event - ask your admin to invite you to one.'
-        );
-        $data['organization_id'] = $requestedOrgId;
+        if ($request->user()->isAdmin()) {
+            abort_if(
+                $requestedOrgId && ! Organization::where('id', $requestedOrgId)->exists(),
+                422,
+                'That organization does not exist.'
+            );
+        } else {
+            abort_unless(
+                $requestedOrgId && $request->user()->organizations()->where('organizations.id', $requestedOrgId)->exists(),
+                403,
+                'You must belong to an organization to create an event - ask your admin to invite you to one.'
+            );
+        }
+        $data['organization_id'] = $requestedOrgId ?: null;
 
         // Every event needs the admin's explicit approval now, regardless of
         // organization backing - previously an org vouched for its own
@@ -435,11 +447,14 @@ class EventController extends Controller
      * co-officer in the same club should be able to pick up a teammate's
      * event. Events with no organization (legacy rows from before this
      * existed) stay editable by anyone rather than becoming permanently locked.
+     * An admin bypasses this entirely - they manage every organization's
+     * events regardless of personal membership (see also store() below).
      */
     private function authorizeOrgMember(Request $request, Event $event): void
     {
         abort_if(
-            $event->organization_id !== null
+            ! $request->user()->isAdmin()
+                && $event->organization_id !== null
                 && ! $request->user()->organizations()->where('organizations.id', $event->organization_id)->exists(),
             403,
             'Only a member of this event\'s organization can do that.'

@@ -422,7 +422,8 @@ class RegistrationController extends Controller
     private function authorizeOrgMember(Request $request, Event $event): void
     {
         abort_if(
-            $event->organization_id !== null
+            ! $request->user()->isAdmin()
+                && $event->organization_id !== null
                 && ! $request->user()->organizations()->where('organizations.id', $event->organization_id)->exists(),
             403,
             'Only a member of this event\'s organization can do that.'

@@ -53,6 +53,9 @@ Route::get('/events', [EventController::class, 'index']);
 Route::get('/events/{slug}', [EventController::class, 'show']);
 Route::get('/invites/{token}', [InviteController::class, 'show']);
 Route::get('/orgs', [OrgController::class, 'directory']);
+// Public + minimal (id/name only) - feeds the organizer signup form's
+// organization picker, which runs before any account/token exists.
+Route::get('/orgs/list', [OrgController::class, 'list']);
 Route::get('/org/{organization:slug}', [OrgController::class, 'showPublic']);
 // Unauthenticated write endpoints an abuse script could otherwise hammer
 // with no account and no ownership check to fall back on.
@@ -177,6 +180,7 @@ Route::middleware(['auth:sanctum', 'verified', 'organizer.approved'])->group(fun
     Route::get('/orgs/mine', [OrgController::class, 'mine']);
     Route::post('/orgs', [OrgController::class, 'store']);
     Route::put('/orgs/{organization}', [OrgController::class, 'update']);
+    Route::delete('/orgs/{organization}', [OrgController::class, 'destroy']);
     Route::post('/orgs/{organization}/logo', [OrgController::class, 'uploadLogo'])->middleware('throttle:20,1');
     Route::get('/orgs/{organization}/members', [OrgController::class, 'members']);
     Route::delete('/orgs/{organization}/members/{user}', [OrgController::class, 'removeMember']);

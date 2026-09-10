@@ -47,6 +47,37 @@ class OrganizerAuthTest extends TestCase
         Notification::assertSentTo($organizer, OrganizerVerifyEmailNotification::class);
     }
 
+    public function test_register_records_the_chosen_organization_without_granting_membership_yet(): void
+    {
+        $this->fakeUncompromisedPasswordCheck();
+        $org = \App\Models\Organization::create(['name' => 'Acme', 'slug' => 'acme']);
+
+        $response = $this->postJson('/api/auth/organizer/register', [
+            'name' => 'Ana Reyes',
+            'email' => 'ana@example.com',
+            'password' => 'Password123!',
+            'password_confirmation' => 'Password123!',
+            'organizationId' => $org->id,
+        ])->assertCreated();
+
+        $organizer = Organizer::where('email', 'ana@example.com')->first();
+        $this->assertSame($org->id, $organizer->requested_organization_id);
+        $this->assertCount(0, $organizer->organizations);
+    }
+
+    public function test_register_rejects_a_nonexistent_organization_id(): void
+    {
+        $this->fakeUncompromisedPasswordCheck();
+
+        $this->postJson('/api/auth/organizer/register', [
+            'name' => 'Ana Reyes',
+            'email' => 'ana@example.com',
+            'password' => 'Password123!',
+            'password_confirmation' => 'Password123!',
+            'organizationId' => 999999,
+        ])->assertStatus(422);
+    }
+
     public function test_register_rejects_a_password_that_does_not_match_its_confirmation(): void
     {
         $this->fakeUncompromisedPasswordCheck();

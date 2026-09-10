@@ -79,6 +79,19 @@ class OrganizerApprovalTest extends TestCase
         $this->getJson('/api/admin/events')->assertOk();
     }
 
+    public function test_approving_an_organizer_who_requested_an_organization_grants_membership(): void
+    {
+        $org = \App\Models\Organization::create(['name' => 'Acme', 'slug' => 'acme']);
+        $organizer = $this->makeVerifiedUnapprovedOrganizer();
+        $organizer->forceFill(['requested_organization_id' => $org->id])->save();
+
+        Sanctum::actingAs($this->makeAdmin());
+        $this->postJson("/api/organizers/{$organizer->id}/approve")->assertOk();
+
+        $this->assertTrue($org->fresh()->isMember($organizer->fresh()));
+        $this->assertSame('member', $organizer->fresh()->organizations()->first()->pivot->role);
+    }
+
     public function test_admin_can_reject_a_pending_organizer_who_stays_blocked(): void
     {
         $organizer = $this->makeVerifiedUnapprovedOrganizer();
