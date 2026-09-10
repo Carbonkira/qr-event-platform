@@ -28,6 +28,17 @@ export function timeAgo(iso) {
   return 'just now'
 }
 
+// Admin/Organizer/Participant tier, as a Badge-ready {label, color} pair -
+// shared so AppShell's profile dropdown and Profile.jsx render the same
+// distinction the same way. `user.role === 'admin'` outranks `accountType`
+// since an admin is still an Organizer account underneath.
+export function roleBadge(user, accountType) {
+  if (user?.role === 'admin') return { label: 'Admin', color: 'dark' }
+  if (accountType === 'organizer') return { label: 'Organizer', color: 'violet' }
+  if (accountType === 'participant') return { label: 'Participant', color: 'blue' }
+  return null
+}
+
 export function getUserLocale() {
   const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || ''
   if (tz.includes('Manila')) return { city: 'Metro Manila', region: 'NCR', country: 'Philippines', flag: '🇵🇭' }
