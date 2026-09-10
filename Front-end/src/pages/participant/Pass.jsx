@@ -57,7 +57,7 @@ export default function Pass() {
     <div className="max-w-sm mx-auto px-5 py-8 text-center">
       <button onClick={() => navigate('/')} className="flex items-center gap-1.5 text-[13px] text-slate-500 hover:text-slate-800 mb-4 font-medium mx-auto"><ArrowLeft size={15} />Events</button>
       <Card className="p-6 overflow-hidden">
-        <div className="-mx-6 -mt-6 mb-5 h-1.5 bg-gradient-to-r from-[#1a1a2e] to-[#e94560]" />
+        <div className="-mx-6 -mt-6 mb-5 h-1.5 bg-gradient-to-r from-[#1a1a2e] to-[var(--accent)]" />
         <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-1">QR Event Pass</p>
         <h3 className="font-extrabold text-[17px]">{registration.name}</h3>
         <p className="text-[12px] text-slate-500 mb-5">{event.title}</p>

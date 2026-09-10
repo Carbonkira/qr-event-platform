@@ -31,7 +31,7 @@ function AttendingView({ place }) {
       </div>
 
       {registrations.length === 0 ? (
-        <Card className="p-10 text-center text-[13px] text-slate-400">No registrations yet. <Link to="/" className="font-semibold text-[#e94560]">Browse events</Link></Card>
+        <Card className="p-10 text-center text-[13px] text-slate-400">No registrations yet. <Link to="/" className="font-semibold text-[var(--accent)]">Browse events</Link></Card>
       ) : (
         <div className="space-y-3">
           {registrations.map(reg => (

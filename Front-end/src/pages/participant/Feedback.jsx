@@ -74,7 +74,7 @@ export default function Feedback() {
     <div className="max-w-md mx-auto px-5 py-8">
       <Card className="p-6">
         <div className="text-center mb-5">
-          <div className="w-12 h-12 rounded-2xl bg-rose-50 flex items-center justify-center mx-auto mb-2"><MessageSquare size={22} className="text-[#e94560]" /></div>
+          <div className="w-12 h-12 rounded-2xl bg-rose-50 flex items-center justify-center mx-auto mb-2"><MessageSquare size={22} className="text-[var(--accent)]" /></div>
           <h2 className="font-extrabold text-lg">How was it?</h2>
           <p className="text-[12px] text-slate-500">{event.title}</p>
           {previewBadge && <div className="inline-flex items-center gap-1.5 mt-2 px-3 py-1 rounded-full bg-amber-50 border border-amber-200 text-[11px] font-semibold text-amber-700"><Trophy size={11} />Complete to earn {previewBadge}</div>}

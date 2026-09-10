@@ -205,7 +205,7 @@ export default function EditEvent() {
         </div>
         {form.pricing === 'paid' && <Input label="Price (₱)" value={form.price} onChange={e => up('price', e.target.value)} type="number" icon={DollarSign} />}
         <Toggle checked={form.allowWalkIns} onChange={v => up('allowWalkIns', v)} icon={UserCheck} label="Allow walk-ins" color="#0f9d8f" />
-        <Toggle checked={form.isPrivate} onChange={v => up('isPrivate', v)} icon={Lock} label="Private event" color="#e94560" />
+        <Toggle checked={form.isPrivate} onChange={v => up('isPrivate', v)} icon={Lock} label="Private event" color="var(--accent)" />
         <Toggle checked={form.feedbackEnabled} onChange={v => up('feedbackEnabled', v)} icon={MessageSquare} label="Collect feedback" color="#1a1a2e" />
         <Input label="Tags" value={form.tags} onChange={e => up('tags', e.target.value)} icon={Tag} placeholder="AI, Networking" />
       </div>

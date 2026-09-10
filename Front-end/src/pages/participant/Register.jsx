@@ -242,7 +242,7 @@ export default function Register() {
 
             {!editingEmail && (
               <>
-                <button type="button" onClick={startEditingEmail} className="inline-flex items-center gap-1 text-[12px] font-semibold text-[#1a1a2e] hover:text-[#e94560] mb-6"><Pencil size={11} />Wrong email? Fix it</button>
+                <button type="button" onClick={startEditingEmail} className="inline-flex items-center gap-1 text-[12px] font-semibold text-[#1a1a2e] hover:text-[var(--accent)] mb-6"><Pencil size={11} />Wrong email? Fix it</button>
                 <div className="space-y-2">
                   <Btn variant="accent" size="lg" full loading={checkingVerified} onClick={checkVerified}>I've verified — Continue</Btn>
                   <Btn variant="secondary" size="lg" full icon={RefreshCw} loading={resending} onClick={resend}>Resend email</Btn>

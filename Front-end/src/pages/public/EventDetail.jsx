@@ -38,7 +38,7 @@ export default function EventDetail() {
     return (
       <div className="max-w-md mx-auto px-5 py-16 text-center">
         <Card className="p-8">
-          <div className="w-16 h-16 rounded-2xl bg-rose-50 flex items-center justify-center mx-auto mb-4"><Lock size={30} className="text-[#e94560]" /></div>
+          <div className="w-16 h-16 rounded-2xl bg-rose-50 flex items-center justify-center mx-auto mb-4"><Lock size={30} className="text-[var(--accent)]" /></div>
           <h2 className="text-xl font-extrabold mb-1">Private Event</h2>
           <p className="text-[13px] text-slate-500 mb-6">This event is invite-only. You need the access link from the organizer to view and register.</p>
           <Btn variant="secondary" full icon={ArrowLeft} onClick={() => navigate('/')}>Back to Events</Btn>
@@ -88,7 +88,7 @@ export default function EventDetail() {
                 <div className="w-9 h-9 rounded-full overflow-hidden bg-gradient-to-br from-[#1a1a2e] to-[#e94560] flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
                   {event.organization.logo ? <img src={event.organization.logo} alt="" className="w-full h-full object-cover" /> : event.organizedBy?.[0]}
                 </div>
-                <div className="flex-1"><p className="text-[14px] font-semibold text-slate-800 group-hover:text-[#e94560]">{event.organizedBy}</p></div>
+                <div className="flex-1"><p className="text-[14px] font-semibold text-slate-800 group-hover:text-[var(--accent)]">{event.organizedBy}</p></div>
               </Link>
             ) : (
               <div className="flex items-center gap-3">

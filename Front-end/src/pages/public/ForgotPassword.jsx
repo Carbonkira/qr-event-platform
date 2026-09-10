@@ -53,7 +53,7 @@ export default function ForgotPassword() {
           </>
         )}
         <p className="text-[13px] text-slate-500 text-center mt-6">
-          <Link to="/login" className="font-semibold text-[#1a1a2e] hover:text-[#e94560]">Back to login</Link>
+          <Link to="/login" className="font-semibold text-[#1a1a2e] hover:text-[var(--accent)]">Back to login</Link>
         </p>
       </Card>
     </div>

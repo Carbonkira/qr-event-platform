@@ -56,7 +56,7 @@ export default function RegisterOrganizer() {
           <Btn type="submit" variant="accent" size="lg" full icon={UserPlus} loading={loading}>Create Account</Btn>
         </form>
         <p className="text-[13px] text-slate-500 text-center mt-6">
-          Already have an account? <Link to="/login" className="font-semibold text-[#1a1a2e] hover:text-[#e94560]">Log in</Link>
+          Already have an account? <Link to="/login" className="font-semibold text-[#1a1a2e] hover:text-[var(--accent)]">Log in</Link>
         </p>
       </Card>
     </div>

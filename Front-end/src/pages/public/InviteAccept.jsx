@@ -73,7 +73,7 @@ export default function InviteAccept() {
           <Btn full variant="accent" loading={accepting} onClick={accept}>Accept invite</Btn>
         )}
 
-        <p className="text-[12px] text-slate-400 mt-6"><Link to="/" className="font-semibold text-[#1a1a2e] hover:text-[#e94560]">Back to QRMeets</Link></p>
+        <p className="text-[12px] text-slate-400 mt-6"><Link to="/" className="font-semibold text-[#1a1a2e] hover:text-[var(--accent)]">Back to QRMeets</Link></p>
       </Card>
     </div>
   )

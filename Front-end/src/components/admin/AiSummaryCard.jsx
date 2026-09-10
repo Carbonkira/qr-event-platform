@@ -58,7 +58,7 @@ export default function AiSummaryCard({ eventId, className = '' }) {
   return (
     <Card className={`p-5 ${className}`}>
       <div className="flex items-center justify-between mb-3">
-        <p className="font-bold text-[14px] flex items-center gap-2"><Sparkles size={15} className="text-[#e94560]" />AI Summary</p>
+        <p className="font-bold text-[14px] flex items-center gap-2"><Sparkles size={15} className="text-[var(--accent)]" />AI Summary</p>
         <Btn variant="ghost" size="sm" icon={RefreshCw} onClick={() => load(true)} disabled={loading || regenerating} loading={regenerating}>Regenerate</Btn>
       </div>
       {loading ? (

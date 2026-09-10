@@ -51,6 +51,15 @@ export default function AppShell() {
   const canManage = accountType === 'organizer'
   const tier = roleBadge(user, accountType)
 
+  // Site-wide accent color (buttons, links, icon highlights - see App.jsx's
+  // :root/[data-role] CSS vars) follows whoever is signed in; logged out
+  // leaves no attribute, which is the same as the original pink default.
+  useEffect(() => {
+    const role = user?.role === 'admin' ? 'admin' : accountType
+    if (role) document.documentElement.dataset.role = role
+    else delete document.documentElement.dataset.role
+  }, [user?.role, accountType])
+
   useEffect(() => {
     const onClick = (e) => {
       if (manageRef.current && !manageRef.current.contains(e.target)) setManageOpen(false)
@@ -104,7 +113,7 @@ export default function AppShell() {
                     {MANAGE_ITEMS.filter(i => !i.adminOnly || user?.role === 'admin').map(({ icon: Icon, label, path, badgeKey }) => (
                       <Link key={path} to={path} onClick={() => setManageOpen(false)} className="flex items-center gap-2.5 px-3.5 py-2 text-[13px] font-medium text-slate-700 hover:bg-slate-50">
                         <Icon size={15} className="text-slate-400" /><span className="flex-1">{label}</span>
-                        {badgeKey && analytics?.[badgeKey] > 0 && <span className="min-w-5 h-5 px-1.5 rounded-full bg-[#e94560] text-white text-[10px] font-bold flex items-center justify-center">{analytics[badgeKey]}</span>}
+                        {badgeKey && analytics?.[badgeKey] > 0 && <span className="min-w-5 h-5 px-1.5 rounded-full bg-[var(--accent)] text-white text-[10px] font-bold flex items-center justify-center">{analytics[badgeKey]}</span>}
                       </Link>
                     ))}
                   </div>
@@ -158,7 +167,7 @@ export default function AppShell() {
                   {MANAGE_ITEMS.filter(i => !i.adminOnly || user?.role === 'admin').map(({ icon: Icon, label, path, badgeKey }) => (
                     <Link key={path} to={path} className="flex items-center gap-2.5 px-2.5 py-2.5 rounded-xl text-[14px] font-medium text-slate-700 hover:bg-slate-50">
                       <Icon size={16} className="text-slate-400" /><span className="flex-1">{label}</span>
-                      {badgeKey && analytics?.[badgeKey] > 0 && <span className="min-w-5 h-5 px-1.5 rounded-full bg-[#e94560] text-white text-[10px] font-bold flex items-center justify-center">{analytics[badgeKey]}</span>}
+                      {badgeKey && analytics?.[badgeKey] > 0 && <span className="min-w-5 h-5 px-1.5 rounded-full bg-[var(--accent)] text-white text-[10px] font-bold flex items-center justify-center">{analytics[badgeKey]}</span>}
                     </Link>
                   ))}
                 </>
@@ -198,21 +207,21 @@ export default function AppShell() {
             <div>
               <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wide mb-3">Discover</p>
               <div className="space-y-2">
-                <Link to="/" className="block text-[13px] text-slate-600 hover:text-[#e94560]">Explore events</Link>
-                <Link to="/organizations" className="block text-[13px] text-slate-600 hover:text-[#e94560]">Organizations</Link>
-                <Link to="/my-events" className="block text-[13px] text-slate-600 hover:text-[#e94560]">My events</Link>
-                <Link to="/find-pass" className="block text-[13px] text-slate-600 hover:text-[#e94560]">Find my pass</Link>
+                <Link to="/" className="block text-[13px] text-slate-600 hover:text-[var(--accent)]">Explore events</Link>
+                <Link to="/organizations" className="block text-[13px] text-slate-600 hover:text-[var(--accent)]">Organizations</Link>
+                <Link to="/my-events" className="block text-[13px] text-slate-600 hover:text-[var(--accent)]">My events</Link>
+                <Link to="/find-pass" className="block text-[13px] text-slate-600 hover:text-[var(--accent)]">Find my pass</Link>
               </div>
             </div>
             <div>
               <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wide mb-3">Account</p>
               <div className="space-y-2">
                 {user ? (
-                  <Link to="/organizer/profile" className="block text-[13px] text-slate-600 hover:text-[#e94560]">Profile</Link>
+                  <Link to="/organizer/profile" className="block text-[13px] text-slate-600 hover:text-[var(--accent)]">Profile</Link>
                 ) : (
-                  <Link to="/login" className="block text-[13px] text-slate-600 hover:text-[#e94560]">Log in</Link>
+                  <Link to="/login" className="block text-[13px] text-slate-600 hover:text-[var(--accent)]">Log in</Link>
                 )}
-                <Link to="/organizer/register" className="block text-[13px] text-slate-600 hover:text-[#e94560]">Host an event</Link>
+                <Link to="/organizer/register" className="block text-[13px] text-slate-600 hover:text-[var(--accent)]">Host an event</Link>
               </div>
             </div>
           </div>
