@@ -181,4 +181,62 @@ class OrgControllerTest extends TestCase
         $this->deleteJson("/api/orgs/{$org->id}")->assertForbidden();
         $this->assertDatabaseHas('organizations', ['id' => $org->id]);
     }
+
+    public function test_an_owner_can_promote_a_member_to_owner(): void
+    {
+        $owner = $this->makeUser('owner@example.com');
+        $member = $this->makeUser('member@example.com');
+        $org = Organization::create(['name' => 'Acme', 'slug' => 'acme']);
+        $org->members()->attach($owner->id, ['role' => 'owner']);
+        $org->members()->attach($member->id, ['role' => 'member']);
+
+        Sanctum::actingAs($owner);
+        $this->postJson("/api/orgs/{$org->id}/members/{$member->id}/promote")->assertOk();
+
+        $this->assertTrue($org->fresh()->isOwner($member->fresh()));
+    }
+
+    public function test_a_member_cannot_promote_themselves(): void
+    {
+        $owner = $this->makeUser('owner@example.com');
+        $member = $this->makeUser('member@example.com');
+        $org = Organization::create(['name' => 'Acme', 'slug' => 'acme']);
+        $org->members()->attach($owner->id, ['role' => 'owner']);
+        $org->members()->attach($member->id, ['role' => 'member']);
+
+        Sanctum::actingAs($member);
+        $this->postJson("/api/orgs/{$org->id}/members/{$member->id}/promote")->assertForbidden();
+    }
+
+    public function test_an_owner_can_demote_a_co_owner_but_not_the_last_owner(): void
+    {
+        $owner = $this->makeUser('owner@example.com');
+        $coOwner = $this->makeUser('co-owner@example.com');
+        $org = Organization::create(['name' => 'Acme', 'slug' => 'acme']);
+        $org->members()->attach($owner->id, ['role' => 'owner']);
+        $org->members()->attach($coOwner->id, ['role' => 'owner']);
+
+        Sanctum::actingAs($owner);
+        $this->postJson("/api/orgs/{$org->id}/members/{$coOwner->id}/demote")->assertOk();
+        $this->assertFalse($org->fresh()->isOwner($coOwner->fresh()));
+
+        // Only one owner left now - demoting them must be blocked.
+        $this->postJson("/api/orgs/{$org->id}/members/{$owner->id}/demote")->assertStatus(422);
+        $this->assertTrue($org->fresh()->isOwner($owner->fresh()));
+    }
+
+    public function test_an_admin_can_promote_a_member_in_an_organization_they_do_not_belong_to(): void
+    {
+        $owner = $this->makeUser('owner@example.com');
+        $member = $this->makeUser('member@example.com');
+        $org = Organization::create(['name' => 'Acme', 'slug' => 'acme']);
+        $org->members()->attach($owner->id, ['role' => 'owner']);
+        $org->members()->attach($member->id, ['role' => 'member']);
+        $admin = $this->makeAdmin();
+
+        Sanctum::actingAs($admin);
+        $this->postJson("/api/orgs/{$org->id}/members/{$member->id}/promote")->assertOk();
+
+        $this->assertTrue($org->fresh()->isOwner($member->fresh()));
+    }
 }

@@ -183,6 +183,8 @@ Route::middleware(['auth:sanctum', 'verified', 'organizer.approved'])->group(fun
     Route::delete('/orgs/{organization}', [OrgController::class, 'destroy']);
     Route::post('/orgs/{organization}/logo', [OrgController::class, 'uploadLogo'])->middleware('throttle:20,1');
     Route::get('/orgs/{organization}/members', [OrgController::class, 'members']);
+    Route::post('/orgs/{organization}/members/{user}/promote', [OrgController::class, 'promoteMember']);
+    Route::post('/orgs/{organization}/members/{user}/demote', [OrgController::class, 'demoteMember']);
     Route::delete('/orgs/{organization}/members/{user}', [OrgController::class, 'removeMember']);
     Route::get('/orgs/{organization}/invites', [OrgController::class, 'invites']);
     Route::post('/orgs/{organization}/invites', [OrgController::class, 'storeInvite'])->middleware('throttle:20,1');
