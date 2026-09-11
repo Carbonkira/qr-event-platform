@@ -172,8 +172,11 @@ export function getMyRegistrations() {
 export function findPassesByEmail(email) {
   return api.get('/pass/lookup', { email })
 }
-export function getRegistration(id) {
-  return api.get(`/registrations/${id}`)
+// token is the registration's own pass_token - the URL itself is the
+// credential (see RegistrationController::show()), so a bare id with no
+// token 404s for any registration created after that column existed.
+export function getRegistration(id, token) {
+  return api.get(`/registrations/${id}`, token ? { token } : undefined)
 }
 export function verifyPayment(registrationId, approved) {
   return api.post(`/registrations/${registrationId}/verify-payment`, { approved })

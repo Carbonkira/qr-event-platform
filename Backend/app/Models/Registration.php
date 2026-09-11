@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class Registration extends Model
 {
@@ -26,6 +27,16 @@ class Registration extends Model
         'payment_screenshot',
         'reminder_sent_at',
     ];
+
+    // Deliberately not fillable - a client should never be able to set or
+    // overwrite its own pass_token. Every new registration gets one
+    // automatically; see the pass_token migration for why this exists.
+    protected static function booted(): void
+    {
+        static::creating(function (Registration $registration) {
+            $registration->pass_token ??= Str::random(48);
+        });
+    }
 
     // Exposed as paymentScreenshotUrl (camelCased at the response boundary)
     // so the frontend never needs to know the storage disk/path scheme.

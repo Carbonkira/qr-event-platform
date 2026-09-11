@@ -63,7 +63,7 @@ export default function Confirm() {
         </div>
 
         <div className="space-y-2">
-          <Btn variant="primary" size="lg" full icon={QrCode} onClick={() => navigate(`/pass/${regId}`, { state: { ...registration, event } })}>View QR Pass</Btn>
+          <Btn variant="primary" size="lg" full icon={QrCode} onClick={() => navigate(`/pass/${regId}?t=${registration.passToken}`, { state: { ...registration, event } })}>View QR Pass</Btn>
           {event && (
             <div className="grid grid-cols-2 gap-2">
               <a href={googleCalUrl(event)} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-white border border-slate-200 hover:border-slate-300 text-[12px] font-semibold text-slate-700 transition-all"><CalendarPlus size={14} />Google Cal</a>

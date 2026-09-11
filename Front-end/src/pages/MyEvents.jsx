@@ -35,7 +35,7 @@ function AttendingView({ place }) {
       ) : (
         <div className="space-y-3">
           {registrations.map(reg => (
-            <Card key={reg.id} hover className="p-4" onClick={() => navigate(`/pass/${reg.id}`, { state: reg })}>
+            <Card key={reg.id} hover className="p-4" onClick={() => navigate(`/pass/${reg.id}?t=${reg.passToken}`, { state: reg })}>
               <div className="flex items-center justify-between">
                 <div className="min-w-0">
                   <p className="text-[14px] font-bold text-slate-800 truncate">{reg.event?.title}</p>

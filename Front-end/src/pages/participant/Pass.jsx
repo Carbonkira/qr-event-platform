@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import QRCode from 'qrcode'
 import { ArrowLeft, Calendar, MapPin, Hourglass, Clock3, CircleAlert } from 'lucide-react'
 import { Btn, Card } from '../../components/ui'
@@ -10,13 +10,17 @@ export default function Pass() {
   const { regId } = useParams()
   const navigate = useNavigate()
   const location = useLocation()
+  const [searchParams] = useSearchParams()
   // Router state (set right after registering, or by FindPass's fresh
   // lookup) paints instantly; the live fetch below is the source of truth
   // once it resolves - a bare /pass/:regId link (the one that's actually
   // emailed) has no state at all otherwise, and would never reflect being
-  // checked in or the event completing.
+  // checked in or the event completing. The token (from the URL, or from
+  // that same cached state on a fresh navigation) is the actual credential
+  // the live fetch needs - see RegistrationController::show().
   const cached = location.state
-  const { data: live, loading, error } = useRegistration(regId)
+  const token = searchParams.get('t') || cached?.passToken
+  const { data: live, loading, error } = useRegistration(regId, token)
   const registration = live || cached
   const [qrDataUrl, setQrDataUrl] = useState(null)
 

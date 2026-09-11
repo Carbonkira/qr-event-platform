@@ -46,7 +46,7 @@ export default function FindPass() {
             // on the registration — see Pass.jsx for the same normalization.
             const ev = reg.event || reg
             return (
-              <Card key={reg.id} hover className="p-4" onClick={() => navigate(`/pass/${reg.id}`, { state: reg })}>
+              <Card key={reg.id} hover className="p-4" onClick={() => navigate(`/pass/${reg.id}?t=${reg.passToken}`, { state: reg })}>
                 <p className="text-[14px] font-bold text-slate-800">{ev.title}</p>
                 <p className="text-[12px] text-slate-500 mt-1">{fmtDate(ev.date)} · {fmtTime(ev.startTime)}</p>
               </Card>

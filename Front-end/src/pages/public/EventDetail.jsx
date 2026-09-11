@@ -124,7 +124,7 @@ export default function EventDetail() {
                 {myRegistration ? (
                   <div className="space-y-2">
                     <div className="text-center py-2 rounded-xl bg-emerald-50 text-emerald-700 text-[13px] font-semibold flex items-center justify-center gap-1.5"><CheckCircle2 size={14} />You're registered</div>
-                    <Btn variant="secondary" size="lg" full icon={Ticket} onClick={() => navigate(`/pass/${myRegistration.id}`)}>View your pass</Btn>
+                    <Btn variant="secondary" size="lg" full icon={Ticket} onClick={() => navigate(`/pass/${myRegistration.id}?t=${myRegistration.passToken}`)}>View your pass</Btn>
                   </div>
                 ) : isFull ? <div className="text-center py-2 rounded-xl bg-amber-50 text-amber-700 text-[13px] font-semibold">Event is full</div> : (
                   <div className="space-y-2">
