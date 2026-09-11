@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Registration;
 use Endroid\QrCode\Builder\Builder;
 use Endroid\QrCode\Writer\PngWriter;
+use Illuminate\Http\Request;
 
 class QrCodeController extends Controller
 {
@@ -14,9 +15,18 @@ class QrCodeController extends Controller
      * (embedded as an <img> in confirmation/reminder emails) - the app
      * itself renders the same qr_code string client-side via the `qrcode`
      * npm package, since a live page can do that without a round-trip.
+     * An <img> tag can't send an Authorization header, so - like
+     * RegistrationController::show() - the URL's own ?token= is the only
+     * credential available; every mailable that builds this URL appends
+     * the registration's pass_token to it. Same grandfathering for
+     * registrations from before that column existed (null pass_token).
      */
-    public function show(Registration $registration)
+    public function show(Request $request, Registration $registration)
     {
+        if ($registration->pass_token && $registration->pass_token !== $request->query('token')) {
+            abort(404);
+        }
+
         // Same payment gate as RegistrationController::show() - the pass
         // isn't valid until the organizer verifies a paid registration, so
         // the PNG itself must 403 rather than render a QR that would scan

@@ -335,6 +335,14 @@ class RegistrationController extends Controller
      * (App.jsx:98) - case-insensitive, trimmed. Mainly useful now for
      * organizer-added guests and walk-ins, who have no account to log into.
      */
+    /**
+     * Email is the only real secret here (no login required), so this
+     * returns the same restricted shape show() does - not the full model -
+     * for the same reason: no custom_data, payment_ref, or payment
+     * screenshot to anyone who happens to know or guess an email address.
+     * pass_token IS included here (unlike show()'s response) - the frontend
+     * needs it to build each result's /pass/:id?t= link.
+     */
     public function lookup(Request $request)
     {
         $data = $request->validate([
@@ -346,12 +354,18 @@ class RegistrationController extends Controller
             ->orderByDesc('created_at')
             ->get();
 
-        return response()->json($registrations);
+        return response()->json($registrations->map(fn ($r) => $this->restrictedPayload($r)));
     }
 
     /**
      * Public, keyed by the registration's own id - which, unlike a token,
      * is a plain sequential integer and trivially enumerable (1, 2, 3, ...).
+     * A registration created after the pass_token migration always has one,
+     * and a request missing it (or presenting the wrong one) is treated as
+     * not found - the URL itself is the credential, same idea as a signed
+     * link. Older registrations from before that migration have a null
+     * pass_token and are grandfathered to the old no-token behavior, since
+     * there's no way to retroactively fix a link already sent by email.
      * Deliberately returns only what the Pass page actually renders, not
      * the full model: no email, custom_data, payment_ref, or the payment
      * screenshot URL. Lets the Pass page fetch live status (attended,
@@ -359,25 +373,36 @@ class RegistrationController extends Controller
      * showing whatever was true at the moment of registration, which is
      * all a plain /pass/:regId link previously had to go on.
      */
-    public function show(Registration $registration)
+    public function show(Request $request, Registration $registration)
     {
-        // A paid registration's pass isn't valid for check-in until the
-        // organizer verifies the payment - withholding the QR code itself
-        // (not just hiding it client-side) means it can't leak through this
-        // endpoint before that happens. Free/walk-in registrations never
-        // set payment_status, so this is a no-op for them.
+        if ($registration->pass_token && $registration->pass_token !== $request->query('token')) {
+            abort(404);
+        }
+
+        return response()->json($this->restrictedPayload($registration));
+    }
+
+    private function restrictedPayload(Registration $registration): array
+    {
+        // Same payment gate as QrCodeController::show() - the pass isn't
+        // valid for check-in until the organizer verifies the payment, so
+        // withholding the QR code itself (not just hiding it client-side)
+        // means it can't leak through this endpoint before that happens.
+        // Free/walk-in registrations never set payment_status, so this is
+        // a no-op for them.
         $paymentBlocked = in_array($registration->payment_status, ['pending', 'rejected'], true);
 
-        return response()->json([
+        return [
             'id' => $registration->id,
             'name' => $registration->name,
             'qr_code' => $paymentBlocked ? null : $registration->qr_code,
+            'pass_token' => $registration->pass_token,
             'payment_status' => $registration->payment_status,
             'event_id' => $registration->event_id,
             'attended' => $registration->attended,
             'feedback_submitted' => $registration->feedback_submitted,
             'event' => $registration->event()->select('id', 'title', 'slug', 'date', 'start_time', 'end_time', 'venue', 'status', 'feedback_enabled')->first(),
-        ]);
+        ];
     }
 
     public function verifyPayment(Request $request, Registration $registration)

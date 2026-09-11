@@ -26,7 +26,7 @@ class RegistrationConfirmedMail extends Mailable
             ->view('emails.registration-confirmed', [
                 'registration' => $this->registration,
                 'event' => $event,
-                'qrUrl' => url("/api/registrations/{$this->registration->id}/qr.png"),
+                'qrUrl' => url("/api/registrations/{$this->registration->id}/qr.png?token={$this->registration->pass_token}"),
             ]);
     }
 }

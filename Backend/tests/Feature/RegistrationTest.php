@@ -58,16 +58,39 @@ class RegistrationTest extends TestCase
         $event = $this->makeEvent(['status' => 'approved']);
         $registration = $event->registrations()->create(['name' => 'Attendee', 'email' => 'attendee@example.com', 'qr_code' => 'QR-1', 'attended' => false]);
 
-        $response = $this->getJson("/api/registrations/{$registration->id}")->assertOk();
+        $response = $this->getJson("/api/registrations/{$registration->id}?token={$registration->pass_token}")->assertOk();
         $this->assertSame('approved', $response->json('event.status'));
         $this->assertFalse($response->json('attended'));
 
         $event->update(['status' => 'completed']);
         $registration->update(['attended' => true]);
 
-        $response = $this->getJson("/api/registrations/{$registration->id}")->assertOk();
+        $response = $this->getJson("/api/registrations/{$registration->id}?token={$registration->pass_token}")->assertOk();
         $this->assertSame('completed', $response->json('event.status'));
         $this->assertTrue($response->json('attended'));
+    }
+
+    public function test_the_registration_endpoint_requires_the_correct_pass_token(): void
+    {
+        // The id alone is a plain sequential integer - anyone can iterate
+        // it, so the pass_token in the URL is the actual credential (see
+        // RegistrationController::show()). No token, or the wrong one, must
+        // 404 rather than reveal that the id even exists.
+        $event = $this->makeEvent(['status' => 'approved']);
+        $registration = $event->registrations()->create(['name' => 'Attendee', 'email' => 'attendee@example.com', 'qr_code' => 'QR-TOK']);
+
+        $this->getJson("/api/registrations/{$registration->id}")->assertNotFound();
+        $this->getJson("/api/registrations/{$registration->id}?token=wrong-token")->assertNotFound();
+        $this->getJson("/api/registrations/{$registration->id}?token={$registration->pass_token}")->assertOk();
+    }
+
+    public function test_a_registration_created_before_pass_tokens_existed_is_grandfathered_to_no_token_required(): void
+    {
+        $event = $this->makeEvent(['status' => 'approved']);
+        $registration = $event->registrations()->create(['name' => 'Attendee', 'email' => 'attendee@example.com', 'qr_code' => 'QR-LEGACY']);
+        $registration->forceFill(['pass_token' => null])->save();
+
+        $this->getJson("/api/registrations/{$registration->id}")->assertOk();
     }
 
     public function test_the_public_registration_lookup_does_not_leak_contact_or_payment_details(): void
@@ -84,7 +107,7 @@ class RegistrationTest extends TestCase
             'custom_data' => ['phone' => '555-1234'], 'payment_ref' => 'REF-999', 'payment_status' => 'pending',
         ]);
 
-        $response = $this->getJson("/api/registrations/{$registration->id}")->assertOk();
+        $response = $this->getJson("/api/registrations/{$registration->id}?token={$registration->pass_token}")->assertOk();
 
         $response->assertJsonMissingPath('email');
         $response->assertJsonMissingPath('customData');
@@ -103,18 +126,19 @@ class RegistrationTest extends TestCase
             'name' => 'Attendee', 'email' => 'attendee@example.com', 'qr_code' => 'QR-PAID-1',
             'payment_ref' => 'REF-1', 'payment_status' => 'pending',
         ]);
+        $token = $registration->pass_token;
 
-        $pending = $this->getJson("/api/registrations/{$registration->id}")->assertOk();
+        $pending = $this->getJson("/api/registrations/{$registration->id}?token={$token}")->assertOk();
         $this->assertNull($pending->json('qrCode'));
-        $this->getJson("/api/registrations/{$registration->id}/qr.png")->assertForbidden();
+        $this->getJson("/api/registrations/{$registration->id}/qr.png?token={$token}")->assertForbidden();
 
         Sanctum::actingAs($organizer);
         $this->postJson("/api/registrations/{$registration->id}/verify-payment", ['approved' => true])->assertOk();
         Mail::assertQueued(\App\Mail\PaymentVerifiedMail::class);
 
-        $verified = $this->getJson("/api/registrations/{$registration->id}")->assertOk();
+        $verified = $this->getJson("/api/registrations/{$registration->id}?token={$token}")->assertOk();
         $this->assertSame('QR-PAID-1', $verified->json('qrCode'));
-        $this->getJson("/api/registrations/{$registration->id}/qr.png")->assertOk();
+        $this->getJson("/api/registrations/{$registration->id}/qr.png?token={$token}")->assertOk();
     }
 
     public function test_rejecting_a_payment_queues_the_rejection_email_and_keeps_the_qr_withheld(): void
@@ -127,14 +151,15 @@ class RegistrationTest extends TestCase
             'name' => 'Attendee', 'email' => 'attendee@example.com', 'qr_code' => 'QR-PAID-2',
             'payment_ref' => 'REF-2', 'payment_status' => 'pending',
         ]);
+        $token = $registration->pass_token;
 
         Sanctum::actingAs($organizer);
         $this->postJson("/api/registrations/{$registration->id}/verify-payment", ['approved' => false])->assertOk();
         Mail::assertQueued(\App\Mail\PaymentRejectedMail::class);
 
-        $rejected = $this->getJson("/api/registrations/{$registration->id}")->assertOk();
+        $rejected = $this->getJson("/api/registrations/{$registration->id}?token={$token}")->assertOk();
         $this->assertNull($rejected->json('qrCode'));
-        $this->getJson("/api/registrations/{$registration->id}/qr.png")->assertForbidden();
+        $this->getJson("/api/registrations/{$registration->id}/qr.png?token={$token}")->assertForbidden();
     }
 
     public function test_a_stranger_cannot_verify_payment_for_someone_elses_event(): void
