@@ -24,6 +24,13 @@ class PaymentVerifiedMail extends Mailable
                 'registration' => $this->registration,
                 'event' => $event,
                 'qrUrl' => url("/api/registrations/{$this->registration->id}/qr.png?token={$this->registration->pass_token}"),
+                'paymentAccount' => $this->registration->paymentAccount(),
+                'paymentModeLabels' => [
+                    'bank_deposit' => 'Bank Deposit',
+                    'online_bank_transfer' => 'Online Bank Transfer',
+                    'international_remittance' => 'International Remittance',
+                    'ewallet_bank_transfer' => 'E-Wallet Bank Transfer',
+                ],
             ]);
     }
 }

@@ -11,6 +11,17 @@ export const CHART_COLORS = PIE_COLORS
 // the create/edit forms' Select and the public category browsing cards.
 export const INDUSTRIES = ['Technology', 'Education', 'Design', 'Finance', 'Healthcare', 'Marketing', 'Real Estate', 'Other']
 
+// Shared between CreateEventModal/EditEvent (organizer sets these up per
+// paid event) and Register.jsx's payment step (participant picks one) -
+// kept here, not in CreateEventModal, so EditEvent doesn't have to
+// statically import that lazy-loaded modal's whole module just for this.
+export const PAYMENT_MODES = [
+  { value: 'bank_deposit', label: 'Bank Deposit' },
+  { value: 'online_bank_transfer', label: 'Online Bank Transfer' },
+  { value: 'international_remittance', label: 'International Remittance' },
+  { value: 'ewallet_bank_transfer', label: 'E-Wallet Bank Transfer' },
+]
+
 export const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-PH', { weekday: 'short', month: 'short', day: 'numeric' }) : ''
 export const fmtDateLong = (d) => d ? new Date(d).toLocaleDateString('en-PH', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }) : ''
 export const fmtTime = (t) => { if (!t) return ''; const [h, m] = t.split(':'); const ampm = h >= 12 ? 'PM' : 'AM'; return `${h % 12 || 12}:${m} ${ampm}` }

@@ -511,6 +511,7 @@ class EventController extends Controller
             'privacy_policy_url' => ['sometimes', 'nullable', 'string', 'max:2048'],
             'custom_fields' => ['sometimes', 'nullable', 'array'],
             'feedback_questions' => ['sometimes', 'nullable', 'array'],
+            'payment_accounts' => ['sometimes', 'nullable', 'array'],
             'tags' => ['sometimes', 'nullable', 'array'],
             'task_template_id' => ['sometimes', 'nullable', 'integer', 'exists:task_templates,id'],
         ]);

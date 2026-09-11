@@ -24,6 +24,10 @@ class Registration extends Model
         'waitlisted',
         'payment_status',
         'payment_ref',
+        'payment_account_id',
+        'payment_amount',
+        'payment_date',
+        'payment_note',
         'payment_screenshot',
         'reminder_sent_at',
     ];
@@ -58,8 +62,16 @@ class Registration extends Model
             'feedback_submitted' => 'boolean',
             'is_walk_in' => 'boolean',
             'waitlisted' => 'boolean',
+            'payment_amount' => 'decimal:2',
+            'payment_date' => 'date',
             'reminder_sent_at' => 'datetime',
         ];
+    }
+
+    /** The specific event payment_accounts entry this registration says it paid into, if any. */
+    public function paymentAccount(): ?array
+    {
+        return collect($this->event?->payment_accounts ?? [])->firstWhere('id', $this->payment_account_id);
     }
 
     public function event(): BelongsTo

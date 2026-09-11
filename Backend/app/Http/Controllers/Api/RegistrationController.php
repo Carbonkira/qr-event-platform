@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Mail\NewRegistrationMail;
 use App\Mail\PaymentRejectedMail;
 use App\Mail\PaymentVerifiedMail;
 use App\Mail\RegistrationConfirmedMail;
@@ -28,6 +29,14 @@ class RegistrationController extends Controller
             'email' => ['required', 'string', 'email', 'max:255'],
             'custom_data' => ['sometimes', 'nullable', 'array'],
             'payment_ref' => ['sometimes', 'nullable', 'string', 'max:255'],
+            // Which of the event's payment_accounts entries they say they
+            // paid into - a plain string id, not validated against the JSON
+            // array's contents (same trust-the-frontend treatment
+            // custom_fields ids already get elsewhere in this controller).
+            'payment_account_id' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'payment_amount' => ['sometimes', 'nullable', 'numeric', 'min:0'],
+            'payment_date' => ['sometimes', 'nullable', 'date'],
+            'payment_note' => ['sometimes', 'nullable', 'string', 'max:1000'],
             'payment_screenshot' => ['sometimes', 'nullable', 'image', 'max:5120'], // 5MB, matches the frontend's own limit
         ]);
 
@@ -49,6 +58,19 @@ class RegistrationController extends Controller
             'participant_id' => $request->user()->id,
             'is_walk_in' => false,
         ]);
+
+        // Only for a real self-service signup - not walkIn()/importCsv(),
+        // which the organizer already triggered themselves and doesn't need
+        // telling about. A broken mail config must never fail the
+        // registration itself, same reasoning as the confirmation email
+        // inside createRegistration().
+        if ($event->organizer?->email) {
+            try {
+                Mail::to($event->organizer->email)->queue(new NewRegistrationMail($registration));
+            } catch (\Throwable $e) {
+                Log::error('Failed to queue new-registration notification email', ['registration_id' => $registration->id, 'error' => $e->getMessage()]);
+            }
+        }
 
         return response()->json($registration, 201);
     }
@@ -136,6 +158,10 @@ class RegistrationController extends Controller
             'waitlisted' => ! $isWalkIn && $this->isEventFull($event),
             'payment_status' => $paymentRef ? 'pending' : null,
             'payment_ref' => $paymentRef,
+            'payment_account_id' => $data['payment_account_id'] ?? null,
+            'payment_amount' => $data['payment_amount'] ?? null,
+            'payment_date' => $data['payment_date'] ?? null,
+            'payment_note' => $data['payment_note'] ?? null,
             'payment_screenshot' => $screenshotPath,
         ], $overrides));
 
