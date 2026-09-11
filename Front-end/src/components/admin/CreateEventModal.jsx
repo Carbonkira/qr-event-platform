@@ -11,7 +11,7 @@ import LocationPicker from '../shared/LocationPicker'
 import { createEvent, generateEventDescription, uploadEventImage } from '../../api/resources'
 import { useTaskTemplates, useMyOrgs } from '../../hooks/useApi'
 import { useApp } from '../../context/AppContext'
-import { cn, INDUSTRIES } from '../../lib/utils'
+import { cn, INDUSTRIES, PAYMENT_MODES } from '../../lib/utils'
 
 const DEFAULT_FEEDBACK_QUESTIONS = [
   { id: 'q1', label: 'Check-in experience', type: 'rating', required: true },
@@ -28,7 +28,7 @@ const blankForm = () => ({
   image: '', pricing: 'free', price: '', allowWalkIns: true, isPrivate: false,
   feedbackEnabled: true, privacyPolicyUrl: '', taskTemplateId: '',
   socials: { instagram: '', linkedin: '', facebook: '', website: '' },
-  customFields: [], tags: '',
+  customFields: [], tags: '', paymentAccounts: [],
   feedbackQuestions: DEFAULT_FEEDBACK_QUESTIONS.map(q => ({ ...q })),
 })
 
@@ -127,6 +127,10 @@ export default function CreateEventModal({ open, onClose, toast, onCreated }) {
   const updField = (id, k, v) => up('customFields', form.customFields.map(f => f.id === id ? { ...f, [k]: v } : f))
   const delField = (id) => up('customFields', form.customFields.filter(f => f.id !== id))
 
+  const addPaymentAccount = () => up('paymentAccounts', [...form.paymentAccounts, { id: `pa${Date.now()}`, mode: PAYMENT_MODES[0].value, bankName: '', accountName: '', accountNumber: '' }])
+  const updPaymentAccount = (id, k, v) => up('paymentAccounts', form.paymentAccounts.map(a => a.id === id ? { ...a, [k]: v } : a))
+  const delPaymentAccount = (id) => up('paymentAccounts', form.paymentAccounts.filter(a => a.id !== id))
+
   // First 5 (q1-q5) are the fixed rating columns - relabel only, can't
   // remove or retype. Anything past that is an organizer-added extra
   // question, answered into feedback.customAnswers.
@@ -159,6 +163,7 @@ export default function CreateEventModal({ open, onClose, toast, onCreated }) {
         capacity: parseInt(form.capacity) || 50,
         price: form.pricing === 'paid' ? (parseInt(form.price) || 0) : 0,
         customFields: form.customFields.filter(f => f.label.trim()),
+        paymentAccounts: form.paymentAccounts.filter(a => a.bankName.trim() && a.accountNumber.trim()),
         tags: form.tags.split(',').map(t => t.trim()).filter(Boolean),
         taskTemplateId: form.taskTemplateId || null,
         organizationId: form.organizationId || null,
@@ -285,6 +290,36 @@ export default function CreateEventModal({ open, onClose, toast, onCreated }) {
               </div>
               {form.pricing === 'paid' && <div className="mt-3"><Input label="Price (₱)" value={form.price} onChange={e => up('price', e.target.value)} type="number" icon={DollarSign} placeholder="500" /></div>}
             </div>
+
+            {form.pricing === 'paid' && (
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-[12px] font-bold text-slate-700">Payment accounts</p>
+                  <button type="button" onClick={addPaymentAccount} className="text-[11px] font-semibold text-[var(--accent)] flex items-center gap-1"><Plus size={12} />Add account</button>
+                </div>
+                {form.paymentAccounts.length === 0 ? (
+                  <p className="text-[12px] text-slate-400 py-3 text-center bg-slate-50 rounded-xl">No payment accounts yet - attendees won't know where to send payment.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {form.paymentAccounts.map(a => (
+                      <div key={a.id} className="p-2.5 rounded-xl border border-slate-200 space-y-2">
+                        <div className="flex items-center gap-2">
+                          <select value={a.mode} onChange={e => updPaymentAccount(a.id, 'mode', e.target.value)} className="text-[11px] font-semibold px-2 py-1.5 rounded-lg border border-slate-200 bg-white flex-shrink-0">
+                            {PAYMENT_MODES.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
+                          </select>
+                          <input value={a.bankName} onChange={e => updPaymentAccount(a.id, 'bankName', e.target.value)} placeholder="Bank / e-wallet name" className="flex-1 min-w-0 text-sm px-2.5 py-1.5 rounded-lg border border-slate-200 outline-none focus:border-[#1a1a2e]" />
+                          <button type="button" onClick={() => delPaymentAccount(a.id)} className="p-1.5 text-slate-400 hover:text-rose-500 flex-shrink-0"><Trash2 size={14} /></button>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <input value={a.accountName} onChange={e => updPaymentAccount(a.id, 'accountName', e.target.value)} placeholder="Account name" className="flex-1 min-w-0 text-sm px-2.5 py-1.5 rounded-lg border border-slate-200 outline-none focus:border-[#1a1a2e]" />
+                          <input value={a.accountNumber} onChange={e => updPaymentAccount(a.id, 'accountNumber', e.target.value)} placeholder="Account number" className="flex-1 min-w-0 text-sm px-2.5 py-1.5 rounded-lg border border-slate-200 outline-none focus:border-[#1a1a2e]" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className="space-y-2.5">
               <Toggle checked={form.allowWalkIns} onChange={v => up('allowWalkIns', v)} icon={UserCheck} label="Allow walk-ins" desc="Let guests register on-site without filling the form" color="#0f9d8f" />

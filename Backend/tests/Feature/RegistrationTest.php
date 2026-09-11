@@ -216,6 +216,40 @@ class RegistrationTest extends TestCase
         Mail::assertQueued(\App\Mail\RegistrationConfirmedMail::class);
     }
 
+    public function test_registering_submits_payment_details_and_notifies_the_organizer(): void
+    {
+        Mail::fake();
+        $organizer = $this->makeUser('organizer@example.com');
+        $event = $this->makeEvent(['organizer_id' => $organizer->id, 'pricing' => 'paid', 'price' => 500]);
+        $participant = $this->makeParticipant('ana@example.com');
+        Sanctum::actingAs($participant);
+
+        $response = $this->postJson("/api/events/{$event->id}/register", [
+            'name' => 'Ana', 'email' => 'ana@example.com', 'paymentRef' => 'REF-1',
+            'paymentAccountId' => 'pa1', 'paymentAmount' => 500, 'paymentDate' => '2026-08-01', 'paymentNote' => 'Sent via GCash app',
+        ])->assertCreated();
+
+        $this->assertSame('pa1', $response->json('paymentAccountId'));
+        $this->assertEquals(500, $response->json('paymentAmount'));
+        $this->assertSame('2026-08-01', \Carbon\Carbon::parse($response->json('paymentDate'))->toDateString());
+        $this->assertSame('Sent via GCash app', $response->json('paymentNote'));
+        Mail::assertQueued(\App\Mail\NewRegistrationMail::class, fn ($mail) => $mail->hasTo($organizer->email));
+    }
+
+    public function test_walk_in_and_manually_added_guests_do_not_notify_the_organizer(): void
+    {
+        Mail::fake();
+        $organizer = $this->makeUser('organizer@example.com');
+        $event = $this->makeEvent(['organizer_id' => $organizer->id]);
+
+        $this->postJson("/api/events/{$event->id}/walk-in", ['name' => 'Walk In', 'email' => 'walkin@example.com'])->assertCreated();
+
+        Sanctum::actingAs($organizer);
+        $this->postJson("/api/events/{$event->id}/registrations", ['name' => 'Manual Guest', 'email' => 'manual@example.com'])->assertCreated();
+
+        Mail::assertNotQueued(\App\Mail\NewRegistrationMail::class);
+    }
+
     public function test_registering_twice_with_the_same_account_returns_the_existing_registration(): void
     {
         Mail::fake();

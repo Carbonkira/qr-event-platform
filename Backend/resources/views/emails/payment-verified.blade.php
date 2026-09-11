@@ -23,7 +23,16 @@
 <tr><td style="padding:14px 16px;font-size:13px;">
 <p style="margin:0 0 8px;font-weight:700;">Official Receipt</p>
 <p style="margin:0 0 6px;"><strong>Reference:</strong> {{ $registration->payment_ref }}</p>
-<p style="margin:0 0 6px;"><strong>Amount paid:</strong> ₱{{ number_format($event->price, 2) }}</p>
+<p style="margin:0 0 6px;"><strong>Amount paid:</strong> ₱{{ number_format($registration->payment_amount ?? $event->price, 2) }}</p>
+@if ($paymentAccount)
+<p style="margin:0 0 6px;"><strong>Paid via:</strong> {{ $paymentModeLabels[$paymentAccount['mode']] ?? $paymentAccount['mode'] }} - {{ $paymentAccount['bank_name'] }} ({{ $paymentAccount['account_number'] }})</p>
+@endif
+@if ($registration->payment_date)
+<p style="margin:0 0 6px;"><strong>Date paid:</strong> {{ \Carbon\Carbon::parse($registration->payment_date)->format('F j, Y') }}</p>
+@endif
+@if ($registration->payment_note)
+<p style="margin:0 0 6px;"><strong>Note:</strong> {{ $registration->payment_note }}</p>
+@endif
 <p style="margin:0;"><strong>Event:</strong> {{ $event->title }} - {{ \Carbon\Carbon::parse($event->date)->format('l, F j, Y') }}</p>
 </td></tr>
 </table>

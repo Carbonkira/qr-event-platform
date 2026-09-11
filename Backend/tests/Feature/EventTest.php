@@ -274,6 +274,30 @@ class EventTest extends TestCase
         Mail::assertQueued(EventSubmittedForApprovalMail::class, fn ($mail) => $mail->hasTo($admin->email));
     }
 
+    /** Same JSON-array-column shape as custom_fields/feedback_questions - round-trips through create/update untouched. */
+    public function test_payment_accounts_round_trip_through_create_and_update(): void
+    {
+        $user = $this->makeUser();
+        $org = $this->makeOrganization($user);
+        Sanctum::actingAs($user);
+
+        $accounts = [
+            ['id' => 'pa1', 'mode' => 'bank_deposit', 'bankName' => 'BDO', 'accountName' => 'Acme Club', 'accountNumber' => '001122'],
+            ['id' => 'pa2', 'mode' => 'ewallet_bank_transfer', 'bankName' => 'GCash', 'accountName' => 'Acme Club', 'accountNumber' => '0917-000-0000'],
+        ];
+
+        $created = $this->postJson('/api/events', [
+            'title' => 'Paid Meetup', 'type' => 'Meetup', 'venue' => 'Venue', 'organizationId' => $org->id,
+            'date' => '2026-08-01', 'startTime' => '10:00', 'endTime' => '12:00', 'capacity' => 30,
+            'pricing' => 'paid', 'price' => 500, 'paymentAccounts' => $accounts,
+        ])->assertCreated();
+
+        $this->assertSame($accounts, $created->json('paymentAccounts'));
+
+        $updated = $this->putJson("/api/events/{$created->json('id')}", ['paymentAccounts' => [$accounts[0]]])->assertOk();
+        $this->assertSame([$accounts[0]], $updated->json('paymentAccounts'));
+    }
+
     public function test_only_the_owner_can_update_an_event(): void
     {
         $owner = $this->makeUser('owner@example.com');

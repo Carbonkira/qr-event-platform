@@ -6,7 +6,7 @@ import LocationPicker from '../../components/shared/LocationPicker'
 import { useAdminEvents, useMyOrgs } from '../../hooks/useApi'
 import { updateEvent, submitEvent, uploadEventImage } from '../../api/resources'
 import { useApp } from '../../context/AppContext'
-import { cn, INDUSTRIES } from '../../lib/utils'
+import { cn, INDUSTRIES, PAYMENT_MODES } from '../../lib/utils'
 
 const DEFAULT_FEEDBACK_QUESTIONS = [
   { id: 'q1', label: 'Check-in experience', type: 'rating', required: true },
@@ -38,6 +38,7 @@ function formFromEvent(event) {
     privacyPolicyUrl: event.privacyPolicyUrl || '',
     customFields: (event.customFields || []).map((f, i) => ({ id: f.id || `cf-${i}`, ...f })),
     feedbackQuestions: (event.feedbackQuestions?.length ? event.feedbackQuestions : DEFAULT_FEEDBACK_QUESTIONS).map(q => ({ ...q })),
+    paymentAccounts: (event.paymentAccounts || []).map((a, i) => ({ id: a.id || `pa-${i}`, ...a })),
     tags: (event.tags || []).join(', '),
   }
 }
@@ -102,6 +103,10 @@ export default function EditEvent() {
   const addQuestion = () => setForm(f => ({ ...f, feedbackQuestions: [...f.feedbackQuestions, { id: `fq${Date.now()}`, label: '', type: 'text', required: false }] }))
   const delQuestion = (id) => setForm(f => ({ ...f, feedbackQuestions: f.feedbackQuestions.filter(q => q.id !== id) }))
 
+  const addPaymentAccount = () => setForm(f => ({ ...f, paymentAccounts: [...f.paymentAccounts, { id: `pa${Date.now()}`, mode: PAYMENT_MODES[0].value, bankName: '', accountName: '', accountNumber: '' }] }))
+  const updPaymentAccount = (id, k, v) => setForm(f => ({ ...f, paymentAccounts: f.paymentAccounts.map(a => a.id === id ? { ...a, [k]: v } : a) }))
+  const delPaymentAccount = (id) => setForm(f => ({ ...f, paymentAccounts: f.paymentAccounts.filter(a => a.id !== id) }))
+
   const submitForApproval = async () => {
     setSubmitting(true)
     try {
@@ -128,6 +133,7 @@ export default function EditEvent() {
         capacity: parseInt(form.capacity) || 50,
         price: form.pricing === 'paid' ? (parseInt(form.price) || 0) : 0,
         customFields: form.customFields.filter(f => f.label.trim()),
+        paymentAccounts: form.paymentAccounts.filter(a => a.bankName.trim() && a.accountNumber.trim()),
         tags: form.tags.split(',').map(t => t.trim()).filter(Boolean),
       }
       await updateEvent(event.id, payload)
@@ -204,6 +210,32 @@ export default function EditEvent() {
           ))}
         </div>
         {form.pricing === 'paid' && <Input label="Price (₱)" value={form.price} onChange={e => up('price', e.target.value)} type="number" icon={DollarSign} />}
+
+        {form.pricing === 'paid' && (
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-[12px] font-semibold text-slate-600">Payment accounts</p>
+              <Btn variant="ghost" size="sm" icon={Plus} onClick={addPaymentAccount}>Add account</Btn>
+            </div>
+            {form.paymentAccounts.map(a => (
+              <div key={a.id} className="p-2.5 rounded-xl border border-slate-200 space-y-2 mb-2">
+                <div className="flex items-center gap-2">
+                  <select value={a.mode} onChange={e => updPaymentAccount(a.id, 'mode', e.target.value)} className="text-[11px] font-semibold px-2 py-1.5 rounded-lg border border-slate-200 bg-white flex-shrink-0">
+                    {PAYMENT_MODES.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
+                  </select>
+                  <input value={a.bankName} onChange={e => updPaymentAccount(a.id, 'bankName', e.target.value)} placeholder="Bank / e-wallet name" className="flex-1 min-w-0 text-sm px-2.5 py-1.5 rounded-lg border border-slate-200 outline-none focus:border-[#1a1a2e]" />
+                  <button type="button" onClick={() => delPaymentAccount(a.id)} className="p-1.5 text-slate-400 hover:text-rose-500 flex-shrink-0"><Trash2 size={14} /></button>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input value={a.accountName} onChange={e => updPaymentAccount(a.id, 'accountName', e.target.value)} placeholder="Account name" className="flex-1 min-w-0 text-sm px-2.5 py-1.5 rounded-lg border border-slate-200 outline-none focus:border-[#1a1a2e]" />
+                  <input value={a.accountNumber} onChange={e => updPaymentAccount(a.id, 'accountNumber', e.target.value)} placeholder="Account number" className="flex-1 min-w-0 text-sm px-2.5 py-1.5 rounded-lg border border-slate-200 outline-none focus:border-[#1a1a2e]" />
+                </div>
+              </div>
+            ))}
+            {form.paymentAccounts.length === 0 && <p className="text-[11px] text-slate-400">No payment accounts - attendees won't know where to send payment.</p>}
+          </div>
+        )}
+
         <Toggle checked={form.allowWalkIns} onChange={v => up('allowWalkIns', v)} icon={UserCheck} label="Allow walk-ins" color="#0f9d8f" />
         <Toggle checked={form.isPrivate} onChange={v => up('isPrivate', v)} icon={Lock} label="Private event" color="var(--accent)" />
         <Toggle checked={form.feedbackEnabled} onChange={v => up('feedbackEnabled', v)} icon={MessageSquare} label="Collect feedback" color="#1a1a2e" />
