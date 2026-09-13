@@ -15,7 +15,7 @@ const EventScannerPanel = lazy(() => import('../../components/admin/EventScanner
 import { useAdminEvents, useRegistrations, useFeedback, useMyOrgs } from '../../hooks/useApi'
 import { addTask, toggleTask, verifyPayment, updateRegistration, deleteRegistration, addGuest, duplicateEvent, submitEvent, completeEvent, cancelEvent, deleteEvent, importGuestsCsv, promoteRegistration } from '../../api/resources'
 import { useApp } from '../../context/AppContext'
-import { cn, fmtDate, fmtDateLong, fmtTime, locale } from '../../lib/utils'
+import { cn, fmtDate, fmtDateLong, fmtTime, locale, PAYMENT_MODES } from '../../lib/utils'
 
 const STATUS_COLOR = { draft: 'slate', pending: 'amber', approved: 'green', rejected: 'rose', completed: 'slate', cancelled: 'rose' }
 const DELETABLE_STATUSES = ['draft', 'pending', 'rejected', 'cancelled']
@@ -52,6 +52,7 @@ export default function EventDetail() {
   const [guestSearch, setGuestSearch] = useState('')
   const [guestFilter, setGuestFilter] = useState('all')
   const [proofModal, setProofModal] = useState(null)
+  const [receiptNumber, setReceiptNumber] = useState('')
   const [guestModal, setGuestModal] = useState(null) // { mode: 'edit'|'add', registration? }
   const [guestForm, setGuestForm] = useState(null)
   const [guestSaving, setGuestSaving] = useState(false)
@@ -116,8 +117,8 @@ export default function EventDetail() {
     a.click()
     URL.revokeObjectURL(a.href)
   }
-  const onVerifyPayment = async (regId, approved) => {
-    try { await verifyPayment(regId, approved); refetchRegs(); addToast(approved ? 'Payment verified' : 'Payment rejected', approved ? 'success' : 'info') }
+  const onVerifyPayment = async (regId, approved, receiptNo) => {
+    try { await verifyPayment(regId, approved, receiptNo); refetchRegs(); addToast(approved ? 'Payment verified' : 'Payment rejected', approved ? 'success' : 'info') }
     catch (err) { addToast(err.message || 'Failed to update payment', 'error') }
   }
 
@@ -465,7 +466,7 @@ export default function EventDetail() {
                   <p className="text-[13px] font-semibold truncate">{r.name}</p>
                   <p className="text-[11px] text-slate-400">Ref: <span className="font-mono">{r.paymentRef}</span></p>
                 </div>
-                {r.paymentScreenshotUrl && <button onClick={() => setProofModal(r)} className="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-[11px] font-semibold text-slate-600 flex items-center gap-1.5"><Eye size={12} />Proof</button>}
+                {r.paymentScreenshotUrl && <button onClick={() => { setProofModal(r); setReceiptNumber('') }} className="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-[11px] font-semibold text-slate-600 flex items-center gap-1.5"><Eye size={12} />Proof</button>}
                 {r.paymentStatus === 'pending' ? (
                   <div className="flex gap-1.5">
                     <button onClick={() => onVerifyPayment(r.id, true)} className="px-2.5 py-1.5 rounded-lg bg-emerald-500 text-white text-[11px] font-semibold flex items-center gap-1"><Check size={12} />Verify</button>
@@ -480,12 +481,23 @@ export default function EventDetail() {
           <Modal open={!!proofModal} onClose={() => setProofModal(null)} title={proofModal ? `${proofModal.name} — Payment Proof` : ''} size="md">
             {proofModal && (
               <div className="p-5">
-                <div className="rounded-xl bg-slate-50 border border-slate-200 p-3 mb-3"><p className="text-[12px]"><span className="text-slate-400">Reference:</span> <span className="font-mono font-semibold">{proofModal.paymentRef}</span></p></div>
+                <div className="rounded-xl bg-slate-50 border border-slate-200 p-3 mb-3 space-y-1 text-[12px]">
+                  <p><span className="text-slate-400">Reference:</span> <span className="font-mono font-semibold">{proofModal.paymentRef}</span></p>
+                  <p><span className="text-slate-400">Amount:</span> <span className="font-semibold">₱{proofModal.paymentAmount ?? event.price}</span></p>
+                  {(proofModal.paymentMode || proofModal.paymentDestination) && (
+                    <p><span className="text-slate-400">Paid via:</span> <span className="font-semibold">{PAYMENT_MODES.find(m => m.value === proofModal.paymentMode)?.label || proofModal.paymentMode}{proofModal.paymentDestination ? ` - ${proofModal.paymentDestination}` : ''}</span></p>
+                  )}
+                  {proofModal.paymentDate && <p><span className="text-slate-400">Date paid:</span> <span className="font-semibold">{fmtDate(proofModal.paymentDate)}</span></p>}
+                  {proofModal.paymentNote && <p><span className="text-slate-400">Note:</span> {proofModal.paymentNote}</p>}
+                </div>
                 {proofModal.paymentScreenshotUrl && <img src={proofModal.paymentScreenshotUrl} alt="payment proof" className="w-full rounded-xl border border-slate-200" />}
                 {proofModal.paymentStatus === 'pending' && (
-                  <div className="flex gap-2 mt-4">
-                    <Btn variant="primary" full icon={Check} onClick={() => { onVerifyPayment(proofModal.id, true); setProofModal(null) }}>Verify Payment</Btn>
-                    <Btn variant="secondary" icon={X} onClick={() => { onVerifyPayment(proofModal.id, false); setProofModal(null) }}>Reject</Btn>
+                  <div className="mt-4 space-y-2">
+                    <Input label="Receipt / OR Number (optional)" value={receiptNumber} onChange={e => setReceiptNumber(e.target.value)} placeholder="e.g. OR-0455523" />
+                    <div className="flex gap-2">
+                      <Btn variant="primary" full icon={Check} onClick={() => { onVerifyPayment(proofModal.id, true, receiptNumber); setProofModal(null) }}>Verify Payment</Btn>
+                      <Btn variant="secondary" icon={X} onClick={() => { onVerifyPayment(proofModal.id, false); setProofModal(null) }}>Reject</Btn>
+                    </div>
                   </div>
                 )}
               </div>

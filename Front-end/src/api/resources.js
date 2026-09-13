@@ -178,8 +178,8 @@ export function findPassesByEmail(email) {
 export function getRegistration(id, token) {
   return api.get(`/registrations/${id}`, token ? { token } : undefined)
 }
-export function verifyPayment(registrationId, approved) {
-  return api.post(`/registrations/${registrationId}/verify-payment`, { approved })
+export function verifyPayment(registrationId, approved, receiptNumber) {
+  return api.post(`/registrations/${registrationId}/verify-payment`, { approved, receiptNumber: receiptNumber || undefined })
 }
 export function promoteRegistration(registrationId) {
   return api.post(`/registrations/${registrationId}/promote`)

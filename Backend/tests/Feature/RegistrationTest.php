@@ -141,6 +141,42 @@ class RegistrationTest extends TestCase
         $this->getJson("/api/registrations/{$registration->id}/qr.png?token={$token}")->assertOk();
     }
 
+    public function test_verifying_a_payment_records_the_organizers_receipt_number(): void
+    {
+        Mail::fake();
+        $organizer = $this->makeUser();
+        $org = $this->makeOrganization($organizer);
+        $event = $this->makeEvent(['status' => 'approved', 'pricing' => 'paid', 'price' => 500, 'organization_id' => $org->id]);
+        $registration = $event->registrations()->create([
+            'name' => 'Attendee', 'email' => 'attendee@example.com', 'qr_code' => 'QR-PAID-OR',
+            'payment_ref' => 'REF-1', 'payment_status' => 'pending',
+        ]);
+
+        Sanctum::actingAs($organizer);
+        $this->postJson("/api/registrations/{$registration->id}/verify-payment", ['approved' => true, 'receiptNumber' => 'OR-0455523'])
+            ->assertOk();
+
+        $this->assertSame('OR-0455523', $registration->fresh()->receipt_number);
+    }
+
+    public function test_rejecting_a_payment_ignores_any_receipt_number(): void
+    {
+        Mail::fake();
+        $organizer = $this->makeUser();
+        $org = $this->makeOrganization($organizer);
+        $event = $this->makeEvent(['status' => 'approved', 'pricing' => 'paid', 'price' => 500, 'organization_id' => $org->id]);
+        $registration = $event->registrations()->create([
+            'name' => 'Attendee', 'email' => 'attendee@example.com', 'qr_code' => 'QR-PAID-REJ',
+            'payment_ref' => 'REF-1', 'payment_status' => 'pending',
+        ]);
+
+        Sanctum::actingAs($organizer);
+        $this->postJson("/api/registrations/{$registration->id}/verify-payment", ['approved' => false, 'receiptNumber' => 'OR-SHOULD-NOT-STICK'])
+            ->assertOk();
+
+        $this->assertNull($registration->fresh()->receipt_number);
+    }
+
     public function test_rejecting_a_payment_queues_the_rejection_email_and_keeps_the_qr_withheld(): void
     {
         Mail::fake();
@@ -226,10 +262,12 @@ class RegistrationTest extends TestCase
 
         $response = $this->postJson("/api/events/{$event->id}/register", [
             'name' => 'Ana', 'email' => 'ana@example.com', 'paymentRef' => 'REF-1',
-            'paymentAccountId' => 'pa1', 'paymentAmount' => 500, 'paymentDate' => '2026-08-01', 'paymentNote' => 'Sent via GCash app',
+            'paymentMode' => 'ewallet_bank_transfer', 'paymentDestination' => 'GCash 0917-000-0000',
+            'paymentAmount' => 500, 'paymentDate' => '2026-08-01', 'paymentNote' => 'Sent via GCash app',
         ])->assertCreated();
 
-        $this->assertSame('pa1', $response->json('paymentAccountId'));
+        $this->assertSame('ewallet_bank_transfer', $response->json('paymentMode'));
+        $this->assertSame('GCash 0917-000-0000', $response->json('paymentDestination'));
         $this->assertEquals(500, $response->json('paymentAmount'));
         $this->assertSame('2026-08-01', \Carbon\Carbon::parse($response->json('paymentDate'))->toDateString());
         $this->assertSame('Sent via GCash app', $response->json('paymentNote'));

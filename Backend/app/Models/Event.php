@@ -35,7 +35,6 @@ class Event extends Model
         'privacy_policy_url',
         'custom_fields',
         'feedback_questions',
-        'payment_accounts',
         'tags',
         'ai_summary',
         'ai_summary_generated_at',
@@ -57,7 +56,6 @@ class Event extends Model
             'socials' => 'array',
             'custom_fields' => 'array',
             'feedback_questions' => 'array',
-            'payment_accounts' => 'array',
             'tags' => 'array',
             'ai_summary_generated_at' => 'datetime',
         ];

@@ -22,10 +22,13 @@
 <table role="presentation" width="100%" style="background:#f3f1ee;border-radius:12px;">
 <tr><td style="padding:14px 16px;font-size:13px;">
 <p style="margin:0 0 8px;font-weight:700;">Official Receipt</p>
+@if ($registration->receipt_number)
+<p style="margin:0 0 6px;"><strong>OR #:</strong> <span style="color:#0f9d8f;font-weight:700;">{{ $registration->receipt_number }}</span></p>
+@endif
 <p style="margin:0 0 6px;"><strong>Reference:</strong> {{ $registration->payment_ref }}</p>
 <p style="margin:0 0 6px;"><strong>Amount paid:</strong> ₱{{ number_format($registration->payment_amount ?? $event->price, 2) }}</p>
-@if ($paymentAccount)
-<p style="margin:0 0 6px;"><strong>Paid via:</strong> {{ $paymentModeLabels[$paymentAccount['mode']] ?? $paymentAccount['mode'] }} - {{ $paymentAccount['bank_name'] }} ({{ $paymentAccount['account_number'] }})</p>
+@if ($registration->payment_mode || $registration->payment_destination)
+<p style="margin:0 0 6px;"><strong>Paid via:</strong> {{ $paymentModeLabels[$registration->payment_mode] ?? $registration->payment_mode }}{{ $registration->payment_destination ? ' - '.$registration->payment_destination : '' }}</p>
 @endif
 @if ($registration->payment_date)
 <p style="margin:0 0 6px;"><strong>Date paid:</strong> {{ \Carbon\Carbon::parse($registration->payment_date)->format('F j, Y') }}</p>

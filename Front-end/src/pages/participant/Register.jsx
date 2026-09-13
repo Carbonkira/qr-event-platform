@@ -37,7 +37,8 @@ export default function Register() {
 
   const [form, setForm] = useState({ name: '', email: '', customData: {} })
   const [paymentRef, setPaymentRef] = useState('')
-  const [paymentAccountId, setPaymentAccountId] = useState('')
+  const [paymentMode, setPaymentMode] = useState(PAYMENT_MODES[0].value)
+  const [paymentDestination, setPaymentDestination] = useState('')
   const [paymentAmount, setPaymentAmount] = useState('')
   const [paymentDate, setPaymentDate] = useState('')
   const [paymentNote, setPaymentNote] = useState('')
@@ -159,7 +160,6 @@ export default function Register() {
     if (!validate()) return
     if (event.pricing === 'paid') {
       setPaymentAmount(String(event.price ?? ''))
-      if (event.paymentAccounts?.length === 1) setPaymentAccountId(event.paymentAccounts[0].id)
       setStep('payment')
     } else doRegister(null, null)
   }
@@ -171,8 +171,8 @@ export default function Register() {
         name: form.name, email: form.email, customData: form.customData,
         paymentRef: paymentRefValue, paymentScreenshot: screenshotFile || undefined,
         ...(paymentRefValue ? {
-          paymentAccountId: paymentAccountId || null, paymentAmount: paymentAmount || null,
-          paymentDate: paymentDate || null, paymentNote: paymentNote || null,
+          paymentMode: paymentMode || null, paymentDestination: paymentDestination || null,
+          paymentAmount: paymentAmount || null, paymentDate: paymentDate || null, paymentNote: paymentNote || null,
         } : {}),
       })
       addToast(event.pricing === 'paid' ? 'Payment submitted for verification!' : "You're registered!", 'success')
@@ -189,7 +189,7 @@ export default function Register() {
     e.preventDefault()
     const errs = {}
     if (!paymentRef.trim()) errs.paymentRef = ['Reference number required']
-    if (event.paymentAccounts?.length && !paymentAccountId) errs.paymentAccountId = ['Choose which account you paid']
+    if (!paymentDestination.trim()) errs.paymentDestination = ['Enter where you sent payment']
     if (!paymentAmount || Number(paymentAmount) <= 0) errs.paymentAmount = ['Required']
     if (!paymentDate) errs.paymentDate = ['Required']
     if (!screenshot) errs.paymentScreenshot = ['Upload your payment screenshot']
@@ -290,29 +290,15 @@ export default function Register() {
             <div className="rounded-xl bg-slate-50 border border-slate-200 p-4">
               <p className="text-[12px] font-bold text-slate-700 mb-2">How to pay</p>
               <ol className="text-[12px] text-slate-600 space-y-1.5 list-decimal list-inside">
-                <li>Send ₱{event.price} to one of the organizer's accounts below</li>
+                <li>Send ₱{event.price} using the payment details the organizer posted (event page, socials, etc.)</li>
                 <li>Take a screenshot of your payment confirmation</li>
-                <li>Fill in the details & upload the screenshot below</li>
+                <li>Fill in the details & upload the screenshot below as proof</li>
               </ol>
-              {event.paymentAccounts?.length > 0 ? (
-                <div className="mt-2 space-y-1">
-                  {event.paymentAccounts.map(a => (
-                    <p key={a.id} className="text-[11px] text-slate-500"><b className="text-slate-700">{a.bankName}</b> ({PAYMENT_MODES.find(m => m.value === a.mode)?.label || a.mode}) - {a.accountNumber}{a.accountName ? ` · ${a.accountName}` : ''}</p>
-                  ))}
-                </div>
-              ) : event.organization && <p className="text-[11px] text-slate-400 mt-2">Pay to: <b className="text-slate-600">{event.organization.name}</b>{event.organization.email ? ` · ${event.organization.email}` : ''}</p>}
+              {event.organization && <p className="text-[11px] text-slate-400 mt-2">Organizer: <b className="text-slate-600">{event.organization.name}</b>{event.organization.email ? ` · ${event.organization.email}` : ''}</p>}
             </div>
 
-            {event.paymentAccounts?.length > 0 && (
-              <Select
-                label="Which account did you pay?"
-                value={paymentAccountId}
-                onChange={e => setPaymentAccountId(e.target.value)}
-                options={[{ value: '', label: 'Choose one' }, ...event.paymentAccounts.map(a => ({ value: a.id, label: `${a.bankName} - ${a.accountNumber}` }))]}
-                required
-              />
-            )}
-            {errors.paymentAccountId && <p className="text-[11px] text-rose-600 -mt-2">{errors.paymentAccountId[0]}</p>}
+            <Select label="Mode of Payment" value={paymentMode} onChange={e => setPaymentMode(e.target.value)} options={PAYMENT_MODES} />
+            <Input label="Where did you pay?" value={paymentDestination} onChange={e => setPaymentDestination(e.target.value)} placeholder="e.g. GCash 0917-000-0000, or BDO - 001122" error={errors.paymentDestination?.[0]} required />
 
             <Input label="Payment Reference Number" value={paymentRef} onChange={e => setPaymentRef(e.target.value)} icon={Receipt} placeholder="e.g. 0029384756" error={errors.paymentRef?.[0]} required />
 

@@ -24,13 +24,18 @@ class Registration extends Model
         'waitlisted',
         'payment_status',
         'payment_ref',
-        'payment_account_id',
+        'payment_mode',
+        'payment_destination',
         'payment_amount',
         'payment_date',
         'payment_note',
         'payment_screenshot',
         'reminder_sent_at',
     ];
+
+    // receipt_number is deliberately excluded - it's the organizer's own
+    // acknowledgement number, only ever set from inside verifyPayment(),
+    // never something a participant submits at registration time.
 
     // Deliberately not fillable - a client should never be able to set or
     // overwrite its own pass_token. Every new registration gets one
@@ -66,12 +71,6 @@ class Registration extends Model
             'payment_date' => 'date',
             'reminder_sent_at' => 'datetime',
         ];
-    }
-
-    /** The specific event payment_accounts entry this registration says it paid into, if any. */
-    public function paymentAccount(): ?array
-    {
-        return collect($this->event?->payment_accounts ?? [])->firstWhere('id', $this->payment_account_id);
     }
 
     public function event(): BelongsTo

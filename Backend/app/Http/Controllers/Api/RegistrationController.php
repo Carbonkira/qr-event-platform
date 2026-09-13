@@ -12,6 +12,7 @@ use App\Models\Registration;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Validation\Rule;
 
 class RegistrationController extends Controller
 {
@@ -29,11 +30,13 @@ class RegistrationController extends Controller
             'email' => ['required', 'string', 'email', 'max:255'],
             'custom_data' => ['sometimes', 'nullable', 'array'],
             'payment_ref' => ['sometimes', 'nullable', 'string', 'max:255'],
-            // Which of the event's payment_accounts entries they say they
-            // paid into - a plain string id, not validated against the JSON
-            // array's contents (same trust-the-frontend treatment
-            // custom_fields ids already get elsewhere in this controller).
-            'payment_account_id' => ['sometimes', 'nullable', 'string', 'max:255'],
+            // The actual payment happens entirely outside the system - the
+            // organizer advertises where to pay through their own channels
+            // (a poster, a social post, the event description), so there's
+            // nothing here to validate against; this is just what the
+            // participant says they did, copy-pasted from wherever they sent it.
+            'payment_mode' => ['sometimes', 'nullable', Rule::in(['bank_deposit', 'online_bank_transfer', 'international_remittance', 'ewallet_bank_transfer'])],
+            'payment_destination' => ['sometimes', 'nullable', 'string', 'max:255'],
             'payment_amount' => ['sometimes', 'nullable', 'numeric', 'min:0'],
             'payment_date' => ['sometimes', 'nullable', 'date'],
             'payment_note' => ['sometimes', 'nullable', 'string', 'max:1000'],
@@ -158,7 +161,8 @@ class RegistrationController extends Controller
             'waitlisted' => ! $isWalkIn && $this->isEventFull($event),
             'payment_status' => $paymentRef ? 'pending' : null,
             'payment_ref' => $paymentRef,
-            'payment_account_id' => $data['payment_account_id'] ?? null,
+            'payment_mode' => $data['payment_mode'] ?? null,
+            'payment_destination' => $data['payment_destination'] ?? null,
             'payment_amount' => $data['payment_amount'] ?? null,
             'payment_date' => $data['payment_date'] ?? null,
             'payment_note' => $data['payment_note'] ?? null,
@@ -443,11 +447,20 @@ class RegistrationController extends Controller
 
         $data = $request->validate([
             'approved' => ['required', 'boolean'],
+            // The organizer's own OR/receipt number, assigned at the moment
+            // they verify a payment (distinct from payment_ref, which is
+            // the participant's own reference) - only meaningful when
+            // approving, so it's silently ignored on a rejection.
+            'receipt_number' => ['sometimes', 'nullable', 'string', 'max:255'],
         ]);
 
-        $registration->update([
-            'payment_status' => $data['approved'] ? 'verified' : 'rejected',
-        ]);
+        // receipt_number isn't mass-assignable (see Registration::$fillable's
+        // comment) - a participant should never be able to set their own
+        // "official" receipt number via a mass-assigned update elsewhere.
+        $registration->update(['payment_status' => $data['approved'] ? 'verified' : 'rejected']);
+        if ($data['approved'] && ! empty($data['receipt_number'])) {
+            $registration->forceFill(['receipt_number' => $data['receipt_number']])->save();
+        }
 
         // Same non-fatal queue-and-log pattern as createRegistration() above
         // - a broken mail config must never fail the actual verification.
