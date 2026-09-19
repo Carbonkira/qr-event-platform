@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Event;
 use App\Models\Feedback;
+use App\Models\Organizer;
 use App\Models\Registration;
 use Illuminate\Http\Request;
 
@@ -64,8 +65,13 @@ class AnalyticsController extends Controller
             // reject() are strictly admin-gated with no "you created this
             // org-less event" exception, so a non-admin seeing this banner
             // could only ever click through to a permission-denied page.
-            // Confirmed live by two independent testers.
-            'pendingApprovals' => $isAdmin ? Event::where('status', 'pending')->count() : 0,
+            // Confirmed live by two independent testers. Counts organizer
+            // account applications too, not just events - both land on the
+            // same Approvals page and both are "an application waiting".
+            'pendingApprovals' => $isAdmin
+                ? Event::where('status', 'pending')->count()
+                    + Organizer::where('approval_status', 'pending')->where('role', '!=', 'admin')->count()
+                : 0,
         ]);
     }
 }

@@ -93,8 +93,14 @@ export function rejectEvent(id) {
 export function getPendingOrganizers() {
   return api.get('/organizers/pending')
 }
-export function approveOrganizer(id) {
-  return api.post(`/organizers/${id}/approve`)
+// Already-decided applications (approved + rejected), newest decision first.
+export function getOrganizerHistory() {
+  return api.get('/organizers/history')
+}
+// createOrganization: for an applicant who asked for an organization that
+// doesn't exist yet - creates it and makes them its owner in the same step.
+export function approveOrganizer(id, { createOrganization = false } = {}) {
+  return api.post(`/organizers/${id}/approve`, { createOrganization })
 }
 export function rejectOrganizer(id) {
   return api.post(`/organizers/${id}/reject`)

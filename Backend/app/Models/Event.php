@@ -58,6 +58,7 @@ class Event extends Model
             'feedback_questions' => 'array',
             'tags' => 'array',
             'ai_summary_generated_at' => 'datetime',
+            'reviewed_at' => 'datetime',
         ];
     }
 
@@ -88,6 +89,16 @@ class Event extends Model
     public function organizer(): BelongsTo
     {
         return $this->belongsTo(Organizer::class);
+    }
+
+    /**
+     * The admin who approved or rejected this event. review_decision/
+     * reviewed_at/reviewed_by aren't mass-assignable - only ever set via
+     * forceFill() in EventController::approve()/reject().
+     */
+    public function reviewer(): BelongsTo
+    {
+        return $this->belongsTo(Organizer::class, 'reviewed_by');
     }
 
     public function organization(): BelongsTo

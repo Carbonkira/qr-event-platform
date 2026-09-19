@@ -25,7 +25,57 @@ class FeedbackTest extends TestCase
             'start_time' => '10:00', 'end_time' => '12:00', 'capacity' => 50,
         ], $eventOverrides));
 
-        return $event->registrations()->create(['name' => 'Attendee', 'email' => 'attendee@example.com', 'qr_code' => 'QR-TEST-001']);
+        // Attended by default - only someone who was checked in can leave
+        // feedback (see FeedbackController::store()), so the ordinary path
+        // through these tests has to start from a real attendee.
+        return $event->registrations()->create(['name' => 'Attendee', 'email' => 'attendee@example.com', 'qr_code' => 'QR-TEST-001', 'attended' => true]);
+    }
+
+    public function test_only_a_participant_who_attended_can_leave_feedback(): void
+    {
+        $registration = $this->makeRegistration();
+        $registration->update(['attended' => false]);
+
+        $this->postJson("/api/events/{$registration->event_id}/feedback", [
+            'registrationId' => $registration->id, 'passToken' => $registration->pass_token,
+            'q1' => 5, 'q2' => 5, 'q3' => 5, 'q4' => 5, 'q5' => 5,
+        ])->assertForbidden();
+
+        $this->assertDatabaseCount('feedback', 0);
+    }
+
+    public function test_feedback_needs_the_registrations_pass_token(): void
+    {
+        // The registration id alone is a plain sequential integer - without
+        // this anyone could post feedback as any attendee. Missing and wrong
+        // tokens both look exactly like "no such registration".
+        $registration = $this->makeRegistration();
+        $payload = ['registrationId' => $registration->id, 'q1' => 5, 'q2' => 5, 'q3' => 5, 'q4' => 5, 'q5' => 5];
+
+        $this->postJson("/api/events/{$registration->event_id}/feedback", $payload)->assertNotFound();
+        $this->postJson("/api/events/{$registration->event_id}/feedback", $payload + ['passToken' => 'wrong-token'])->assertNotFound();
+        $this->postJson("/api/events/{$registration->event_id}/feedback", $payload + ['passToken' => $registration->pass_token])->assertCreated();
+    }
+
+    public function test_a_registration_from_before_pass_tokens_existed_can_still_leave_feedback(): void
+    {
+        $registration = $this->makeRegistration();
+        $registration->forceFill(['pass_token' => null])->save();
+
+        $this->postJson("/api/events/{$registration->event_id}/feedback", [
+            'registrationId' => $registration->id, 'q1' => 4, 'q2' => 4, 'q3' => 4, 'q4' => 4, 'q5' => 4,
+        ])->assertCreated();
+    }
+
+    public function test_feedback_can_only_be_submitted_once_per_registration(): void
+    {
+        $registration = $this->makeRegistration();
+        $payload = ['registrationId' => $registration->id, 'passToken' => $registration->pass_token, 'q1' => 5, 'q2' => 5, 'q3' => 5, 'q4' => 5, 'q5' => 5];
+
+        $this->postJson("/api/events/{$registration->event_id}/feedback", $payload)->assertCreated();
+        $this->postJson("/api/events/{$registration->event_id}/feedback", $payload)->assertStatus(422);
+
+        $this->assertDatabaseCount('feedback', 1);
     }
 
     public function test_feedback_cannot_be_submitted_before_the_event_is_completed(): void
@@ -61,12 +111,12 @@ class FeedbackTest extends TestCase
         ]]);
 
         $this->postJson("/api/events/{$registration->event_id}/feedback", [
-            'registrationId' => $registration->id,
+            'registrationId' => $registration->id, 'passToken' => $registration->pass_token,
             'q1' => 5, 'q2' => 5, 'q3' => 5, 'q4' => 5, 'q5' => 5,
         ])->assertStatus(422);
 
         $this->postJson("/api/events/{$registration->event_id}/feedback", [
-            'registrationId' => $registration->id,
+            'registrationId' => $registration->id, 'passToken' => $registration->pass_token,
             'q1' => 5, 'q2' => 5, 'q3' => 5, 'q4' => 5, 'q5' => 5,
             'customAnswers' => ['fq1' => 'Yes!'],
         ])->assertCreated();
@@ -76,16 +126,16 @@ class FeedbackTest extends TestCase
     {
         $reg1 = $this->makeRegistration();
         $event = Event::find($reg1->event_id);
-        $reg2 = $event->registrations()->create(['name' => 'Second', 'email' => 'second@example.com', 'qr_code' => 'QR-TEST-002']);
+        $reg2 = $event->registrations()->create(['name' => 'Second', 'email' => 'second@example.com', 'qr_code' => 'QR-TEST-002', 'attended' => true]);
 
         $first = $this->postJson("/api/events/{$event->id}/feedback", [
-            'registrationId' => $reg1->id, 'q1' => 5, 'q2' => 5, 'q3' => 5, 'q4' => 5, 'q5' => 5,
+            'registrationId' => $reg1->id, 'passToken' => $reg1->pass_token, 'q1' => 5, 'q2' => 5, 'q3' => 5, 'q4' => 5, 'q5' => 5,
         ])->assertCreated();
         $this->assertTrue($first->json('isHighlighted'));
         $this->assertNull($first->json('badge'));
 
         $second = $this->postJson("/api/events/{$event->id}/feedback", [
-            'registrationId' => $reg2->id, 'q1' => 3, 'q2' => 3, 'q3' => 3, 'q4' => 3, 'q5' => 3,
+            'registrationId' => $reg2->id, 'passToken' => $reg2->pass_token, 'q1' => 3, 'q2' => 3, 'q3' => 3, 'q4' => 3, 'q5' => 3,
         ])->assertCreated();
         $this->assertFalse($second->json('isHighlighted'));
         $this->assertSame('⭐ Top Reviewer', $second->json('badge'));

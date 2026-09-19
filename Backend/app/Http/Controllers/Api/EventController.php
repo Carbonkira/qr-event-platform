@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Mail\ApplicationReceivedMail;
 use App\Mail\EventCancelledMail;
 use App\Mail\EventSubmittedForApprovalMail;
 use App\Models\Event;
@@ -37,8 +38,13 @@ class EventController extends Controller
         // "Going" on the public listing - confirmed (non-waitlisted)
         // registrants only, matching what the capacity bar/isFull check
         // on the event detail page mean by "registered".
+        // Kept newest-posted-first here (not by event date) on purpose: the
+        // home page's "Suggested for you" slices the top of this list, and
+        // "recently added" is what that promises. The main list re-sorts
+        // itself by event date on the client - see Home.jsx.
         $events = Event::where('status', 'approved')
             ->where('is_private', false)
+            ->with('organizer:id,name,avatar')
             ->withCount(['registrations' => fn ($q) => $q->where('waitlisted', false)])
             ->orderByDesc('created_at')
             ->get();
@@ -79,7 +85,17 @@ class EventController extends Controller
      */
     public function adminIndex(Request $request)
     {
-        $query = Event::with('tasks')->orderByDesc('created_at');
+        // The admin is vetting these, so they get the organizer's contact
+        // details and who reviewed what; everyone else only ever sees the
+        // name/avatar a co-member could already see anyway. Newest event
+        // date first, matching every other event list.
+        $organizerColumns = $request->user()->isAdmin()
+            ? 'organizer:id,name,avatar,email,contact_number,institution'
+            : 'organizer:id,name,avatar,institution';
+        $query = Event::with(['tasks', $organizerColumns, 'reviewer:id,name'])
+            ->orderByDesc('date')
+            ->orderByDesc('start_time')
+            ->orderByDesc('id');
 
         if (! $request->user()->isAdmin()) {
             // Scoped to events belonging to any organization the requester
@@ -102,7 +118,10 @@ class EventController extends Controller
      */
     public function show(string $slug)
     {
-        $event = Event::with(['tasks', 'organization:id,name,slug,logo,email'])
+        // organizer is the real account behind the event ("created by") -
+        // name, avatar and institution only; never their email or number on
+        // a public endpoint.
+        $event = Event::with(['tasks', 'organization:id,name,slug,logo,email', 'organizer:id,name,avatar,institution'])
             ->withCount(['registrations' => fn ($q) => $q->where('waitlisted', false)])
             ->where('slug', $slug)->firstOrFail();
 
@@ -232,6 +251,7 @@ class EventController extends Controller
 
         if ($event->status === 'pending') {
             $this->notifyAdminsEventNeedsApproval($event, $request->user());
+            $this->acknowledgeEventApplication($event, $request->user());
         }
 
         return response()->json($event->load('tasks'), 201);
@@ -312,18 +332,33 @@ class EventController extends Controller
     {
         $this->authorizeAdmin($request);
 
-        $event->update(['status' => 'approved']);
-
-        return response()->json($event);
+        return response()->json($this->recordReview($event, $request, 'approved'));
     }
 
     public function reject(Request $request, Event $event)
     {
         $this->authorizeAdmin($request);
 
-        $event->update(['status' => 'rejected']);
+        return response()->json($this->recordReview($event, $request, 'rejected'));
+    }
 
-        return response()->json($event);
+    /**
+     * Status is only the event's *current* state - an approved event later
+     * becomes completed or cancelled, which would erase the fact it was ever
+     * approved. review_decision/reviewed_at/reviewed_by keep the decision
+     * itself, so the Approvals page can show accepted/rejected events over
+     * time. Not mass-assignable (see Event::reviewer()), hence forceFill.
+     */
+    private function recordReview(Event $event, Request $request, string $decision): Event
+    {
+        $event->forceFill([
+            'status' => $decision,
+            'review_decision' => $decision,
+            'reviewed_at' => now(),
+            'reviewed_by' => $request->user()->id,
+        ])->save();
+
+        return $event;
     }
 
     /**
@@ -358,8 +393,36 @@ class EventController extends Controller
 
         $event->update(['status' => 'pending']);
         $this->notifyAdminsEventNeedsApproval($event, $request->user());
+        $this->acknowledgeEventApplication($event, $request->user());
 
         return response()->json($event);
+    }
+
+    /**
+     * "We have received your application for your event... you can contact
+     * us here {admin number}" - the applicant-side counterpart of the admin
+     * alert below. Skipped for an admin submitting their own event (there's
+     * nobody to reassure) and, like every email here, never allowed to fail
+     * the request itself.
+     */
+    private function acknowledgeEventApplication(Event $event, Organizer $submitter): void
+    {
+        if ($submitter->isAdmin()) {
+            return;
+        }
+
+        try {
+            Mail::to($submitter->email)->queue(new ApplicationReceivedMail(
+                $submitter->name,
+                "event \"{$event->title}\"",
+                [
+                    'Date' => $event->date ? \Carbon\Carbon::parse($event->date)->format('F j, Y') : null,
+                    'Venue' => $event->venue,
+                ]
+            ));
+        } catch (\Throwable $e) {
+            Log::error('Failed to queue event application acknowledgment email', ['event_id' => $event->id, 'error' => $e->getMessage()]);
+        }
     }
 
     /**

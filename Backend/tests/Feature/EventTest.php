@@ -521,4 +521,150 @@ class EventTest extends TestCase
             ->assertOk()
             ->assertJsonPath('status', 'approved');
     }
+
+    public function test_approving_and_rejecting_record_who_decided_and_when(): void
+    {
+        $organizer = $this->makeUser('organizer@example.com');
+        $admin = $this->makeUser('admin@example.com');
+        $admin->forceFill(['role' => 'admin'])->save();
+        $toApprove = Event::create(['title' => 'A', 'status' => 'pending', 'organizer_id' => $organizer->id, 'slug' => 'a-event']);
+        $toReject = Event::create(['title' => 'B', 'status' => 'pending', 'organizer_id' => $organizer->id, 'slug' => 'b-event']);
+
+        Sanctum::actingAs($admin);
+        $this->postJson("/api/events/{$toApprove->id}/approve")->assertOk();
+        $this->postJson("/api/events/{$toReject->id}/reject")->assertOk();
+
+        $approved = $toApprove->fresh();
+        $this->assertSame('approved', $approved->review_decision);
+        $this->assertSame($admin->id, $approved->reviewed_by);
+        $this->assertNotNull($approved->reviewed_at);
+
+        $rejected = $toReject->fresh();
+        $this->assertSame('rejected', $rejected->review_decision);
+        $this->assertSame($admin->id, $rejected->reviewed_by);
+    }
+
+    /** status moves on (approved -> completed), but the fact it was approved must not disappear from the history. */
+    public function test_an_approval_stays_in_the_history_after_the_event_completes(): void
+    {
+        $organizer = $this->makeUser('organizer@example.com');
+        $org = $this->makeOrganization($organizer);
+        $admin = $this->makeUser('admin@example.com');
+        $admin->forceFill(['role' => 'admin'])->save();
+        $event = Event::create(['title' => 'Old News', 'status' => 'pending', 'organizer_id' => $organizer->id, 'organization_id' => $org->id, 'slug' => 'old-news']);
+
+        Sanctum::actingAs($admin);
+        $this->postJson("/api/events/{$event->id}/approve")->assertOk();
+        $this->postJson("/api/events/{$event->id}/complete")->assertOk();
+
+        $listed = collect($this->getJson('/api/admin/events')->assertOk()->json())->firstWhere('id', $event->id);
+        $this->assertSame('completed', $listed['status']);
+        $this->assertSame('approved', $listed['reviewDecision']);
+        $this->assertSame($admin->id, $listed['reviewedBy']);
+        $this->assertNotNull($listed['reviewedAt']);
+    }
+
+    public function test_the_admin_event_list_carries_the_organizers_contact_details_for_vetting(): void
+    {
+        $organizer = $this->makeUser('organizer@example.com');
+        $organizer->forceFill(['contact_number' => '0917 123 4567'])->save();
+        $admin = $this->makeUser('admin@example.com');
+        $admin->forceFill(['role' => 'admin'])->save();
+        Event::create(['title' => 'Vet Me', 'status' => 'pending', 'organizer_id' => $organizer->id, 'slug' => 'vet-me']);
+
+        Sanctum::actingAs($admin);
+        $listed = $this->getJson('/api/admin/events')->assertOk()->json('0');
+
+        $this->assertSame('organizer@example.com', $listed['organizer']['email']);
+        $this->assertSame('0917 123 4567', $listed['organizer']['contactNumber']);
+    }
+
+    public function test_a_non_admin_never_gets_a_co_members_email_or_number_in_the_event_list(): void
+    {
+        $owner = $this->makeUser('owner@example.com');
+        $owner->forceFill(['contact_number' => '0917 123 4567'])->save();
+        $coMember = $this->makeUser('comember@example.com');
+        $org = $this->makeOrganization($owner);
+        $org->members()->attach($coMember->id, ['role' => 'member']);
+        Event::create(['title' => 'Club Event', 'status' => 'approved', 'organizer_id' => $owner->id, 'organization_id' => $org->id, 'slug' => 'club-event-x']);
+
+        Sanctum::actingAs($coMember);
+        $listed = $this->getJson('/api/admin/events')->assertOk()->json('0');
+
+        $this->assertSame('Organizer', $listed['organizer']['name']);
+        $this->assertArrayNotHasKey('email', $listed['organizer']);
+        $this->assertArrayNotHasKey('contactNumber', $listed['organizer']);
+    }
+
+    public function test_the_public_event_page_shows_who_actually_created_it_without_exposing_their_contact_details(): void
+    {
+        $organizer = $this->makeUser('organizer@example.com');
+        $organizer->forceFill(['contact_number' => '0917 123 4567', 'institution' => 'Acme University'])->save();
+        Event::create(['title' => 'Public One', 'status' => 'approved', 'organizer_id' => $organizer->id, 'slug' => 'public-one']);
+
+        $event = $this->getJson('/api/events/public-one')->assertOk()->json();
+
+        $this->assertSame('Organizer', $event['organizer']['name']);
+        $this->assertSame('Acme University', $event['organizer']['institution']);
+        $this->assertArrayNotHasKey('email', $event['organizer']);
+        $this->assertArrayNotHasKey('contactNumber', $event['organizer']);
+        $this->assertArrayNotHasKey('password', $event['organizer']);
+    }
+
+    public function test_the_public_listing_carries_the_real_organizer_name_for_each_event(): void
+    {
+        $organizer = $this->makeUser('organizer@example.com');
+        Event::create(['title' => 'Listed', 'status' => 'approved', 'is_private' => false, 'organizer_id' => $organizer->id, 'slug' => 'listed']);
+
+        $listed = $this->getJson('/api/events')->assertOk()->json('0');
+
+        $this->assertSame('Organizer', $listed['organizer']['name']);
+        $this->assertArrayNotHasKey('email', $listed['organizer']);
+    }
+
+    public function test_the_admin_event_list_is_ordered_by_event_date_newest_first(): void
+    {
+        $admin = $this->makeUser('admin@example.com');
+        $admin->forceFill(['role' => 'admin'])->save();
+        Event::create(['title' => 'Oldest', 'status' => 'approved', 'slug' => 'oldest', 'date' => '2026-01-10', 'start_time' => '09:00']);
+        Event::create(['title' => 'Newest', 'status' => 'approved', 'slug' => 'newest', 'date' => '2026-12-10', 'start_time' => '09:00']);
+        Event::create(['title' => 'Middle', 'status' => 'approved', 'slug' => 'middle', 'date' => '2026-06-10', 'start_time' => '09:00']);
+
+        Sanctum::actingAs($admin);
+        $titles = collect($this->getJson('/api/admin/events')->assertOk()->json())->pluck('title')->all();
+
+        $this->assertSame(['Newest', 'Middle', 'Oldest'], $titles);
+    }
+
+    public function test_submitting_an_event_acknowledges_the_application_to_its_organizer(): void
+    {
+        Mail::fake();
+        $admin = $this->makeUser('admin@example.com');
+        $admin->forceFill(['role' => 'admin'])->save();
+        Sanctum::actingAs($user = $this->makeUser('organizer@example.com'));
+        $event = Event::create([
+            'title' => 'Tech Meetup', 'status' => 'draft', 'organizer_id' => $user->id, 'slug' => 'tech-meetup',
+            'type' => 'Meetup', 'venue' => 'Venue', 'date' => '2026-08-01', 'start_time' => '10:00', 'end_time' => '12:00', 'capacity' => 30,
+        ]);
+
+        $this->postJson("/api/events/{$event->id}/submit")->assertOk();
+
+        Mail::assertQueued(\App\Mail\ApplicationReceivedMail::class, fn ($mail) => $mail->hasTo('organizer@example.com') && $mail->applicationFor === 'event "Tech Meetup"');
+    }
+
+    public function test_an_admin_submitting_their_own_event_is_not_sent_an_acknowledgment(): void
+    {
+        Mail::fake();
+        $admin = $this->makeUser('admin@example.com');
+        $admin->forceFill(['role' => 'admin'])->save();
+        Sanctum::actingAs($admin);
+        $event = Event::create([
+            'title' => 'Admin Event', 'status' => 'draft', 'organizer_id' => $admin->id, 'slug' => 'admin-event',
+            'type' => 'Meetup', 'venue' => 'Venue', 'date' => '2026-08-01', 'start_time' => '10:00', 'end_time' => '12:00', 'capacity' => 30,
+        ]);
+
+        $this->postJson("/api/events/{$event->id}/submit")->assertOk();
+
+        Mail::assertNotQueued(\App\Mail\ApplicationReceivedMail::class);
+    }
 }

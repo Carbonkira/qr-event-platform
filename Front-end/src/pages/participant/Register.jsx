@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, User, Mail, Lock, Receipt, Ticket, Send, Clock3, Upload, ImageDown, X, UserPlus, LogIn, MailCheck, RefreshCw, Pencil } from 'lucide-react'
 import { Btn, Input, Select, Textarea, Card } from '../../components/ui'
 import PasswordChecklist from '../../components/shared/PasswordChecklist'
@@ -228,6 +228,12 @@ export default function Register() {
               <Input label="Confirm Email" type="email" value={accountForm.emailConfirmation || ''} onChange={setAccountField('emailConfirmation')} icon={Mail} placeholder="juan@email.com" error={accountErrors.emailConfirmation?.[0]} required />
             )}
             <Input label="Password" type="password" value={accountForm.password} onChange={setAccountField('password')} icon={Lock} placeholder="••••••••" error={accountErrors.password?.[0]} required />
+            {accountMode === 'login' && (
+              // `next` rides along so, once the password is reset and they log
+              // in again, they land back on this registration instead of the
+              // home page.
+              <Link to={`/forgot-password?type=participant&next=${encodeURIComponent(`/events/${slug}/register`)}`} className="block text-right -mt-2 text-[12px] font-semibold text-[#1a1a2e] hover:text-[var(--accent)]">Forgot your password?</Link>
+            )}
             {accountMode === 'create' && accountForm.password && <PasswordChecklist password={accountForm.password} />}
             {accountMode === 'create' && (
               <Input label="Confirm Password" type="password" value={accountForm.passwordConfirmation || ''} onChange={setAccountField('passwordConfirmation')} icon={Lock} placeholder="••••••••" required />

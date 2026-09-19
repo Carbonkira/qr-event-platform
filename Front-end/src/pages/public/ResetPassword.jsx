@@ -5,6 +5,7 @@ import { Btn, Input, Card } from '../../components/ui'
 import PasswordChecklist from '../../components/shared/PasswordChecklist'
 import { resetPassword, validateResetToken } from '../../api/resources'
 import { useApp } from '../../context/AppContext'
+import { POST_RESET_NEXT_KEY, safeNextPath } from '../../lib/utils'
 
 export default function ResetPassword() {
   const navigate = useNavigate()
@@ -42,7 +43,14 @@ export default function ResetPassword() {
     try {
       await resetPassword(type, { token, email, password, passwordConfirmation })
       addToast('Password reset — please log in', 'success')
-      navigate('/login')
+      // Straight back to the right login tab, and - if they started from an
+      // event's registration form - on to that event once they're in.
+      let next = null
+      try { next = safeNextPath(localStorage.getItem(POST_RESET_NEXT_KEY)); localStorage.removeItem(POST_RESET_NEXT_KEY) } catch { /* nothing stored */ }
+      const params = new URLSearchParams()
+      if (type === 'participant') params.set('type', 'participant')
+      if (next) params.set('next', next)
+      navigate(`/login${params.toString() ? `?${params}` : ''}`)
     } catch (err) {
       setErrors(err.errors || {})
       addToast(err.message || 'That reset link is invalid or expired', 'error')

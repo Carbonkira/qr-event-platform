@@ -1,14 +1,17 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { Mail, Send, CheckCircle2 } from 'lucide-react'
 import { Btn, Input, Card } from '../../components/ui'
 import { forgotPassword } from '../../api/resources'
 import { useApp } from '../../context/AppContext'
-import { cn } from '../../lib/utils'
+import { cn, POST_RESET_NEXT_KEY, safeNextPath } from '../../lib/utils'
 
 export default function ForgotPassword() {
   const { addToast } = useApp()
-  const [type, setType] = useState('organizer')
+  const [searchParams] = useSearchParams()
+  // Arriving from an event's registration form (or the participant login)
+  // already says which kind of account this is.
+  const [type, setType] = useState(searchParams.get('type') === 'participant' ? 'participant' : 'organizer')
   const [email, setEmail] = useState('')
   const [sent, setSent] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -20,6 +23,11 @@ export default function ForgotPassword() {
     setError('')
     try {
       await forgotPassword(type, email)
+      // The reset link opens in a new tab straight from the email, so where
+      // to send them afterwards has to survive that - ResetPassword picks it
+      // up from here. Only ever a same-site path.
+      const next = safeNextPath(searchParams.get('next'))
+      try { if (next) localStorage.setItem(POST_RESET_NEXT_KEY, next) } catch { /* private mode - they just land on the login page */ }
       setSent(true)
     } catch (err) {
       setError(err.errors?.email?.[0])

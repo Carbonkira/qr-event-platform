@@ -95,9 +95,23 @@ class AnalyticsTest extends TestCase
         $admin = Organizer::create(['name' => 'Admin', 'email' => 'admin@example.com', 'password' => bcrypt('password123')]);
         $admin->forceFill(['role' => 'admin', 'email_verified_at' => now(), 'approval_status' => 'approved'])->save();
         $owner = Organizer::create(['name' => 'Owner', 'email' => 'owner@example.com', 'password' => bcrypt('password123')]);
+        $owner->forceFill(['approval_status' => 'approved'])->save();
         Event::create(['title' => 'Mine', 'status' => 'pending', 'slug' => 'mine-'.uniqid(), 'organizer_id' => $owner->id]);
 
         Sanctum::actingAs($admin);
         $this->getJson('/api/analytics')->assertOk()->assertJsonPath('pendingApprovals', 1);
+    }
+
+    /** Organizer account applications land on the same Approvals page as events, so they count towards the same badge. */
+    public function test_pending_approvals_also_counts_organizer_applications(): void
+    {
+        $admin = Organizer::create(['name' => 'Admin', 'email' => 'admin@example.com', 'password' => bcrypt('password123')]);
+        $admin->forceFill(['role' => 'admin', 'email_verified_at' => now(), 'approval_status' => 'approved'])->save();
+        // Freshly created accounts start 'pending' (the column default).
+        Organizer::create(['name' => 'Applicant One', 'email' => 'one@example.com', 'password' => bcrypt('password123')]);
+        Organizer::create(['name' => 'Applicant Two', 'email' => 'two@example.com', 'password' => bcrypt('password123')]);
+
+        Sanctum::actingAs($admin);
+        $this->getJson('/api/analytics')->assertOk()->assertJsonPath('pendingApprovals', 2);
     }
 }

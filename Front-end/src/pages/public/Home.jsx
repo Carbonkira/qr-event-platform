@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Calendar, Clock, MapPin, Users, Search, MapPinned, Sparkles, LocateFixed } from 'lucide-react'
-import { Card, Badge, PriceTag } from '../../components/ui'
+import { Card, Badge, PriceTag, Avatar } from '../../components/ui'
 import LandingHero from '../../components/public/LandingHero'
-import { cn, fmtDate, fmtTime, monthDay } from '../../lib/utils'
+import { cn, fmtDate, fmtTime, monthDay, sortByEventDateDesc } from '../../lib/utils'
 import { usePublicEvents } from '../../hooks/useApi'
 import { useApp } from '../../context/AppContext'
 
@@ -19,7 +19,7 @@ export default function Home() {
   const query = q.trim().toLowerCase()
   let filtered = events0.filter(e => {
     if (!query) return true
-    const haystack = [e.title, e.description, e.venue, e.location, e.organizedBy, e.industry, e.type, ...(e.tags || [])]
+    const haystack = [e.title, e.description, e.venue, e.location, e.organizer?.name, e.organizedBy, e.industry, e.type, ...(e.tags || [])]
       .filter(Boolean).join(' ').toLowerCase()
     return haystack.includes(query)
   })
@@ -32,7 +32,8 @@ export default function Home() {
   // you" could show an already-past event even with the Upcoming tab active.
   const suggested = filtered.slice(0, 3)
 
-  const events = [...filtered].sort((a, b) => new Date(a.date) - new Date(b.date))
+  // Latest to oldest by event date, same as every other event list.
+  const events = sortByEventDateDesc(filtered)
 
   const groups = {}
   events.forEach(e => { (groups[e.date] = groups[e.date] || []).push(e) })
@@ -142,7 +143,14 @@ function EventRow({ event }) {
           <div className="mt-2 space-y-1">
             <p className="text-[12px] text-slate-500 flex items-center gap-1.5"><Clock size={12} />{fmtTime(event.startTime)} – {fmtTime(event.endTime)}</p>
             <p className="text-[12px] text-slate-500 flex items-center gap-1.5"><MapPin size={12} />{event.venue}{event.distanceKm != null && <span className="text-[#0f9d8f] font-semibold"> · {event.distanceKm} km away</span>}</p>
-            <p className="text-[12px] text-slate-400 flex items-center gap-1.5"><Users size={12} />{event.registrationsCount ?? 0} going · by {event.organizedBy}</p>
+            <p className="text-[12px] text-slate-400 flex items-center gap-1.5 min-w-0">
+              <Users size={12} className="flex-shrink-0" />{event.registrationsCount ?? 0} going
+              {(event.organizer || event.organizedBy) && <>
+                <span>·</span>
+                {event.organizer && <Avatar src={event.organizer.avatar} name={event.organizer.name} size={16} />}
+                <span className="truncate">by {event.organizer?.name || event.organizedBy}</span>
+              </>}
+            </p>
           </div>
         </div>
         <div className="w-28 sm:w-36 flex-shrink-0 rounded-xl overflow-hidden bg-slate-100 self-stretch min-h-[96px]">

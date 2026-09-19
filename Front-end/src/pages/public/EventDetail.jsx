@@ -3,7 +3,7 @@ import {
   ArrowLeft, Lock, Instagram, Linkedin, Facebook, Twitter, Globe, Briefcase,
   MapPin, Shield, ExternalLink, Ticket, UserCheck, CalendarPlus, Share2, CheckCircle2,
 } from 'lucide-react'
-import { Btn, Card, Badge, PriceTag } from '../../components/ui'
+import { Btn, Card, Badge, PriceTag, Avatar } from '../../components/ui'
 import EventMap from '../../components/shared/EventMap'
 import { useApp } from '../../context/AppContext'
 import { useEvent, useMyRegistrations } from '../../hooks/useApi'
@@ -81,22 +81,33 @@ export default function EventDetail() {
             </div>
           </div>
 
-          <div className="rounded-xl border border-slate-200 p-4 mb-6">
-            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wide mb-2">Organized by</p>
-            {event.organization ? (
-              <Link to={`/org/${event.organization.slug}`} className="flex items-center gap-3 group">
-                <div className="w-9 h-9 rounded-full overflow-hidden bg-gradient-to-br from-[#1a1a2e] to-[#e94560] flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
-                  {event.organization.logo ? <img src={event.organization.logo} alt="" className="w-full h-full object-cover" /> : event.organizedBy?.[0]}
-                </div>
-                <div className="flex-1"><p className="text-[14px] font-semibold text-slate-800 group-hover:text-[var(--accent)]">{event.organizedBy}</p></div>
-              </Link>
-            ) : (
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#1a1a2e] to-[#e94560] flex items-center justify-center text-white font-bold text-sm flex-shrink-0">{event.organizedBy?.[0]}</div>
-                <div className="flex-1"><p className="text-[14px] font-semibold text-slate-800">{event.organizedBy}</p></div>
+          <div className="rounded-xl border border-slate-200 p-4 mb-6 space-y-4">
+            {event.organization && (
+              <div>
+                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wide mb-2">Organization</p>
+                <Link to={`/org/${event.organization.slug}`} className="flex items-center gap-3 group">
+                  <div className="w-9 h-9 rounded-full overflow-hidden bg-gradient-to-br from-[#1a1a2e] to-[#e94560] flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                    {event.organization.logo ? <img src={event.organization.logo} alt="" className="w-full h-full object-cover" /> : event.organization.name?.[0]}
+                  </div>
+                  <div className="flex-1"><p className="text-[14px] font-semibold text-slate-800 group-hover:text-[var(--accent)]">{event.organization.name}</p></div>
+                </Link>
               </div>
             )}
-            {Object.values(event.socials || {}).some(Boolean) && <div className="flex items-center gap-2 mt-3 pt-3 border-t border-slate-100">
+            {/* The real account behind the event - not the free-text
+                organized_by field, which is whatever someone typed. */}
+            {(event.organizer || event.organizedBy) && (
+              <div>
+                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wide mb-2">Created by</p>
+                <div className="flex items-center gap-3">
+                  <Avatar src={event.organizer?.avatar} name={event.organizer?.name || event.organizedBy} size={36} />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[14px] font-semibold text-slate-800">{event.organizer?.name || event.organizedBy}</p>
+                    {event.organizer?.institution && <p className="text-[12px] text-slate-500">{event.organizer.institution}</p>}
+                  </div>
+                </div>
+              </div>
+            )}
+            {Object.values(event.socials || {}).some(Boolean) && <div className="flex items-center gap-2 pt-3 border-t border-slate-100">
               {SOC.map(([k, Icon]) => event.socials?.[k] ? <a key={k} href="#" onClick={e => e.preventDefault()} className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-600 transition-all"><Icon size={14} /></a> : null)}
             </div>}
           </div>

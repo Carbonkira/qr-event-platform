@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { User, Mail, GraduationCap, Lock, Camera } from 'lucide-react'
+import { User, Mail, GraduationCap, Lock, Camera, Phone } from 'lucide-react'
 import { Card, Btn, Input, Badge } from '../../components/ui'
 import PasswordChecklist from '../../components/shared/PasswordChecklist'
 import { useApp } from '../../context/AppContext'
@@ -42,7 +42,8 @@ function AvatarUpload() {
 
 function AccountCard() {
   const { user, accountType, updateProfile, addToast } = useApp()
-  const [form, setForm] = useState({ name: user?.name || '', email: user?.email || '', institution: user?.institution || '' })
+  const isOrganizer = accountType === 'organizer'
+  const [form, setForm] = useState({ name: user?.name || '', email: user?.email || '', institution: user?.institution || '', contactNumber: user?.contactNumber || '' })
   const [errors, setErrors] = useState({})
   const [saving, setSaving] = useState(false)
   const tier = roleBadge(user, accountType)
@@ -54,7 +55,9 @@ function AccountCard() {
     setSaving(true)
     setErrors({})
     try {
-      await updateProfile(form)
+      // contact_number only exists on organizer accounts.
+      const { contactNumber, ...rest } = form
+      await updateProfile(isOrganizer ? { ...rest, contactNumber } : rest)
       addToast(form.email !== user?.email ? 'Account updated — check your new email to verify it' : 'Account updated', 'success')
     } catch (err) {
       setErrors(err.errors || {})
@@ -75,6 +78,12 @@ function AccountCard() {
         <Input label="Full name" value={form.name} onChange={update('name')} icon={User} error={errors.name?.[0]} required />
         <Input label="Email" type="email" value={form.email} onChange={update('email')} icon={Mail} error={errors.email?.[0]} required />
         <Input label="Institution" value={form.institution} onChange={update('institution')} icon={GraduationCap} error={errors.institution?.[0]} />
+        {isOrganizer && (
+          <Input
+            label="Contact number" type="tel" value={form.contactNumber} onChange={update('contactNumber')} icon={Phone} error={errors.contactNumber?.[0]}
+            hint={user?.role === 'admin' ? 'Shown to applicants in the "we received your application" emails so they know who to call.' : 'The admin may call this number to verify your applications.'}
+          />
+        )}
         <div className="flex justify-end">
           <Btn variant="secondary" type="submit" loading={saving}>Save Account</Btn>
         </div>

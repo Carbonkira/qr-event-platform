@@ -19,6 +19,15 @@ export const Logo = ({ size = 32 }) => (
   </svg>
 )
 
+// A person's profile picture, or their initial when they haven't uploaded
+// one - what "created by" / "organized by" shows for the real account behind
+// an event rather than a free-text name.
+export const Avatar = ({ src, name, size = 36, className = '' }) => (
+  <div className={cn('rounded-full overflow-hidden bg-gradient-to-br from-[#1a1a2e] to-[#6d28d9] flex items-center justify-center text-white font-bold flex-shrink-0', className)} style={{ width: size, height: size, fontSize: Math.max(10, Math.round(size * 0.4)) }}>
+    {src ? <img src={src} alt="" className="w-full h-full object-cover" /> : (name?.[0]?.toUpperCase() || '·')}
+  </div>
+)
+
 export const Btn = ({ children, onClick, variant = 'primary', size = 'md', icon: Icon, loading, disabled, className = '', type = 'button', full }) => {
   const base = 'inline-flex items-center justify-center gap-2 font-semibold rounded-xl transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]'
   const sizes = { sm: 'px-3 py-1.5 text-xs', md: 'px-4 py-2.5 text-sm', lg: 'px-6 py-3.5 text-[15px]' }

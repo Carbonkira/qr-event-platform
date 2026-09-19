@@ -51,6 +51,22 @@ export default function Feedback() {
     )
   }
 
+  // Feedback is for people who actually came - the server enforces this too
+  // (FeedbackController::store), this just says so instead of letting them
+  // fill in a form that can only be refused.
+  if (!registration.attended) {
+    return (
+      <div className="max-w-md mx-auto px-5 py-16 text-center">
+        <Card className="p-8">
+          <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-4"><MessageSquare size={24} className="text-slate-400" /></div>
+          <h2 className="text-xl font-extrabold mb-1">Feedback is for attendees</h2>
+          <p className="text-[13px] text-slate-500 mb-6">Only people who were checked in at {event?.title || 'this event'} can leave feedback for it.</p>
+          <Link to="/my-events"><Btn variant="secondary" full>Back to my events</Btn></Link>
+        </Card>
+      </div>
+    )
+  }
+
   const avg = Object.values(r).some(v => v > 0) ? (Object.values(r).reduce((a, b) => a + b, 0) / 5).toFixed(1) : 0
   const setCustom = (id) => (v) => setCustomAnswers(a => ({ ...a, [id]: v }))
 
@@ -61,7 +77,8 @@ export default function Feedback() {
     if (missingExtra) { addToast(`Please answer "${missingExtra.label}"`, 'error'); return }
     setSubmitting(true)
     try {
-      const fb = await submitFeedback(registration.eventId, { registrationId: regId, ...r, comment, isImportant: important, customAnswers })
+      // passToken is the pass's own credential - see FeedbackController::store().
+      const fb = await submitFeedback(registration.eventId, { registrationId: regId, passToken: registration.passToken, ...r, comment, isImportant: important, customAnswers })
       navigate(`/feedback/${regId}/done`, { state: { badge: fb.badge, rating: avg } })
     } catch (err) {
       addToast(err.message, 'error')

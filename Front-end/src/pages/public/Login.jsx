@@ -53,7 +53,7 @@ export default function Login() {
           <Btn type="submit" variant="accent" size="lg" full icon={LogIn} loading={loading}>Log In</Btn>
         </form>
         <p className="text-[13px] text-slate-500 text-center mt-4">
-          <Link to="/forgot-password" className="font-semibold text-[#1a1a2e] hover:text-[var(--accent)]">Forgot your password?</Link>
+          <Link to={`/forgot-password?type=${type}${searchParams.get('next') ? `&next=${encodeURIComponent(searchParams.get('next'))}` : ''}`} className="font-semibold text-[#1a1a2e] hover:text-[var(--accent)]">Forgot your password?</Link>
         </p>
         <p className="text-[13px] text-slate-500 text-center mt-2">
           New here? <Link to={type === 'organizer' ? '/organizer/register' : '/participant/register'} className="font-semibold text-[#1a1a2e] hover:text-[var(--accent)]">Create an account</Link>

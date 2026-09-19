@@ -27,6 +27,32 @@ export const fmtDateLong = (d) => d ? new Date(d).toLocaleDateString('en-PH', { 
 export const fmtTime = (t) => { if (!t) return ''; const [h, m] = t.split(':'); const ampm = h >= 12 ? 'PM' : 'AM'; return `${h % 12 || 12}:${m} ${ampm}` }
 export const monthDay = (d) => { const dt = new Date(d); return { month: dt.toLocaleDateString('en-US', { month: 'short' }).toUpperCase(), day: dt.getDate(), weekday: dt.toLocaleDateString('en-US', { weekday: 'short' }) } }
 
+// Where to send someone after they finish resetting their password - stashed
+// in localStorage (not the URL) because the reset link is opened from an
+// email in a different tab than the one that asked for it.
+export const POST_RESET_NEXT_KEY = 'qr_post_reset_next'
+
+// Only an in-app path ("/events/x/register") - never "//evil.com" or a full
+// URL, since this ends up in a navigate() after login.
+export const safeNextPath = (next) => (typeof next === 'string' && next.startsWith('/') && !next.startsWith('//') ? next : null)
+
+// "Sep 12, 2026, 3:04 PM" - unlike fmtDate this carries the year and time,
+// which a decision history needs (it spans months).
+export const fmtDateTime = (d) => d ? new Date(d).toLocaleString('en-PH', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : ''
+export const monthLabel = (d) => d ? new Date(d).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : 'Undated'
+
+// Latest to oldest by event date (then start time) - the one ordering every
+// event list uses. `get` picks the event out of a wrapper, e.g. a
+// registration's nested `event`.
+export function sortByEventDateDesc(list, get = (x) => x) {
+  return [...(list || [])].sort((a, b) => {
+    const ea = get(a) || {}, eb = get(b) || {}
+    return (new Date(eb.date || 0) - new Date(ea.date || 0))
+      || String(eb.startTime || '').localeCompare(String(ea.startTime || ''))
+      || ((eb.id || 0) - (ea.id || 0))
+  })
+}
+
 export function timeAgo(iso) {
   if (!iso) return ''
   const seconds = Math.floor((Date.now() - new Date(iso).getTime()) / 1000)

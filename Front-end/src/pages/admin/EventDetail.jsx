@@ -6,7 +6,7 @@ import {
   Search as SearchIcon, FileSpreadsheet, Clock3, MapPinned, Eye,
   Trash2, UserPlus, Copy as CopyIcon, Send, Upload, ArrowUpCircle, ListPlus, Ban, MoreVertical, DollarSign,
 } from 'lucide-react'
-import { Card, Badge, Btn, Input, Toggle, KPI, PriceTag, StarRating, Modal } from '../../components/ui'
+import { Card, Badge, Btn, Input, Toggle, KPI, PriceTag, StarRating, Modal, Avatar } from '../../components/ui'
 import AiSummaryCard from '../../components/admin/AiSummaryCard'
 
 // Lazy - html5-qrcode is a large camera/decoding library only needed once
@@ -243,7 +243,7 @@ export default function EventDetail() {
   }
 
   const exportReport = () => {
-    let csv = `POST-EVENT REPORT\n${event.title}\n\nDate,${fmtDateLong(event.date)}\nVenue,${event.venue}\nLocation,${event.location}\nOrganized by,${event.organizedBy}\nLocale,${locale.city} (${locale.region}, ${locale.country})\n\nMETRICS\nRegistered,${regs.length}\nAttended,${att.length}\nAttendance Rate,${regs.length ? ((att.length / regs.length) * 100).toFixed(1) : 0}%\nFeedback,${fb.length}\nAvg Satisfaction,${avg}\n\nATTENDANCE\nName,Email,Check-in,Feedback\n`
+    let csv = `POST-EVENT REPORT\n${event.title}\n\nDate,${fmtDateLong(event.date)}\nVenue,${event.venue}\nLocation,${event.location}\nCreated by,${event.organizer?.name || event.organizedBy || ''}\nLocale,${locale.city} (${locale.region}, ${locale.country})\n\nMETRICS\nRegistered,${regs.length}\nAttended,${att.length}\nAttendance Rate,${regs.length ? ((att.length / regs.length) * 100).toFixed(1) : 0}%\nFeedback,${fb.length}\nAvg Satisfaction,${avg}\n\nATTENDANCE\nName,Email,Check-in,Feedback\n`
     regs.forEach(r => { csv += `"${r.name}","${r.email}","${r.checkInTime || ''}","${r.feedbackSubmitted ? 'Yes' : 'No'}"\n` })
     downloadCsv(csv, `report-${event.slug}.csv`)
     addToast('Report downloaded!', 'success')
@@ -350,7 +350,7 @@ export default function EventDetail() {
           <Card className="p-5">
             <p className="text-[12px] font-bold mb-3">Event details</p>
             <div className="grid sm:grid-cols-2 gap-2.5">
-              {[['Date', fmtDateLong(event.date)], ['Time', `${fmtTime(event.startTime)} – ${fmtTime(event.endTime)}`], ['Venue', event.venue], ['Industry', event.industry], ['Organized by', event.organizedBy], ['Capacity', event.capacity]].map(([k, v]) => (
+              {[['Date', fmtDateLong(event.date)], ['Time', `${fmtTime(event.startTime)} – ${fmtTime(event.endTime)}`], ['Venue', event.venue], ['Industry', event.industry], ['Created by', <span className="inline-flex items-center gap-2"><Avatar src={event.organizer?.avatar} name={event.organizer?.name || event.organizedBy} size={20} />{event.organizer?.name || event.organizedBy || 'Unknown'}</span>], ['Capacity', event.capacity]].map(([k, v]) => (
                 <div key={k} className="p-2.5 rounded-lg bg-slate-50"><p className="text-[10px] font-bold text-slate-400 uppercase">{k}</p><p className="text-[13px] font-medium text-slate-700 mt-0.5">{v}</p></div>
               ))}
             </div>

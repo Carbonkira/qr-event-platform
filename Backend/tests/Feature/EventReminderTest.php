@@ -13,6 +13,18 @@ class EventReminderTest extends TestCase
 {
     use RefreshDatabase;
 
+    /**
+     * Every case builds an event as "today at now +/- N hours" - run in the
+     * last hours of the day, "now + 1h" lands on tomorrow's date but the
+     * event is still stored under today's, so it looks like it already
+     * started. Pinning the clock to midday keeps the offsets on one date.
+     */
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->travelTo(now()->setTime(12, 0));
+    }
+
     private function makeEvent(string $startTime): Event
     {
         return Event::create([

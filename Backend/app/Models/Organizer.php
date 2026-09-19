@@ -36,7 +36,10 @@ class Organizer extends Authenticatable implements MustVerifyEmail
         'email',
         'password',
         'institution',
+        'contact_number',
         'requested_organization_id',
+        'requested_organization_name',
+        'requested_organization_address',
     ];
 
     protected $hidden = [
@@ -84,6 +87,12 @@ class Organizer extends Authenticatable implements MustVerifyEmail
     public function requestedOrganization(): BelongsTo
     {
         return $this->belongsTo(Organization::class, 'requested_organization_id');
+    }
+
+    /** The admin who approved or rejected this account (approved_by is set for both). */
+    public function approver(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'approved_by');
     }
 
     /**

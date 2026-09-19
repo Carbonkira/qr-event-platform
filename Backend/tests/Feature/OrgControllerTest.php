@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Event;
 use App\Models\Organization;
 use App\Models\Organizer;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -131,6 +132,55 @@ class OrgControllerTest extends TestCase
         Sanctum::actingAs($owner);
         $response = $this->postJson("/api/orgs/{$org->id}/logo", ['logo' => $file])->assertOk();
         $this->assertNotEmpty($response->json('logo'));
+    }
+
+    /** The address exists so an admin can verify an organization is real - it must never reach an anonymous visitor. */
+    public function test_an_organizations_address_is_never_exposed_publicly(): void
+    {
+        $org = Organization::create(['name' => 'Acme', 'slug' => 'acme', 'address' => '12 Rizal St, Quezon City']);
+        Event::create(['title' => 'Public', 'status' => 'approved', 'is_private' => false, 'slug' => 'public-acme', 'organization_id' => $org->id, 'date' => '2030-01-01']);
+
+        $this->assertArrayNotHasKey('address', $this->getJson('/api/org/acme')->assertOk()->json('organization'));
+        $this->assertArrayNotHasKey('address', $this->getJson('/api/orgs')->assertOk()->json('0'));
+        $this->assertArrayNotHasKey('address', $this->getJson('/api/events/public-acme')->assertOk()->json('organization'));
+        $this->assertArrayNotHasKey('address', $this->getJson('/api/orgs/list')->assertOk()->json('0'));
+    }
+
+    public function test_members_and_admins_can_see_and_edit_an_organizations_address(): void
+    {
+        $owner = $this->makeUser('owner@example.com');
+        $org = Organization::create(['name' => 'Acme', 'slug' => 'acme']);
+        $org->members()->attach($owner->id, ['role' => 'owner']);
+
+        Sanctum::actingAs($owner);
+        $updated = $this->putJson("/api/orgs/{$org->id}", ['address' => '12 Rizal St, Quezon City'])->assertOk();
+        $this->assertSame('12 Rizal St, Quezon City', $updated->json('address'));
+        $this->assertSame('12 Rizal St, Quezon City', $this->getJson('/api/orgs/mine')->assertOk()->json('0.address'));
+
+        Sanctum::actingAs($this->makeAdmin());
+        $this->assertSame('12 Rizal St, Quezon City', $this->getJson('/api/orgs/mine')->assertOk()->json('0.address'));
+    }
+
+    public function test_an_admin_can_create_an_organization_with_an_address(): void
+    {
+        Sanctum::actingAs($this->makeAdmin());
+
+        $created = $this->postJson('/api/orgs', ['name' => 'Acme Club', 'address' => '12 Rizal St', 'email' => 'hello@acme.test'])->assertCreated();
+
+        $this->assertSame('12 Rizal St', $created->json('address'));
+        $this->assertSame('hello@acme.test', $created->json('email'));
+    }
+
+    public function test_the_public_org_page_lists_upcoming_events_newest_date_first(): void
+    {
+        $org = Organization::create(['name' => 'Acme', 'slug' => 'acme']);
+        foreach ([['Soon', '2099-03-01'], ['Later', '2099-09-01'], ['Middle', '2099-06-01']] as [$title, $date]) {
+            Event::create(['title' => $title, 'status' => 'approved', 'is_private' => false, 'slug' => strtolower($title), 'organization_id' => $org->id, 'date' => $date, 'start_time' => '09:00']);
+        }
+
+        $titles = collect($this->getJson('/api/org/acme')->assertOk()->json('upcomingEvents'))->pluck('title')->all();
+
+        $this->assertSame(['Later', 'Middle', 'Soon'], $titles);
     }
 
     public function test_list_is_public_and_returns_only_id_and_name(): void

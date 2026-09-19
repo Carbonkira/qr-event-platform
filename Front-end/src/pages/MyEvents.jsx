@@ -3,7 +3,7 @@ import { CheckCircle2, Users, Calendar, Hourglass, ChevronRight, Star } from 'lu
 import { Card, Badge, KPI, PriceTag } from '../components/ui'
 import { useApp } from '../context/AppContext'
 import { useAdminEvents, useAnalytics, useMyRegistrations, useMyOrgs } from '../hooks/useApi'
-import { fmtDate, fmtTime } from '../lib/utils'
+import { fmtDate, fmtTime, sortByEventDateDesc } from '../lib/utils'
 
 const STATUS_COLOR = { draft: 'slate', pending: 'amber', approved: 'green', rejected: 'rose', completed: 'slate', cancelled: 'rose' }
 
@@ -21,7 +21,8 @@ function AttendingView({ place }) {
   const navigate = useNavigate()
   const { user } = useApp()
   const { data: regsData } = useMyRegistrations(!!user)
-  const registrations = regsData || []
+  // Latest to oldest by the event's own date, not by when they registered.
+  const registrations = sortByEventDateDesc(regsData, (reg) => reg.event)
 
   return (
     <div className="max-w-5xl mx-auto px-5 py-8">
@@ -64,9 +65,9 @@ function HostingView({ place }) {
   // any co-organizer sees, plus legacy org-less events they personally
   // created (those have no membership concept to check).
   const myOrgIds = new Set((myOrgsData || []).map(o => o.id))
-  const hostedEvents = (eventsData || []).filter(e =>
+  const hostedEvents = sortByEventDateDesc((eventsData || []).filter(e =>
     e.organizationId != null ? myOrgIds.has(e.organizationId) : e.organizerId === user?.id
-  )
+  ))
   const a = analytics || {}
 
   return (
@@ -80,7 +81,7 @@ function HostingView({ place }) {
         {a.pendingApprovals > 0 && (
           <Card className="p-4 flex items-center gap-3 bg-amber-50 border-amber-200" hover onClick={() => navigate('/organizer/approvals')}>
             <div className="w-9 h-9 rounded-xl bg-amber-400 flex items-center justify-center text-white"><Hourglass size={17} /></div>
-            <div className="flex-1"><p className="text-[13px] font-bold text-amber-800">{a.pendingApprovals} event{a.pendingApprovals > 1 ? 's' : ''} awaiting approval</p><p className="text-[11px] text-amber-600">Review and publish them to go live.</p></div>
+            <div className="flex-1"><p className="text-[13px] font-bold text-amber-800">{a.pendingApprovals} application{a.pendingApprovals > 1 ? 's' : ''} awaiting approval</p><p className="text-[11px] text-amber-600">Organizer accounts and events - review them to let them through.</p></div>
             <ChevronRight size={18} className="text-amber-500" />
           </Card>
         )}

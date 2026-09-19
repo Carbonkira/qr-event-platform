@@ -3,10 +3,14 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Mail\ApplicationReceivedMail;
+use App\Mail\NewOrganizerApplicationMail;
 use App\Models\Organizer;
 use Illuminate\Auth\Events\Verified;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
@@ -29,11 +33,15 @@ class OrganizerAuthController extends Controller
         return ['confirmed', PasswordRule::min(8)->mixedCase()->numbers()->symbols()->uncompromised()];
     }
 
+    /** Digits plus the usual +, spaces, dashes and parentheses - not a strict per-country format. */
+    private const CONTACT_NUMBER_RULE = 'regex:/^[0-9+\-()\s]{7,30}$/';
+
     public function register(Request $request)
     {
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255', 'unique:organizers,email'],
+            'contact_number' => ['required', 'string', self::CONTACT_NUMBER_RULE],
             'password' => array_merge(['required', 'string'], $this->passwordRules()),
             'institution' => ['nullable', 'string', 'max:255'],
             // Picked from a dropdown of admin-created organizations -
@@ -42,17 +50,30 @@ class OrganizerAuthController extends Controller
             // once the admin approves the account, see
             // OrganizerApprovalController::approve().
             'organization_id' => ['nullable', 'integer', 'exists:organizations,id'],
+            // Or, if theirs isn't listed, the one they want the admin to
+            // create - with an address, so the admin has something to verify
+            // it against before vouching for it (never shown publicly).
+            'organization_name' => ['nullable', 'string', 'max:255'],
+            'organization_address' => ['nullable', 'string', 'max:500', 'required_with:organization_name'],
         ]);
+
+        // Picking an existing organization wins - a requested-new one is
+        // only kept when they didn't.
+        $requestingNew = empty($data['organization_id']) && ! empty($data['organization_name']);
 
         $organizer = Organizer::create([
             'name' => $data['name'],
             'email' => $data['email'],
             'password' => Hash::make($data['password']),
             'institution' => $data['institution'] ?? null,
+            'contact_number' => $data['contact_number'],
             'requested_organization_id' => $data['organization_id'] ?? null,
+            'requested_organization_name' => $requestingNew ? $data['organization_name'] : null,
+            'requested_organization_address' => $requestingNew ? $data['organization_address'] : null,
         ]);
 
         $organizer->sendEmailVerificationNotification();
+        $this->notifyApplication($organizer);
 
         $token = $organizer->createToken('api')->plainTextToken;
 
@@ -60,6 +81,33 @@ class OrganizerAuthController extends Controller
             'user' => $organizer,
             'token' => $token,
         ], 201);
+    }
+
+    /**
+     * Two emails per application: an acknowledgment to the applicant ("we
+     * received your application... you can contact us at ...") and an alert
+     * to every admin so nobody has to remember to check Approvals. Neither
+     * may fail the signup itself - a broken mail config is logged, not thrown,
+     * same as the confirmation emails elsewhere.
+     */
+    private function notifyApplication(Organizer $organizer): void
+    {
+        try {
+            Mail::to($organizer->email)->queue(new ApplicationReceivedMail(
+                $organizer->name,
+                'organizer account',
+                [
+                    'Contact number' => $organizer->contact_number,
+                    'Organization' => $organizer->requestedOrganization?->name ?? $organizer->requested_organization_name,
+                ]
+            ));
+
+            foreach (Organizer::where('role', 'admin')->get() as $admin) {
+                Mail::to($admin->email)->queue(new NewOrganizerApplicationMail($organizer));
+            }
+        } catch (\Throwable $e) {
+            Log::error('Failed to queue organizer application emails', ['organizer_id' => $organizer->id, 'error' => $e->getMessage()]);
+        }
     }
 
     public function login(Request $request)
@@ -113,6 +161,7 @@ class OrganizerAuthController extends Controller
             'name' => ['sometimes', 'string', 'max:255'],
             'email' => ['sometimes', 'string', 'email', 'max:255', Rule::unique('organizers', 'email')->ignore($organizer->id)],
             'institution' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'contact_number' => ['sometimes', 'nullable', 'string', self::CONTACT_NUMBER_RULE],
             'current_password' => ['required_with:password', 'string'],
             'password' => array_merge(['sometimes', 'string'], $this->passwordRules()),
         ]);
@@ -131,6 +180,9 @@ class OrganizerAuthController extends Controller
         }
         if (array_key_exists('institution', $data)) {
             $organizer->institution = $data['institution'];
+        }
+        if (array_key_exists('contact_number', $data)) {
+            $organizer->contact_number = $data['contact_number'];
         }
 
         $emailChanged = array_key_exists('email', $data) && $data['email'] !== $organizer->email;

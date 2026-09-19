@@ -17,6 +17,13 @@ return [
         'model' => env('GEMINI_MODEL', 'gemini-3.6-flash'),
     ],
 
+    // Shown in the "we received your application" emails so an applicant
+    // knows who to call. Optional - when unset, AdminContact falls back to
+    // the contact number on an admin's own profile (editable in-app).
+    'admin' => [
+        'contact_number' => env('ADMIN_CONTACT_NUMBER'),
+    ],
+
     // Where the SPA is deployed - used to build links inside emails
     // (email verification landing page, "view your pass" links, etc).
     'frontend' => [

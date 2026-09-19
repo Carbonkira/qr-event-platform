@@ -138,6 +138,7 @@ Route::middleware(['auth:sanctum', 'verified'])->group(function () {
 // stays locked until an admin has approved the account as an organizer.
 Route::middleware(['auth:sanctum', 'verified', 'organizer.approved'])->group(function () {
     Route::get('/organizers/pending', [OrganizerApprovalController::class, 'pending']);
+    Route::get('/organizers/history', [OrganizerApprovalController::class, 'history']);
     Route::post('/organizers/{user}/approve', [OrganizerApprovalController::class, 'approve']);
     Route::post('/organizers/{user}/reject', [OrganizerApprovalController::class, 'reject']);
 

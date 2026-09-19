@@ -92,6 +92,102 @@ class OrganizerApprovalTest extends TestCase
         $this->assertSame('member', $organizer->fresh()->organizations()->first()->pivot->role);
     }
 
+    public function test_the_pending_list_shows_who_the_applicant_is_and_what_organization_they_want(): void
+    {
+        $admin = $this->makeAdmin();
+        $applicant = $this->makeVerifiedUnapprovedOrganizer();
+        $applicant->forceFill([
+            'contact_number' => '0917 123 4567',
+            'requested_organization_name' => 'Brand New Club',
+            'requested_organization_address' => '12 Rizal St, Quezon City',
+        ])->save();
+
+        Sanctum::actingAs($admin);
+        $pending = $this->getJson('/api/organizers/pending')->assertOk();
+
+        $this->assertSame('0917 123 4567', $pending->json('0.contactNumber'));
+        $this->assertSame('Brand New Club', $pending->json('0.requestedOrganizationName'));
+        $this->assertSame('12 Rizal St, Quezon City', $pending->json('0.requestedOrganizationAddress'));
+    }
+
+    public function test_approving_can_create_the_requested_organization_and_make_the_applicant_its_owner(): void
+    {
+        $applicant = $this->makeVerifiedUnapprovedOrganizer();
+        $applicant->forceFill([
+            'requested_organization_name' => 'Brand New Club',
+            'requested_organization_address' => '12 Rizal St, Quezon City',
+        ])->save();
+
+        Sanctum::actingAs($this->makeAdmin());
+        $this->postJson("/api/organizers/{$applicant->id}/approve", ['createOrganization' => true])->assertOk();
+
+        $organization = \App\Models\Organization::where('name', 'Brand New Club')->first();
+        $this->assertNotNull($organization);
+        $this->assertSame('brand-new-club', $organization->slug);
+        $this->assertSame('12 Rizal St, Quezon City', $organization->makeVisible('address')->address);
+        $this->assertTrue($organization->isOwner($applicant->fresh()));
+        $this->assertSame($organization->id, $applicant->fresh()->requested_organization_id);
+    }
+
+    public function test_approving_without_asking_to_create_the_organization_creates_nothing(): void
+    {
+        $applicant = $this->makeVerifiedUnapprovedOrganizer();
+        $applicant->forceFill(['requested_organization_name' => 'Brand New Club', 'requested_organization_address' => '12 Rizal St'])->save();
+
+        Sanctum::actingAs($this->makeAdmin());
+        $this->postJson("/api/organizers/{$applicant->id}/approve")->assertOk();
+
+        $this->assertDatabaseMissing('organizations', ['name' => 'Brand New Club']);
+        $this->assertSame('approved', $applicant->fresh()->approval_status);
+    }
+
+    public function test_create_organization_is_ignored_when_the_applicant_picked_an_existing_one(): void
+    {
+        $existing = \App\Models\Organization::create(['name' => 'Acme', 'slug' => 'acme']);
+        $applicant = $this->makeVerifiedUnapprovedOrganizer();
+        $applicant->forceFill(['requested_organization_id' => $existing->id, 'requested_organization_name' => 'Should Not Exist'])->save();
+
+        Sanctum::actingAs($this->makeAdmin());
+        $this->postJson("/api/organizers/{$applicant->id}/approve", ['createOrganization' => true])->assertOk();
+
+        $this->assertDatabaseMissing('organizations', ['name' => 'Should Not Exist']);
+        // Joins the existing one as a plain member, never an owner.
+        $this->assertTrue($existing->isMember($applicant->fresh()));
+        $this->assertFalse($existing->isOwner($applicant->fresh()));
+    }
+
+    public function test_history_lists_decided_applications_newest_first_without_pending_or_admins(): void
+    {
+        $admin = $this->makeAdmin();
+        $pending = $this->makeVerifiedUnapprovedOrganizer('pending@example.com');
+        $older = $this->makeVerifiedUnapprovedOrganizer('older@example.com');
+        $newer = $this->makeVerifiedUnapprovedOrganizer('newer@example.com');
+
+        Sanctum::actingAs($admin);
+        $this->postJson("/api/organizers/{$older->id}/approve")->assertOk();
+        $this->travel(1)->hour();
+        $this->postJson("/api/organizers/{$newer->id}/reject")->assertOk();
+
+        $history = $this->getJson('/api/organizers/history')->assertOk();
+
+        $this->assertSame(['newer@example.com', 'older@example.com'], collect($history->json())->pluck('email')->all());
+        $this->assertSame(['rejected', 'approved'], collect($history->json())->pluck('approvalStatus')->all());
+        $this->assertSame($admin->name, $history->json('0.approver.name'));
+        $this->assertNotContains($pending->email, collect($history->json())->pluck('email')->all());
+        $this->assertNotContains($admin->email, collect($history->json())->pluck('email')->all());
+    }
+
+    public function test_only_an_admin_can_read_the_approval_history(): void
+    {
+        // Approved, so the organizer.approved middleware lets them through
+        // and it's specifically the admin check that says no.
+        $organizer = $this->makeVerifiedUnapprovedOrganizer();
+        $organizer->forceFill(['approval_status' => 'approved'])->save();
+
+        Sanctum::actingAs($organizer);
+        $this->getJson('/api/organizers/history')->assertForbidden();
+    }
+
     public function test_admin_can_reject_a_pending_organizer_who_stays_blocked(): void
     {
         $organizer = $this->makeVerifiedUnapprovedOrganizer();

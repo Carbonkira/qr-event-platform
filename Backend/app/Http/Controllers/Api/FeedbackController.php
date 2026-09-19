@@ -30,6 +30,12 @@ class FeedbackController extends Controller
     {
         $data = $request->validate([
             'registration_id' => ['required', 'integer', 'exists:registrations,id'],
+            // The registration's own pass_token - the same credential the
+            // pass link carries (see RegistrationController::show()). This
+            // route is public (walk-ins and organizer-added guests have no
+            // account), so without it anyone could post feedback as any
+            // registration id, which is a plain sequential integer.
+            'pass_token' => ['sometimes', 'nullable', 'string'],
             'q1' => ['required', 'integer', 'between:1,5'],
             'q2' => ['required', 'integer', 'between:1,5'],
             'q3' => ['required', 'integer', 'between:1,5'],
@@ -45,6 +51,19 @@ class FeedbackController extends Controller
         $registration = Registration::where('id', $data['registration_id'])
             ->where('event_id', $event->id)
             ->firstOrFail();
+
+        // Checked before anything that would reveal the registration's
+        // state - a wrong or missing token must look identical to "no such
+        // registration". Registrations from before pass_token existed (null)
+        // are grandfathered, same as RegistrationController::show().
+        if ($registration->pass_token && $registration->pass_token !== ($data['pass_token'] ?? null)) {
+            abort(404);
+        }
+
+        // Only someone who actually showed up can review the event - being
+        // registered isn't enough, they have to have been checked in.
+        abort_unless($registration->attended, 403, 'Only participants who attended this event can leave feedback.');
+        abort_if($registration->feedback_submitted, 422, 'Feedback has already been submitted for this registration.');
 
         $extraQuestions = array_slice($event->feedbackQuestionsOrDefault(), 5);
         $customAnswers = $data['custom_answers'] ?? [];

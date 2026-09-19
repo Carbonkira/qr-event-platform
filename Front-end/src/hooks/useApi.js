@@ -35,6 +35,9 @@ export function useAdminEvents(enabled = true) {
 export function usePendingOrganizers(enabled = true) {
   return useAsync(() => (enabled ? api.getPendingOrganizers() : Promise.resolve([])), [enabled])
 }
+export function useOrganizerHistory(enabled = true) {
+  return useAsync(() => (enabled ? api.getOrganizerHistory() : Promise.resolve([])), [enabled])
+}
 export function useEvent(slug) {
   return useAsync(() => (slug ? api.getEvent(slug) : Promise.resolve(null)), [slug])
 }

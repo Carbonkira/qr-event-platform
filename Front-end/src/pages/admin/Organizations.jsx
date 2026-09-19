@@ -13,20 +13,24 @@ export default function Organizations() {
   const isAdmin = user?.role === 'admin'
   const { data: orgs, loading, refetch } = useMyOrgs()
   const [creating, setCreating] = useState(false)
-  const [newName, setNewName] = useState('')
+  const [newOrg, setNewOrg] = useState({ name: '', address: '', email: '', description: '' })
+  const [newErrors, setNewErrors] = useState({})
   const [savingNew, setSavingNew] = useState(false)
+  const setNew = (k) => (e) => setNewOrg(o => ({ ...o, [k]: e.target.value }))
 
   const createNew = async (e) => {
     e.preventDefault()
-    if (!newName.trim()) return
+    if (!newOrg.name.trim()) return
     setSavingNew(true)
+    setNewErrors({})
     try {
-      await createOrg({ name: newName })
-      setNewName('')
+      await createOrg(newOrg)
+      setNewOrg({ name: '', address: '', email: '', description: '' })
       setCreating(false)
       addToast('Organization created', 'success')
       refetch()
     } catch (err) {
+      setNewErrors(err.errors || {})
       addToast(err.message || 'Failed to create organization', 'error')
     } finally {
       setSavingNew(false)
@@ -42,9 +46,18 @@ export default function Organizations() {
 
       {isAdmin && creating && (
         <Card className="p-5">
-          <form onSubmit={createNew} className="flex items-end gap-2">
-            <div className="flex-1"><Input label="Organization name" value={newName} onChange={e => setNewName(e.target.value)} placeholder="e.g. Acme Robotics Club" autoFocus required /></div>
-            <Btn type="submit" loading={savingNew}>Create</Btn>
+          <form onSubmit={createNew} className="space-y-3">
+            <p className="font-bold text-[14px]">New organization</p>
+            <Input label="Organization name" value={newOrg.name} onChange={setNew('name')} placeholder="e.g. Acme Robotics Club" error={newErrors.name?.[0]} autoFocus required />
+            <Input label="Address" value={newOrg.address} onChange={setNew('address')} placeholder="Street, city, province" error={newErrors.address?.[0]} hint="For verification only - never shown publicly." />
+            <div className="grid sm:grid-cols-2 gap-3">
+              <Input label="Contact email" type="email" value={newOrg.email} onChange={setNew('email')} placeholder="hello@acme.org" error={newErrors.email?.[0]} />
+              <Input label="Short description" value={newOrg.description} onChange={setNew('description')} placeholder="What the organization does" error={newErrors.description?.[0]} />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Btn type="button" variant="ghost" onClick={() => setCreating(false)}>Cancel</Btn>
+              <Btn type="submit" loading={savingNew}>Create organization</Btn>
+            </div>
           </form>
         </Card>
       )}
@@ -74,7 +87,7 @@ function OrgCard({ org, onSaved }) {
   // membership that doesn't exist.
   const isOwner = isTrueOwner || isAdmin
   const [form, setForm] = useState({
-    name: org.name, description: org.description || '', email: org.email || '',
+    name: org.name, description: org.description || '', email: org.email || '', address: org.address || '',
     organizedBy: org.organizedBy || '', industry: org.industry || '',
     instagram: org.instagram || '', linkedin: org.linkedin || '', facebook: org.facebook || '',
     twitter: org.twitter || '', website: org.website || '', privacyPolicyUrl: org.privacyPolicyUrl || '',
@@ -223,6 +236,7 @@ function OrgCard({ org, onSaved }) {
             <Input label="Contact email" type="email" value={form.email} onChange={update('email')} />
             <Input label="Organized by" value={form.organizedBy} onChange={update('organizedBy')} placeholder="Shown on event pages" />
           </div>
+          <Input label="Address" value={form.address} onChange={update('address')} placeholder="Street, city, province" hint="Only you and the admin see this - it's for verification and is never shown publicly." />
           <Input label="Industry" value={form.industry} onChange={update('industry')} />
 
           <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wide pt-2">Socials & links</p>

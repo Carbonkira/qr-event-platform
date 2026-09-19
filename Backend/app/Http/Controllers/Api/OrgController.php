@@ -27,6 +27,7 @@ class OrgController extends Controller
         'description' => ['sometimes', 'nullable', 'string'],
         'organized_by' => ['sometimes', 'nullable', 'string', 'max:255'],
         'email' => ['sometimes', 'nullable', 'string', 'email', 'max:255'],
+        'address' => ['sometimes', 'nullable', 'string', 'max:500'],
         'industry' => ['sometimes', 'nullable', 'string', 'max:255'],
         'instagram' => ['sometimes', 'nullable', 'string', 'max:255'],
         'linkedin' => ['sometimes', 'nullable', 'string', 'max:255'],
@@ -45,11 +46,14 @@ class OrgController extends Controller
      */
     public function mine(Request $request)
     {
+        // address is hidden on the model itself (see Organization::$hidden) so
+        // no public endpoint can leak it - members and admins are the only
+        // ones who legitimately see it, so this is where it's opted back in.
         if ($request->user()->isAdmin()) {
-            return response()->json(Organization::orderBy('name')->get());
+            return response()->json(Organization::orderBy('name')->get()->makeVisible('address'));
         }
 
-        return response()->json($request->user()->organizations()->get());
+        return response()->json($request->user()->organizations()->get()->makeVisible('address'));
     }
 
     /**
@@ -94,7 +98,8 @@ class OrgController extends Controller
         $events = $organization->events()
             ->where('status', 'approved')
             ->where('is_private', false)
-            ->orderBy('date')
+            ->orderByDesc('date')
+            ->orderByDesc('start_time')
             ->get();
 
         $today = now()->toDateString();
@@ -124,11 +129,11 @@ class OrgController extends Controller
         ]));
 
         $org = Organization::create(array_merge($data, [
-            'slug' => $this->uniqueSlug($data['name']),
+            'slug' => Organization::uniqueSlug($data['name']),
         ]));
         $org->members()->attach($request->user()->id, ['role' => 'owner']);
 
-        return response()->json($org, 201);
+        return response()->json($org->makeVisible('address'), 201);
     }
 
     public function update(Request $request, Organization $organization)
@@ -138,7 +143,7 @@ class OrgController extends Controller
         $data = $request->validate(self::PROFILE_FIELDS);
         $organization->update($data);
 
-        return response()->json($organization);
+        return response()->json($organization->makeVisible('address'));
     }
 
     public function uploadLogo(Request $request, Organization $organization)
@@ -278,16 +283,4 @@ class OrgController extends Controller
         );
     }
 
-    private function uniqueSlug(string $name): string
-    {
-        $base = Str::slug($name) ?: 'org';
-        $slug = $base;
-        $suffix = 1;
-
-        while (Organization::where('slug', $slug)->exists()) {
-            $slug = "{$base}-".++$suffix;
-        }
-
-        return $slug;
-    }
 }
