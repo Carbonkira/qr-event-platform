@@ -45,12 +45,14 @@ export default function Home() {
       <div id="event-listing" className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-7 scroll-mt-6">
         <div>
           <h1 className="text-2xl font-extrabold tracking-tight">Events</h1>
+          {/* The list itself is always latest event date first - only the
+              "Suggested for you" picks above it follow distance. */}
           {geoStatus === 'granted' && place?.city ? (
-            <p className="text-[13px] text-slate-500 mt-0.5 flex items-center gap-1.5"><LocateFixed size={13} className="text-[#0f9d8f]" />Sorted by distance from {place.city}</p>
+            <p className="text-[13px] text-slate-500 mt-0.5 flex items-center gap-1.5"><LocateFixed size={13} className="text-[#0f9d8f]" />Latest events first · suggestions are nearest to {place.city}</p>
           ) : geoStatus === 'granted' ? (
-            <p className="text-[13px] text-slate-500 mt-0.5 flex items-center gap-1.5"><LocateFixed size={13} className="text-[#0f9d8f]" />Sorted by distance from you</p>
+            <p className="text-[13px] text-slate-500 mt-0.5 flex items-center gap-1.5"><LocateFixed size={13} className="text-[#0f9d8f]" />Latest events first · suggestions are nearest to you</p>
           ) : (
-            <p className="text-[13px] text-slate-500 mt-0.5 flex items-center gap-1.5"><MapPinned size={13} />Discover upcoming events</p>
+            <p className="text-[13px] text-slate-500 mt-0.5 flex items-center gap-1.5"><MapPinned size={13} />Latest events first</p>
           )}
         </div>
         <div className="flex items-center gap-2">
