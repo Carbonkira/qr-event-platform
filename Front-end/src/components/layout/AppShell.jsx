@@ -4,6 +4,7 @@ import { Plus, LogIn, ChevronDown, LogOut, MailWarning, Hourglass, MessageSquare
 import { Btn, Logo, Badge } from '../ui'
 import { cn, roleBadge } from '../../lib/utils'
 import { useApp } from '../../context/AppContext'
+import { ApplicationStatusBanner, applicationStatusOf, useApplicationStatusWatch } from '../shared/ApplicationStatus'
 import { useAdminEvents, useAnalytics } from '../../hooks/useApi'
 
 // Lazy - AppShell renders on every route, and CreateEventModal pulls in
@@ -35,7 +36,12 @@ export default function AppShell() {
   const location = useLocation()
   const navigate = useNavigate()
   const { user, accountType, logout, addToast, resendVerificationEmail, place } = useApp()
-  const { data: analytics } = useAnalytics(accountType === 'organizer')
+  // An organizer still waiting on (or turned down by) the admin can't host or
+  // manage anything yet - see ApplicationStatus.jsx. Their tools stay out of the
+  // nav rather than leading to pages that only answer 403.
+  const applicationStatus = applicationStatusOf(user, accountType)
+  useApplicationStatusWatch(applicationStatus)
+  const { data: analytics } = useAnalytics(accountType === 'organizer' && !applicationStatus)
   const [createOpen, setCreateOpen] = useState(false)
   const [resending, setResending] = useState(false)
   const [manageOpen, setManageOpen] = useState(false)
@@ -48,7 +54,7 @@ export default function AppShell() {
   // account types, see Backend's Organizer/Participant models) - "Manage"
   // and "Create Event" are Organizer-only, not tied to having hosted
   // something yet.
-  const canManage = accountType === 'organizer'
+  const canManage = accountType === 'organizer' && !applicationStatus
   const tier = roleBadge(user, accountType)
 
   // Site-wide accent color (buttons, links, icon highlights - see App.jsx's
@@ -123,7 +129,7 @@ export default function AppShell() {
           </nav>
 
           <div className="flex items-center gap-2 flex-shrink-0">
-            {accountType === 'organizer' && (
+            {canManage && (
               <Btn variant="accent" size="md" icon={Plus} onClick={onCreateClick}><span className="hidden sm:inline">Create Event</span></Btn>
             )}
             {user ? (
@@ -194,6 +200,9 @@ export default function AppShell() {
           <button onClick={resend} disabled={resending} className="text-[12px] font-semibold text-amber-800 underline hover:text-amber-900 disabled:opacity-50">{resending ? 'Sending…' : 'Resend link'}</button>
         </div>
       )}
+
+      {/* My Events shows the full status card itself, so the strip would only repeat it there. */}
+      {applicationStatus && location.pathname !== '/my-events' && <ApplicationStatusBanner status={applicationStatus} />}
 
       <div className="animate-fade"><Outlet context={{ openCreate: onCreateClick, toast: addToast }} /></div>
 

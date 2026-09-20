@@ -1,6 +1,7 @@
 import { Link, useNavigate, useOutletContext } from 'react-router-dom'
 import { CheckCircle2, Users, Calendar, Hourglass, ChevronRight, Star } from 'lucide-react'
 import { Card, Badge, KPI, PriceTag } from '../components/ui'
+import { ApplicationStatusCard, applicationStatusOf } from '../components/shared/ApplicationStatus'
 import { useApp } from '../context/AppContext'
 import { useAdminEvents, useAnalytics, useMyRegistrations, useMyOrgs } from '../hooks/useApi'
 import { fmtDate, fmtTime, sortByEventDateDesc } from '../lib/utils'
@@ -13,8 +14,24 @@ const STATUS_COLOR = { draft: 'slate', pending: 'amber', approved: 'green', reje
 // accountType, rather than the old tab switcher between "both sides of the
 // same account."
 export default function MyEvents() {
-  const { accountType, place } = useApp()
-  return accountType === 'organizer' ? <HostingView place={place} /> : <AttendingView place={place} />
+  const { accountType, user, place } = useApp()
+  if (accountType !== 'organizer') return <AttendingView place={place} />
+  // An organizer the admin hasn't approved has nothing to host yet - and the
+  // hosting view's own requests would only come back 403 - so they see where
+  // their application stands instead.
+  return applicationStatusOf(user, accountType) ? <ApplicationView /> : <HostingView place={place} />
+}
+
+function ApplicationView() {
+  return (
+    <div className="max-w-3xl mx-auto px-5 py-8">
+      <div className="mb-6">
+        <h1 className="text-2xl font-extrabold tracking-tight">My Events</h1>
+        <p className="text-[13px] text-slate-500 mt-0.5">Your organizer application</p>
+      </div>
+      <ApplicationStatusCard />
+    </div>
+  )
 }
 
 function AttendingView({ place }) {

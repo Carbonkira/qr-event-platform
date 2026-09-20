@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Mail\ApplicationReceivedMail;
 use App\Mail\NewOrganizerApplicationMail;
 use App\Models\Organizer;
+use App\Services\AdminContact;
 use Illuminate\Auth\Events\Verified;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -28,6 +29,25 @@ use Illuminate\Validation\ValidationException;
  */
 class OrganizerAuthController extends Controller
 {
+    /**
+     * The acting organizer's own account, as every auth response returns it.
+     * Someone still waiting on the admin (or turned down) also gets the number
+     * to reach them on - the same one the application emails carry - so the app
+     * can say who to contact right next to their status. It's attached here,
+     * to their own responses only, and not to the model, so it can't leak
+     * through the relations that serialize an Organizer for other people.
+     */
+    private function accountPayload(Organizer $organizer): array
+    {
+        $data = $organizer->toArray();
+
+        if (! $organizer->isAdmin() && ! $organizer->isOrganizerApproved()) {
+            $data['admin_contact_number'] = AdminContact::number();
+        }
+
+        return $data;
+    }
+
     private function passwordRules(): array
     {
         return ['confirmed', PasswordRule::min(8)->mixedCase()->numbers()->symbols()->uncompromised()];
@@ -77,8 +97,11 @@ class OrganizerAuthController extends Controller
 
         $token = $organizer->createToken('api')->plainTextToken;
 
+        // approval_status is the column's own default ('pending'), which the
+        // freshly created model doesn't carry until it's reloaded - and the
+        // app decides what to show the applicant from it.
         return response()->json([
-            'user' => $organizer,
+            'user' => $this->accountPayload($organizer->refresh()),
             'token' => $token,
         ], 201);
     }
@@ -136,7 +159,7 @@ class OrganizerAuthController extends Controller
         $token = $organizer->createToken('api')->plainTextToken;
 
         return response()->json([
-            'user' => $organizer,
+            'user' => $this->accountPayload($organizer),
             'token' => $token,
         ]);
     }
@@ -150,7 +173,7 @@ class OrganizerAuthController extends Controller
 
     public function me(Request $request)
     {
-        return response()->json($request->user());
+        return response()->json($this->accountPayload($request->user()));
     }
 
     public function updateProfile(Request $request)
@@ -197,7 +220,7 @@ class OrganizerAuthController extends Controller
             $organizer->sendEmailVerificationNotification();
         }
 
-        return response()->json($organizer);
+        return response()->json($this->accountPayload($organizer));
     }
 
     public function uploadAvatar(Request $request)
@@ -211,7 +234,7 @@ class OrganizerAuthController extends Controller
         $organizer->avatar = Storage::disk('public')->url($path);
         $organizer->save();
 
-        return response()->json($organizer);
+        return response()->json($this->accountPayload($organizer));
     }
 
     public function verify(Request $request, string $id)

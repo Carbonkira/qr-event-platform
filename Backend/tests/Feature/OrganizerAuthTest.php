@@ -168,6 +168,79 @@ class OrganizerAuthTest extends TestCase
         (new ApplicationReceivedMail('Ana Reyes', 'organizer account'))->assertSeeInHtml('02-8123-4567');
     }
 
+    /** The app shows an applicant their own status - what the admin decided, why, and who to call. */
+    public function test_a_pending_or_rejected_organizer_gets_their_status_and_the_admin_number_on_their_own_account(): void
+    {
+        config(['services.admin.contact_number' => '02-8123-4567']);
+        $pending = Organizer::create(['name' => 'Ana', 'email' => 'pending@example.com', 'password' => bcrypt('password123'), 'contact_number' => '0917 123 4567']);
+        $rejected = Organizer::create(['name' => 'Ben', 'email' => 'rejected@example.com', 'password' => bcrypt('password123'), 'contact_number' => '0917 123 4568']);
+        $rejected->forceFill(['approval_status' => 'rejected', 'approved_at' => now(), 'rejection_reason' => 'We could not verify your organization.'])->save();
+
+        // fresh(): the column default ('pending') only exists on a model loaded from the database
+        Sanctum::actingAs($pending->fresh());
+        $this->getJson('/api/auth/organizer/me')->assertOk()
+            ->assertJsonPath('approvalStatus', 'pending')
+            ->assertJsonPath('adminContactNumber', '02-8123-4567');
+
+        Sanctum::actingAs($rejected);
+        $this->getJson('/api/auth/organizer/me')->assertOk()
+            ->assertJsonPath('approvalStatus', 'rejected')
+            ->assertJsonPath('rejectionReason', 'We could not verify your organization.')
+            ->assertJsonPath('adminContactNumber', '02-8123-4567');
+    }
+
+    public function test_an_approved_organizer_and_an_admin_are_not_sent_the_admin_number(): void
+    {
+        config(['services.admin.contact_number' => '02-8123-4567']);
+        $approved = Organizer::create(['name' => 'Ana', 'email' => 'approved@example.com', 'password' => bcrypt('password123')]);
+        $approved->forceFill(['approval_status' => 'approved'])->save();
+        $admin = Organizer::create(['name' => 'Admin', 'email' => 'admin@example.com', 'password' => bcrypt('password123')]);
+        $admin->forceFill(['role' => 'admin', 'approval_status' => 'pending'])->save(); // an admin needs no approval, whatever the column says
+
+        foreach ([$approved, $admin] as $organizer) {
+            Sanctum::actingAs($organizer);
+            $this->getJson('/api/auth/organizer/me')->assertOk()->assertJsonMissingPath('adminContactNumber');
+        }
+    }
+
+    /**
+     * Every response that hands the app the account (sign-up, login, and the
+     * profile edits that replace it wholesale) has to carry the status, or
+     * the banner would vanish the first time an applicant changed their name.
+     */
+    public function test_every_response_that_returns_the_account_keeps_the_status_and_admin_number(): void
+    {
+        Notification::fake();
+        Mail::fake();
+        $this->fakeUncompromisedPasswordCheck();
+        config(['services.admin.contact_number' => '02-8123-4567']);
+
+        $this->postJson('/api/auth/organizer/register', $this->application())
+            ->assertCreated()
+            ->assertJsonPath('user.approvalStatus', 'pending')
+            ->assertJsonPath('user.adminContactNumber', '02-8123-4567');
+
+        $this->postJson('/api/auth/organizer/login', ['email' => 'ana@example.com', 'password' => 'Password123!'])
+            ->assertOk()
+            ->assertJsonPath('user.approvalStatus', 'pending')
+            ->assertJsonPath('user.adminContactNumber', '02-8123-4567');
+
+        Sanctum::actingAs(Organizer::where('email', 'ana@example.com')->first());
+        $this->putJson('/api/auth/organizer/me', ['name' => 'Ana R.'])
+            ->assertOk()
+            ->assertJsonPath('approvalStatus', 'pending')
+            ->assertJsonPath('adminContactNumber', '02-8123-4567');
+    }
+
+    /** The number is only ever attached to the applicant's own responses, never to the model itself. */
+    public function test_the_admin_number_does_not_ride_along_when_an_organizer_is_serialized_elsewhere(): void
+    {
+        config(['services.admin.contact_number' => '02-8123-4567']);
+        $pending = Organizer::create(['name' => 'Ana', 'email' => 'pending@example.com', 'password' => bcrypt('password123')]);
+
+        $this->assertArrayNotHasKey('admin_contact_number', $pending->toArray());
+    }
+
     /** An applicant who didn't pick an organization must not get an empty "Organization:" line. */
     public function test_the_acknowledgment_email_skips_rows_with_no_value(): void
     {

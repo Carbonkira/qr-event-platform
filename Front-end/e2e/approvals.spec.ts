@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test'
-import { STRONG_PASSWORD, createOrganizer, createPendingEvent, loginAsAdmin, verifyEmail } from './helpers'
+import { STRONG_PASSWORD, createOrganizer, createPendingEvent, loginAs, loginAsAdmin, verifyEmail } from './helpers'
 
 // The card for one application on the Approvals page: the innermost
 // overflow-hidden block containing the text (ancestors match too, and come
@@ -33,6 +33,11 @@ test('an applicant asks for a new organization, and the admin approves them and 
   await applicantPage.getByRole('button', { name: "I've verified — Continue" }).click()
   await expect(applicantPage).toHaveURL(/\/my-events$/)
 
+  // Meanwhile the applicant's own view: under review, naming the organization they asked for
+  await expect(applicantPage.getByRole('heading', { name: 'Your organizer application is under review' })).toBeVisible()
+  await expect(applicantPage.getByText(orgName)).toBeVisible()
+  await expect(applicantPage.getByRole('button', { name: 'Create Event' })).toHaveCount(0)
+
   // --- Admin: the application is waiting under Approvals > Organizers ---
   await loginAsAdmin(adminPage)
   await adminPage.goto('/organizer/approvals?tab=organizers')
@@ -57,13 +62,18 @@ test('an applicant asks for a new organization, and the admin approves them and 
   await expect(approved.getByText(/Approved by TechHub Admin/)).toBeVisible()
   await adminPage.screenshot({ path: 'e2e/screenshots/41-approvals-organizer-history.png', fullPage: true })
 
-  // --- Applicant: now owns the organization they asked for ---
-  await applicantPage.reload()
+  // --- Applicant: checks their status - approved, so hosting unlocks without logging in again ---
+  await applicantPage.getByRole('button', { name: 'Check status' }).click()
+  await expect(applicantPage.getByText('Your organizer application was approved')).toBeVisible()
+  await expect(applicantPage.getByRole('heading', { name: 'Your organizer application is under review' })).toHaveCount(0)
+  await expect(applicantPage.getByText("Everything you're hosting")).toBeVisible()
+
+  // ...and they own the organization they asked for
   await applicantPage.getByRole('button', { name: 'Create Event' }).first().click()
   await expect(applicantPage.locator('select').first()).toContainText(orgName)
 })
 
-test('rejecting an organizer application records the reason the applicant was given', async ({ page }) => {
+test('rejecting an organizer application records the reason the applicant was given', async ({ page, browser }) => {
   const suffix = Date.now()
   const name = `E2E Rejected Applicant ${suffix}`
   const email = `e2e-rejected-${suffix}@example.com`
@@ -87,6 +97,17 @@ test('rejecting an organizer application records the reason the applicant was gi
   await expect(rejected.getByText('Reason given to the applicant')).toBeVisible()
   await expect(rejected.getByText(reason)).toBeVisible()
   await page.screenshot({ path: 'e2e/screenshots/42-approvals-rejected-reason.png', fullPage: true })
+
+  // --- The applicant logs in and sees the same reason, plus who to contact ---
+  const applicantPage = await (await browser.newContext()).newPage()
+  await loginAs(applicantPage, 'organizer', email, STRONG_PASSWORD)
+  await expect(applicantPage.getByRole('heading', { name: "Your organizer application wasn't approved" })).toBeVisible()
+  await expect(applicantPage.getByText('Not approved').first()).toBeVisible()
+  await expect(applicantPage.getByText('Reason from the admin')).toBeVisible()
+  await expect(applicantPage.getByText(reason)).toBeVisible()
+  await expect(applicantPage.getByRole('link', { name: '0917 000 0000' })).toBeVisible()
+  await expect(applicantPage.getByRole('button', { name: 'Create Event' })).toHaveCount(0)
+  await applicantPage.screenshot({ path: 'e2e/screenshots/43-application-status-rejected.png', fullPage: true })
 })
 
 test('a rejected event shows its real organizer and the reason, and stays out of the public listing', async ({ page }) => {
