@@ -16,6 +16,10 @@
 <p style="font-size:14px;color:#3b3b4b;line-height:1.55;margin:0;">Good news - your application for your <strong>{{ $applicationFor }}</strong> has been approved.</p>
 @else
 <p style="font-size:14px;color:#3b3b4b;line-height:1.55;margin:0;">We weren't able to approve your application for your <strong>{{ $applicationFor }}</strong> at this time.</p>
+@if ($reasonText)
+<p style="font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#8b8a99;margin:16px 0 6px;">Reason from the admin</p>
+<p style="font-size:14px;color:#3b3b4b;line-height:1.55;margin:0;padding:10px 14px;background:#f3f1ee;border-radius:10px;white-space:pre-line;">{{ $reasonText }}</p>
+@endif
 @if ($adminNumber)
 <p style="font-size:14px;color:#3b3b4b;line-height:1.55;margin:12px 0 0;">If you have questions or think this was a mistake, you can contact us here: <strong>{{ $adminNumber }}</strong></p>
 @endif

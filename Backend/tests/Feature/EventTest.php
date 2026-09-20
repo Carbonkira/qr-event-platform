@@ -581,6 +581,64 @@ class EventTest extends TestCase
             ->assertDontSeeInHtml('View your event');
     }
 
+    public function test_rejecting_an_event_with_a_reason_stores_it_and_emails_it(): void
+    {
+        Mail::fake();
+        $organizer = $this->makeUser('organizer@example.com');
+        $admin = $this->makeUser('admin@example.com');
+        $admin->forceFill(['role' => 'admin'])->save();
+        $event = Event::create(['title' => 'Tech Meetup', 'status' => 'pending', 'organizer_id' => $organizer->id, 'slug' => 'tech-meetup']);
+
+        Sanctum::actingAs($admin);
+        $this->postJson("/api/events/{$event->id}/reject", ['reason' => 'The venue is not confirmed.'])
+            ->assertOk()
+            ->assertJsonPath('rejectionReason', 'The venue is not confirmed.');
+
+        $this->assertSame('The venue is not confirmed.', $event->fresh()->rejection_reason);
+        Mail::assertQueued(\App\Mail\ApplicationDecisionMail::class, fn ($mail) => $mail->reason === 'The venue is not confirmed.');
+    }
+
+    /** show() returns any event by slug regardless of status - the reason must not be readable there. */
+    public function test_the_rejection_reason_never_appears_on_the_public_event_page(): void
+    {
+        $organizer = $this->makeUser('organizer@example.com');
+        $event = Event::create(['title' => 'Nope', 'status' => 'rejected', 'organizer_id' => $organizer->id, 'slug' => 'nope-x']);
+        $event->forceFill(['review_decision' => 'rejected', 'rejection_reason' => 'Private feedback for the organizer'])->save();
+
+        $this->assertArrayNotHasKey('rejectionReason', $this->getJson('/api/events/nope-x')->assertOk()->json());
+    }
+
+    public function test_the_organizer_and_the_admin_can_read_the_rejection_reason_in_their_event_list(): void
+    {
+        $owner = $this->makeUser('owner@example.com');
+        $org = $this->makeOrganization($owner);
+        $admin = $this->makeUser('admin@example.com');
+        $admin->forceFill(['role' => 'admin'])->save();
+        $event = Event::create(['title' => 'Nope', 'status' => 'rejected', 'organizer_id' => $owner->id, 'organization_id' => $org->id, 'slug' => 'nope-y']);
+        $event->forceFill(['review_decision' => 'rejected', 'rejection_reason' => 'Needs a confirmed venue'])->save();
+
+        Sanctum::actingAs($owner);
+        $this->assertSame('Needs a confirmed venue', $this->getJson('/api/admin/events')->assertOk()->json('0.rejectionReason'));
+
+        Sanctum::actingAs($admin);
+        $this->assertSame('Needs a confirmed venue', $this->getJson('/api/admin/events')->assertOk()->json('0.rejectionReason'));
+    }
+
+    public function test_approving_an_event_clears_any_earlier_rejection_reason(): void
+    {
+        Mail::fake();
+        $organizer = $this->makeUser('organizer@example.com');
+        $admin = $this->makeUser('admin@example.com');
+        $admin->forceFill(['role' => 'admin'])->save();
+        $event = Event::create(['title' => 'Tech Meetup', 'status' => 'pending', 'organizer_id' => $organizer->id, 'slug' => 'tech-meetup']);
+
+        Sanctum::actingAs($admin);
+        $this->postJson("/api/events/{$event->id}/reject", ['reason' => 'Try again'])->assertOk();
+        $this->postJson("/api/events/{$event->id}/approve")->assertOk();
+
+        $this->assertNull($event->fresh()->rejection_reason);
+    }
+
     public function test_the_approval_link_for_a_private_event_carries_its_access_token(): void
     {
         Mail::fake();

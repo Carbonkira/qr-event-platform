@@ -108,7 +108,7 @@ class EventController extends Controller
             $query->where(fn ($q) => $q->whereIn('organization_id', $orgIds)->orWhereNull('organization_id'));
         }
 
-        return response()->json($query->get());
+        return response()->json($query->get()->makeVisible('rejection_reason'));
     }
 
     /**
@@ -336,11 +336,16 @@ class EventController extends Controller
         return response()->json($this->recordReview($event, $request, 'approved'));
     }
 
+    /** `reason` is optional free text from the admin - see recordReview(). */
     public function reject(Request $request, Event $event)
     {
         $this->authorizeAdmin($request);
 
-        return response()->json($this->recordReview($event, $request, 'rejected'));
+        $data = $request->validate([
+            'reason' => ['sometimes', 'nullable', 'string', 'max:1000'],
+        ]);
+
+        return response()->json($this->recordReview($event, $request, 'rejected', $data['reason'] ?? null));
     }
 
     /**
@@ -350,7 +355,7 @@ class EventController extends Controller
      * itself, so the Approvals page can show accepted/rejected events over
      * time. Not mass-assignable (see Event::reviewer()), hence forceFill.
      */
-    private function recordReview(Event $event, Request $request, string $decision): Event
+    private function recordReview(Event $event, Request $request, string $decision, ?string $reason = null): Event
     {
         $alreadyDecided = $event->review_decision === $decision;
 
@@ -359,6 +364,8 @@ class EventController extends Controller
             'review_decision' => $decision,
             'reviewed_at' => now(),
             'reviewed_by' => $request->user()->id,
+            // Only ever a reason for a rejection - and cleared on approval.
+            'rejection_reason' => $decision === 'rejected' && filled($reason) ? trim($reason) : null,
         ])->save();
 
         // Only on a real change - approving an already-approved event (a
@@ -367,7 +374,7 @@ class EventController extends Controller
             $this->emailEventDecision($event, $request->user(), $decision === 'approved');
         }
 
-        return $event;
+        return $event->makeVisible('rejection_reason');
     }
 
     /**
@@ -399,6 +406,7 @@ class EventController extends Controller
                 ],
                 $link,
                 'View your event',
+                $event->rejection_reason,
             ));
         } catch (\Throwable $e) {
             Log::error('Failed to queue event decision email', ['event_id' => $event->id, 'error' => $e->getMessage()]);

@@ -87,8 +87,9 @@ export function deleteEvent(id) {
 export function approveEvent(id) {
   return api.post(`/events/${id}/approve`)
 }
-export function rejectEvent(id) {
-  return api.post(`/events/${id}/reject`)
+// reason: optional free text, emailed to the applicant as written.
+export function rejectEvent(id, reason) {
+  return api.post(`/events/${id}/reject`, { reason: reason || undefined })
 }
 export function getPendingOrganizers() {
   return api.get('/organizers/pending')
@@ -102,8 +103,8 @@ export function getOrganizerHistory() {
 export function approveOrganizer(id, { createOrganization = false } = {}) {
   return api.post(`/organizers/${id}/approve`, { createOrganization })
 }
-export function rejectOrganizer(id) {
-  return api.post(`/organizers/${id}/reject`)
+export function rejectOrganizer(id, reason) {
+  return api.post(`/organizers/${id}/reject`, { reason: reason || undefined })
 }
 export function submitEvent(id) {
   return api.post(`/events/${id}/submit`)

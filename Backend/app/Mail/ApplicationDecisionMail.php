@@ -16,6 +16,7 @@ use Illuminate\Queue\SerializesModels;
  * @param  string  $applicationFor  Read inside the sentence, e.g. "organizer account" or "event \"Tech Meetup\"".
  * @param  array<string,string>  $details  Label => value rows (which organization they were added to, the event's date...); empty values are skipped.
  * @param  string|null  $actionUrl  Where "what now?" points on approval - login for an account, the live page for an event.
+ * @param  string|null  $reason  The admin's own words for why, on a rejection only - shown to the applicant as written.
  */
 class ApplicationDecisionMail extends Mailable
 {
@@ -28,6 +29,7 @@ class ApplicationDecisionMail extends Mailable
         public array $details = [],
         public ?string $actionUrl = null,
         public ?string $actionLabel = null,
+        public ?string $reason = null,
     ) {
     }
 
@@ -47,6 +49,7 @@ class ApplicationDecisionMail extends Mailable
                 'rows' => array_filter($this->details, fn ($v) => filled($v)),
                 'ctaUrl' => $this->approved ? $this->actionUrl : null,
                 'ctaLabel' => $this->actionLabel,
+                'reasonText' => (! $this->approved && filled($this->reason)) ? trim($this->reason) : null,
                 // Only surfaced on a rejection - that's when someone has a
                 // question and needs a person to ask.
                 'adminNumber' => $this->approved ? null : AdminContact::number(),

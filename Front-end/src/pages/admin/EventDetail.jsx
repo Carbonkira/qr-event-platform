@@ -302,6 +302,15 @@ export default function EventDetail() {
         </div>
       </div>
 
+      {event.status === 'rejected' && (
+        <div className="rounded-xl bg-rose-50 border border-rose-200 p-4">
+          <p className="text-[13px] font-bold text-rose-700">This event wasn't approved</p>
+          {event.rejectionReason
+            ? <p className="text-[13px] text-rose-700/90 mt-1 whitespace-pre-line">{event.rejectionReason}</p>
+            : <p className="text-[12px] text-rose-600/80 mt-1">The admin didn't leave a reason.</p>}
+        </div>
+      )}
+
       <div className="hidden sm:flex items-center gap-2 overflow-x-auto overflow-y-hidden scrollbar-hide">
         {canManage && <Btn variant="secondary" size="sm" icon={Pencil} onClick={() => navigate(`/organizer/events/${event.id}/edit`)}>Edit</Btn>}
         <Btn variant="secondary" size="sm" icon={CopyIcon} loading={workflowLoading} onClick={onDuplicate}>Duplicate</Btn>

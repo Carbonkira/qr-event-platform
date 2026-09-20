@@ -242,6 +242,87 @@ class OrganizerApprovalTest extends TestCase
         $rejection->assertDontSeeInHtml('Log in to QRMeets');
     }
 
+    public function test_a_rejection_reason_is_stored_and_quoted_in_the_email(): void
+    {
+        Mail::fake();
+        $applicant = $this->makeVerifiedUnapprovedOrganizer('dan@example.com');
+
+        Sanctum::actingAs($this->makeAdmin());
+        $this->postJson("/api/organizers/{$applicant->id}/reject", ['reason' => "  We couldn't verify the organization's address.  "])->assertOk();
+
+        $this->assertSame("We couldn't verify the organization's address.", $applicant->fresh()->rejection_reason);
+        Mail::assertQueued(ApplicationDecisionMail::class, fn ($mail) => $mail->reason === "We couldn't verify the organization's address.");
+
+        $rejection = new ApplicationDecisionMail('Dan', 'organizer account', false, reason: "We couldn't verify the address.\nPlease reapply with a phone number.");
+        $rejection->assertSeeInHtml('Reason from the admin');
+        // Blade encodes the apostrophe (&#039;), and the assertion helper
+        // doesn't encode quotes on the expected side for a non-markdown mail.
+        $rejection->assertSeeInHtml('We couldn&#039;t verify the address.', false);
+        $rejection->assertSeeInHtml('Please reapply with a phone number.');
+    }
+
+    public function test_a_reason_is_never_shown_as_html_in_the_email(): void
+    {
+        $mail = new ApplicationDecisionMail('Dan', 'organizer account', false, reason: '<script>alert(1)</script>');
+
+        $mail->assertDontSeeInHtml('<script>alert(1)</script>', false);
+        $mail->assertSeeInHtml('&lt;script&gt;alert(1)&lt;/script&gt;', false);
+    }
+
+    public function test_a_rejection_without_a_reason_shows_no_reason_block(): void
+    {
+        Mail::fake();
+        $applicant = $this->makeVerifiedUnapprovedOrganizer('dan@example.com');
+
+        Sanctum::actingAs($this->makeAdmin());
+        $this->postJson("/api/organizers/{$applicant->id}/reject")->assertOk();
+
+        $this->assertNull($applicant->fresh()->rejection_reason);
+        (new ApplicationDecisionMail('Dan', 'organizer account', false))->assertDontSeeInHtml('Reason from the admin');
+        // A blank/whitespace-only reason is the same as none.
+        (new ApplicationDecisionMail('Dan', 'organizer account', false, reason: "   \n "))->assertDontSeeInHtml('Reason from the admin');
+    }
+
+    public function test_a_reason_is_never_included_in_an_approval_email(): void
+    {
+        (new ApplicationDecisionMail('Ana', 'organizer account', true, reason: 'leftover reason'))
+            ->assertDontSeeInHtml('leftover reason')
+            ->assertDontSeeInHtml('Reason from the admin');
+    }
+
+    public function test_approving_a_previously_rejected_applicant_clears_the_old_reason(): void
+    {
+        Mail::fake();
+        $applicant = $this->makeVerifiedUnapprovedOrganizer('dan@example.com');
+
+        Sanctum::actingAs($this->makeAdmin());
+        $this->postJson("/api/organizers/{$applicant->id}/reject", ['reason' => 'Not enough info'])->assertOk();
+        $this->postJson("/api/organizers/{$applicant->id}/approve")->assertOk();
+
+        $this->assertNull($applicant->fresh()->rejection_reason);
+    }
+
+    public function test_the_reason_is_limited_in_length(): void
+    {
+        $applicant = $this->makeVerifiedUnapprovedOrganizer('dan@example.com');
+
+        Sanctum::actingAs($this->makeAdmin());
+        $this->postJson("/api/organizers/{$applicant->id}/reject", ['reason' => str_repeat('a', 1001)])
+            ->assertStatus(422)->assertJsonValidationErrors(['reason']);
+        $this->assertSame('pending', $applicant->fresh()->approval_status);
+    }
+
+    public function test_the_history_carries_the_reason_for_the_admin(): void
+    {
+        Mail::fake();
+        $applicant = $this->makeVerifiedUnapprovedOrganizer('dan@example.com');
+
+        Sanctum::actingAs($this->makeAdmin());
+        $this->postJson("/api/organizers/{$applicant->id}/reject", ['reason' => 'Not enough info'])->assertOk();
+
+        $this->assertSame('Not enough info', $this->getJson('/api/organizers/history')->assertOk()->json('0.rejectionReason'));
+    }
+
     public function test_an_approval_email_renders_the_call_to_action_and_omits_the_contact_line(): void
     {
         $admin = $this->makeAdmin();

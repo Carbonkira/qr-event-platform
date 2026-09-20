@@ -42,6 +42,12 @@ class Event extends Model
         'organization_id',
     ];
 
+    // The admin's reason for a rejection is between them and the organizer -
+    // public event responses (show() returns any event by slug, whatever its
+    // status) must not carry it. adminIndex() and the reject response opt
+    // back in with makeVisible().
+    protected $hidden = ['rejection_reason'];
+
     protected function casts(): array
     {
         return [

@@ -2,9 +2,9 @@ import { useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import {
   Calendar, MapPin, Mail, Phone, Check, X, Hourglass, ShieldAlert, UserCog, Building2, ChevronDown,
-  ExternalLink, MailCheck, MailWarning, Users, Ticket, Clock3, GraduationCap,
+  ExternalLink, MailCheck, MailWarning, Users, Ticket, Clock3, GraduationCap, MessageSquareText,
 } from 'lucide-react'
-import { Card, Btn, Badge, Avatar } from '../../components/ui'
+import { Card, Btn, Badge, Avatar, Modal, Textarea } from '../../components/ui'
 import { useAdminEvents, usePendingOrganizers, useOrganizerHistory, useMyOrgs } from '../../hooks/useApi'
 import { approveEvent, rejectEvent, approveOrganizer, rejectOrganizer } from '../../api/resources'
 import { useApp } from '../../context/AppContext'
@@ -62,14 +62,22 @@ function ApplicationCard({ open, onToggle, avatar, title, subtitle, badge, actio
   )
 }
 
-function DecisionLine({ decision, by, at }) {
+function DecisionLine({ decision, by, at, reason }) {
   if (!decision) return null
   const approved = decision === 'approved'
   return (
-    <p className={cn('text-[12px] font-semibold flex items-center gap-1.5', approved ? 'text-emerald-700' : 'text-rose-600')}>
-      {approved ? <Check size={13} /> : <X size={13} />}
-      {approved ? 'Approved' : 'Rejected'}{by ? ` by ${by}` : ''}{at ? ` · ${fmtDateTime(at)}` : ''}
-    </p>
+    <div className="space-y-2">
+      <p className={cn('text-[12px] font-semibold flex items-center gap-1.5', approved ? 'text-emerald-700' : 'text-rose-600')}>
+        {approved ? <Check size={13} /> : <X size={13} />}
+        {approved ? 'Approved' : 'Rejected'}{by ? ` by ${by}` : ''}{at ? ` · ${fmtDateTime(at)}` : ''}
+      </p>
+      {!approved && reason && (
+        <div className="rounded-xl bg-white border border-rose-100 p-3">
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1 flex items-center gap-1.5"><MessageSquareText size={11} />Reason given to the applicant</p>
+          <p className="text-[13px] text-slate-700 whitespace-pre-line">{reason}</p>
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -85,6 +93,10 @@ export default function Approvals() {
   // admin creates it while approving (on by default - that's the point of
   // them asking) unless they untick it in the details.
   const [skipCreateOrg, setSkipCreateOrg] = useState({})
+  // Rejecting asks for an optional reason first - it's emailed to the
+  // applicant as written, so it's a dialog rather than a one-click button.
+  const [rejecting, setRejecting] = useState(null) // { kind: 'event' | 'organizer', item }
+  const [reason, setReason] = useState('')
 
   const { data: eventsData, loading: eventsLoading, refetch: refetchEvents } = useAdminEvents(isAdmin)
   const { data: pendingOrgs, loading: pendingLoading, refetch: refetchPending } = usePendingOrganizers(isAdmin)
@@ -127,7 +139,18 @@ export default function Approvals() {
     finally { setBusyKey(null) }
   }
   const onApproveEvent = (e) => decide(`e${e.id}`, () => approveEvent(e.id), () => { refetchEvents(); addToast('Event approved', 'success') })
-  const onRejectEvent = (e) => decide(`e${e.id}`, () => rejectEvent(e.id), () => { refetchEvents(); addToast('Event rejected', 'info') })
+  const openReject = (kind, item) => { setReason(''); setRejecting({ kind, item }) }
+  const closeReject = () => setRejecting(null)
+  const confirmReject = async () => {
+    const { kind, item } = rejecting
+    const text = reason.trim()
+    setRejecting(null)
+    if (kind === 'event') {
+      await decide(`e${item.id}`, () => rejectEvent(item.id, text), () => { refetchEvents(); addToast('Event rejected', 'info') })
+    } else {
+      await decide(`o${item.id}`, () => rejectOrganizer(item.id, text), () => { refetchPending(); refetchHistory(); addToast('Organizer rejected', 'info') })
+    }
+  }
   const onApproveOrganizer = (o) => {
     const createOrganization = !!o.requestedOrganizationName && !o.requestedOrganization && !skipCreateOrg[o.id]
     return decide(`o${o.id}`, () => approveOrganizer(o.id, { createOrganization }), () => {
@@ -135,7 +158,6 @@ export default function Approvals() {
       addToast(createOrganization ? `Organizer approved - "${o.requestedOrganizationName}" created` : 'Organizer approved', 'success')
     })
   }
-  const onRejectOrganizer = (o) => decide(`o${o.id}`, () => rejectOrganizer(o.id), () => { refetchPending(); refetchHistory(); addToast('Organizer rejected', 'info') })
 
   const eventCard = (e) => {
     const key = `e${e.id}`
@@ -155,12 +177,12 @@ export default function Approvals() {
           <span>by {creator?.name || e.organizedBy || 'Unknown'}</span>
         </>}
         actions={pending && <>
-          <Btn variant="secondary" size="sm" icon={X} loading={busyKey === key} onClick={() => onRejectEvent(e)}>Reject</Btn>
+          <Btn variant="secondary" size="sm" icon={X} loading={busyKey === key} onClick={() => openReject('event', e)}>Reject</Btn>
           <Btn variant="primary" size="sm" icon={Check} loading={busyKey === key} onClick={() => onApproveEvent(e)}>Approve</Btn>
         </>}
       >
         <div className="space-y-4">
-          {!pending && <DecisionLine decision={e.reviewDecision} by={e.reviewer?.name} at={e.reviewedAt} />}
+          {!pending && <DecisionLine decision={e.reviewDecision} by={e.reviewer?.name} at={e.reviewedAt} reason={e.rejectionReason} />}
           {e.description && <p className="text-[13px] text-slate-600 leading-relaxed whitespace-pre-line">{e.description}</p>}
           <dl className="grid sm:grid-cols-2 gap-x-6 gap-y-3">
             <Field label="Date & time">{fmtDateLong(e.date)}<br />{fmtTime(e.startTime)} – {fmtTime(e.endTime)}</Field>
@@ -214,12 +236,12 @@ export default function Approvals() {
           {requestedName && <span className="flex items-center gap-1.5"><Building2 size={12} />{requestedName}</span>}
         </>}
         actions={pending && <>
-          <Btn variant="secondary" size="sm" icon={X} loading={busyKey === key} onClick={() => onRejectOrganizer(o)}>Reject</Btn>
+          <Btn variant="secondary" size="sm" icon={X} loading={busyKey === key} onClick={() => openReject('organizer', o)}>Reject</Btn>
           <Btn variant="primary" size="sm" icon={Check} loading={busyKey === key} onClick={() => onApproveOrganizer(o)}>{willCreate ? 'Approve & create org' : 'Approve'}</Btn>
         </>}
       >
         <div className="space-y-4">
-          {!pending && <DecisionLine decision={o.approvalStatus} by={o.approver?.name} at={o.approvedAt} />}
+          {!pending && <DecisionLine decision={o.approvalStatus} by={o.approver?.name} at={o.approvedAt} reason={o.rejectionReason} />}
           <dl className="grid sm:grid-cols-2 gap-x-6 gap-y-3">
             <Field label="Email">
               <span className="break-all">{o.email}</span><br />
@@ -306,6 +328,29 @@ export default function Approvals() {
       </div>
 
       {renderList()}
+
+      <Modal open={!!rejecting} onClose={closeReject} title={rejecting?.kind === 'event' ? 'Reject this event?' : 'Reject this application?'} size="sm">
+        {rejecting && (
+          <div className="p-5 space-y-4">
+            <p className="text-[13px] text-slate-600">
+              {rejecting.kind === 'event'
+                ? <><b className="text-slate-800">{rejecting.item.title}</b> won't go live, and its organizer will be emailed.</>
+                : <><b className="text-slate-800">{rejecting.item.name}</b> won't be able to host events, and they'll be emailed.</>}
+            </p>
+            <Textarea
+              label="Reason (optional)"
+              value={reason}
+              onChange={e => setReason(e.target.value.slice(0, 1000))}
+              rows={4}
+              placeholder="Tell them why - it's included in the email exactly as you write it."
+            />
+            <div className="flex justify-end gap-2">
+              <Btn variant="ghost" onClick={closeReject}>Cancel</Btn>
+              <Btn variant="primary" icon={X} onClick={confirmReject}>Reject</Btn>
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   )
 }

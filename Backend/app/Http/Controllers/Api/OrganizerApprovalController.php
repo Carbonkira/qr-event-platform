@@ -80,6 +80,7 @@ class OrganizerApprovalController extends Controller
                 'approval_status' => 'approved',
                 'approved_at' => now(),
                 'approved_by' => $request->user()->id,
+                'rejection_reason' => null,
             ])->save();
 
             if (! empty($data['create_organization']) && ! $user->requested_organization_id && $user->requested_organization_name) {
@@ -106,9 +107,18 @@ class OrganizerApprovalController extends Controller
         return response()->json($user);
     }
 
+    /**
+     * `reason` is optional and free text - the admin's own words for why,
+     * kept on the account (so the Approvals history can show it later) and
+     * quoted in the applicant's email. Cleared again if they're later approved.
+     */
     public function reject(Request $request, Organizer $user)
     {
         $this->authorizeAdmin($request);
+
+        $data = $request->validate([
+            'reason' => ['sometimes', 'nullable', 'string', 'max:1000'],
+        ]);
 
         $alreadyRejected = $user->approval_status === 'rejected';
 
@@ -116,6 +126,7 @@ class OrganizerApprovalController extends Controller
             'approval_status' => 'rejected',
             'approved_at' => now(),
             'approved_by' => $request->user()->id,
+            'rejection_reason' => filled($data['reason'] ?? null) ? trim($data['reason']) : null,
         ])->save();
 
         if (! $alreadyRejected) {
@@ -155,7 +166,9 @@ class OrganizerApprovalController extends Controller
     private function emailRejectionDecision(Organizer $applicant): void
     {
         try {
-            Mail::to($applicant->email)->queue(new ApplicationDecisionMail($applicant->name, 'organizer account', false));
+            Mail::to($applicant->email)->queue(new ApplicationDecisionMail(
+                $applicant->name, 'organizer account', false, reason: $applicant->rejection_reason,
+            ));
         } catch (\Throwable $e) {
             Log::error('Failed to queue organizer rejection email', ['organizer_id' => $applicant->id, 'error' => $e->getMessage()]);
         }
