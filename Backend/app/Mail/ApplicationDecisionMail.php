@@ -44,7 +44,7 @@ class ApplicationDecisionMail extends Mailable
         // actionLabel): Laravel auto-shares every public property with the
         // view and lets it override view data of the same name, which would
         // silently undo the filtering and the "no button on a rejection" rule.
-        return $this->subject($subject)
+        $mail = $this->subject($subject)
             ->view('emails.application-decision', [
                 'rows' => array_filter($this->details, fn ($v) => filled($v)),
                 'ctaUrl' => $this->approved ? $this->actionUrl : null,
@@ -54,5 +54,14 @@ class ApplicationDecisionMail extends Mailable
                 // question and needs a person to ask.
                 'adminNumber' => $this->approved ? null : AdminContact::number(),
             ]);
+
+        // Unlike the number above, this applies to both outcomes: an approved
+        // applicant replying with a question should reach the admin too, not
+        // the sending-only From address.
+        if ($adminEmail = AdminContact::email()) {
+            $mail->replyTo($adminEmail, config('mail.from.name'));
+        }
+
+        return $mail;
     }
 }

@@ -33,6 +33,7 @@ All notable changes to QRMeets. Newest first.
 - Applicants get "We have received your application for your [organizer account / event]. You can contact us here [admin number]" as soon as they apply.
 - The admin is emailed for each new organizer application (before, only for events). The Approvals badge counts both.
 - Applicants are emailed when the admin decides. An approved organizer is told which organization they were added to (and as owner or member) with a log-in button. An approved event links straight to its page. A rejection includes the admin's reason, word for word, and the admin's number instead of a button. Each decision is emailed once, and an admin deciding on their own event isn't emailed.
+- **Replies reach the admin.** The application and decision emails are sent from the app's sending address, which nobody reads. They now carry a Reply-To, so an applicant who hits reply writes to the admin instead.
 
 ### Security
 - **Pass links:** anyone could step through registration numbers and see other people's names and QR codes. Every pass link now carries a private token. Links already emailed keep working.
@@ -49,6 +50,7 @@ All notable changes to QRMeets. Newest first.
 ### Deployment notes
 - Four new database migrations run automatically on deploy. They only add columns.
 - Set the admin's contact number on the admin **Profile page**, or set `ADMIN_CONTACT_NUMBER` on Railway. Until then the applicant emails leave out the "you can contact us" line.
+- Replies go to the email of that same admin account (the first admin who has entered a number, otherwise the first admin). To send them to a different inbox, set `ADMIN_CONTACT_EMAIL` on Railway.
 - Events approved or rejected before Sept 20 show their last-updated time as the decision date in the Approvals history.
 
 ### Known follow-ups
