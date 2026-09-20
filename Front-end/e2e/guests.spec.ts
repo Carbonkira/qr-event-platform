@@ -2,12 +2,11 @@ import { test, expect } from '@playwright/test'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { loginAsOrganizer } from './helpers'
+import { eventIdBySlug, loginAsAdmin } from './helpers'
 
 // Runs against the "E2E Fixture Event" created by global-setup.ts.
 async function gotoFixtureEventGuests(page: import('@playwright/test').Page) {
-  await page.goto('/organizer/events')
-  await page.locator('tr', { hasText: 'E2E Fixture Event' }).getByRole('button', { name: 'Manage' }).click()
+  await page.goto(`/organizer/events/${await eventIdBySlug('e2e-fixture-event')}`)
   await page.getByRole('button', { name: /^guests/i }).click()
 }
 
@@ -18,7 +17,7 @@ test('organizer can add, edit, CSV-import, and remove guests', async ({ page }) 
   const guestEmail = `guest-${suffix}@example.com`
   const guestName = `Playwright Guest ${suffix}`
 
-  await loginAsOrganizer(page)
+  await loginAsAdmin(page)
   await gotoFixtureEventGuests(page)
 
   // Add guest

@@ -21,6 +21,7 @@
 /bootstrap/cache/*.php
 /vendor
 /database/database.sqlite
+/database/e2e.sqlite
 .env
 .env.backup
 .env.production

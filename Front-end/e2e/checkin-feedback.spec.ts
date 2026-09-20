@@ -1,92 +1,103 @@
-import { test, expect } from '@playwright/test'
-import { loginAsOrganizer } from './helpers'
+import { test, expect, type Page } from '@playwright/test'
+import { eventIdBySlug, loginAsAdmin, signUpForEvent } from './helpers'
 
-const EVENT_SLUG = 'e2e-fixture-event'
-const EVENT_TITLE = 'E2E Fixture Event'
+const EVENT_SLUG = 'e2e-feedback-event'
+const EVENT_TITLE = 'E2E Feedback Event'
+const PASS_CODE = /^QR-E\d+-P\d+-[A-Z0-9]{8}$/
 
-test('scanned check-in unlocks feedback, including the custom question', async ({ browser }) => {
-  const orgContext = await browser.newContext()
-  const partContext = await browser.newContext()
-  const orgPage = await orgContext.newPage()
-  const partPage = await partContext.newPage()
+async function registerAndGetPassCode(page: Page, name: string, email: string) {
+  await signUpForEvent(page, EVENT_SLUG, name, email)
+  await page.getByRole('button', { name: 'Complete Registration' }).click()
+  await expect(page.getByText("You're in!")).toBeVisible()
+  const code = (await page.getByText(PASS_CODE).textContent())!.trim()
+  expect(code).toMatch(PASS_CODE)
+  return code
+}
 
-  const uniqueEmail = `e2e-checkin-${Date.now()}@example.com`
-  const participantName = 'E2E Checkin Participant'
+test('only the participant who was checked in can leave feedback, once the event is completed', async ({ browser }) => {
+  const suffix = Date.now()
+  const attendeeName = `E2E Attendee ${suffix}`
+  const absenteeName = `E2E Absentee ${suffix}`
 
-  // --- Participant: register for the fixture event ---
-  await partPage.goto(`/events/${EVENT_SLUG}`)
-  await partPage.getByRole('button', { name: 'Register', exact: true }).click()
-  await partPage.getByPlaceholder('Juan Dela Cruz').fill(participantName)
-  await partPage.getByPlaceholder('juan@email.com').fill(uniqueEmail)
-  await partPage.getByPlaceholder('••••••••').fill('password123')
-  await partPage.getByRole('button', { name: 'Create Account & Continue' }).click()
-  await expect(partPage.getByRole('button', { name: 'Complete Registration' })).toBeVisible()
-  await partPage.getByRole('button', { name: 'Complete Registration' }).click()
-  await expect(partPage.getByText("You're in!")).toBeVisible()
+  const orgPage = await (await browser.newContext()).newPage()
+  const attendeePage = await (await browser.newContext()).newPage()
+  const absenteePage = await (await browser.newContext()).newPage()
 
-  const qrCode = await partPage
-    .locator('div.flex.justify-between', { hasText: 'Pass' })
-    .locator('span')
-    .nth(1)
-    .textContent()
-  expect(qrCode).toMatch(/^QR-/)
+  // --- Two participants register; only one will turn up ---
+  const attendeeCode = await registerAndGetPassCode(attendeePage, attendeeName, `e2e-attendee-${suffix}@example.com`)
+  await registerAndGetPassCode(absenteePage, absenteeName, `e2e-absentee-${suffix}@example.com`)
 
-  // --- Organizer: check the participant in via the scanner's manual entry ---
-  await loginAsOrganizer(orgPage)
-  await orgPage.goto('/organizer/events')
-  await orgPage.locator('tr', { hasText: EVENT_TITLE }).getByRole('button', { name: 'Manage' }).click()
+  // --- Organizer: check the attendee in via the scanner's manual entry ---
+  await loginAsAdmin(orgPage)
+  await orgPage.goto(`/organizer/events/${await eventIdBySlug(EVENT_SLUG)}`)
   await orgPage.getByRole('button', { name: /^scanner/i }).click()
-  await orgPage.locator('input[placeholder*="QR-"]').fill(qrCode!.trim())
+  const codeInput = orgPage.locator('input[placeholder*="QR-"]')
+
+  await codeInput.fill('QR-E0-P0-NOTAREALCODE')
   await orgPage.getByRole('button', { name: 'Check In' }).click()
-  await expect(orgPage.getByText(new RegExp(`Attendance confirmed.*${participantName}`))).toBeVisible()
+  await expect(orgPage.getByText('QR code not recognized')).toBeVisible()
+
+  await codeInput.fill(attendeeCode.toLowerCase()) // hand-typed codes are forgiven their case
+  await orgPage.getByRole('button', { name: 'Check In' }).click()
+  await expect(orgPage.getByText(new RegExp(`Attendance confirmed.*${attendeeName}`))).toBeVisible()
   await orgPage.screenshot({ path: 'e2e/screenshots/20-scanner-checked-in.png', fullPage: true })
 
-  // Re-scanning the same code should report a duplicate, not a second check-in
-  await orgPage.locator('input[placeholder*="QR-"]').fill(qrCode!.trim())
+  // Re-scanning the same code reports a duplicate, not a second check-in
+  await codeInput.fill(attendeeCode)
   await orgPage.getByRole('button', { name: 'Check In' }).click()
-  await expect(orgPage.getByText(new RegExp(`Already checked in.*${participantName}`))).toBeVisible()
+  await expect(orgPage.getByText(new RegExp(`Already checked in.*${attendeeName}`))).toBeVisible()
 
-  // --- Participant: My Tickets now shows them checked in ---
-  await partPage.goto('/my-tickets')
-  const ticketCard = partPage.locator('.p-4', { hasText: EVENT_TITLE }).filter({ hasText: 'Checked in' })
-  await expect(ticketCard.first()).toBeVisible()
-  await partPage.screenshot({ path: 'e2e/screenshots/21-my-tickets-checked-in.png', fullPage: true })
+  // --- Attendee: My Events shows them checked in, but feedback isn't open yet ---
+  await attendeePage.goto('/my-events')
+  const attendeeCard = attendeePage.locator('.p-4', { hasText: EVENT_TITLE }).filter({ hasText: 'Checked in' })
+  await expect(attendeeCard.first()).toBeVisible()
+  await attendeePage.screenshot({ path: 'e2e/screenshots/21-my-events-checked-in.png', fullPage: true })
+  await attendeeCard.first().click()
+  await expect(attendeePage.getByText('Feedback opens once the event wraps up.')).toBeVisible()
 
-  await ticketCard.first().click()
-  await expect(partPage.getByRole('button', { name: 'Leave Feedback' })).toBeVisible()
-  await partPage.getByRole('button', { name: 'Leave Feedback' }).click()
+  // --- Organizer marks the event completed ---
+  await orgPage.getByRole('button', { name: 'Mark Completed' }).first().click()
+  await expect(orgPage.getByText('Event marked completed')).toBeVisible()
 
-  // --- Feedback form: 5 core star ratings + the organizer's custom question ---
-  await expect(partPage.getByText('How was it?')).toBeVisible()
+  // --- Attendee: opening their pass now goes straight to the feedback form ---
+  await attendeePage.reload()
+  await expect(attendeePage).toHaveURL(/\/feedback\/\d+$/)
+  await expect(attendeePage.getByText('How was it?')).toBeVisible()
+
+  // 5 core star ratings + the organizer's custom question
   const coreLabels = ['Check-in experience', 'Event organization', 'Content quality', 'Venue & facilities', 'Overall satisfaction']
   for (const label of coreLabels) {
-    const row = partPage.locator('div.rounded-xl.bg-slate-50.border.border-slate-200', { hasText: label })
+    const row = attendeePage.locator('div.rounded-xl.bg-slate-50.border.border-slate-200', { hasText: label })
     await row.locator('button').nth(4).click() // 5th star
   }
-
   const customQuestionLabel = 'What is one thing we could improve?'
-  await expect(partPage.getByText(customQuestionLabel)).toBeVisible()
-  await partPage
+  await attendeePage
     .locator('div.rounded-xl.bg-slate-50.border.border-slate-200', { hasText: customQuestionLabel })
     .locator('input')
     .fill('More seating near the front.')
+  await attendeePage.getByPlaceholder('What stood out? What could be better?').fill('Great event overall, smooth check-in.')
+  await attendeePage.screenshot({ path: 'e2e/screenshots/22-feedback-form-filled.png', fullPage: true })
 
-  await partPage.getByPlaceholder('What stood out? What could be better?').fill('Great event overall, smooth check-in.')
-  await partPage.screenshot({ path: 'e2e/screenshots/22-feedback-form-filled.png', fullPage: true })
+  await attendeePage.getByRole('button', { name: 'Submit Feedback' }).click()
+  await expect(attendeePage).toHaveURL(/\/feedback\/\d+\/done$/)
+  await attendeePage.screenshot({ path: 'e2e/screenshots/23-feedback-done.png', fullPage: true })
 
-  await partPage.getByRole('button', { name: 'Submit Feedback' }).click()
-  await expect(partPage).toHaveURL(/\/feedback\/\d+\/done$/)
-  await partPage.screenshot({ path: 'e2e/screenshots/23-feedback-done.png', fullPage: true })
+  // --- Absentee: same completed event, but never checked in - no feedback ---
+  await absenteePage.goto('/my-events')
+  const absenteeCard = absenteePage.locator('.p-4', { hasText: EVENT_TITLE })
+  await expect(absenteeCard.first()).toBeVisible()
+  await expect(absenteeCard.filter({ hasText: 'Checked in' })).toHaveCount(0)
+  await absenteeCard.first().click()
+  await expect(absenteePage.getByText('QR Event Pass')).toBeVisible()
+  await absenteePage.waitForTimeout(1500) // long enough for an (unwanted) redirect to have fired
+  await expect(absenteePage).toHaveURL(/\/pass\/\d+/)
+  await expect(absenteePage.getByText('Taking you to feedback…')).toHaveCount(0)
 
-  // --- Organizer: the feedback (with the custom answer) shows up on the event ---
-  // Reload — feedback is fetched once on mount, not live-polled, so a
-  // stale tab from before the participant submitted wouldn't show it.
+  // --- Organizer: the attendee's feedback (with the custom answer) shows up ---
+  // Reload — feedback is fetched once on mount, not live-polled.
   await orgPage.reload()
   await orgPage.getByRole('button', { name: /^feedback/i }).click()
   await expect(orgPage.getByText('Great event overall, smooth check-in.').first()).toBeVisible()
   await expect(orgPage.getByText(/More seating near the front\./).first()).toBeVisible()
   await orgPage.screenshot({ path: 'e2e/screenshots/24-organizer-feedback-tab.png', fullPage: true })
-
-  await orgContext.close()
-  await partContext.close()
 })

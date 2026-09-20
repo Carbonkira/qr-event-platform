@@ -1,16 +1,10 @@
 import { test, expect } from '@playwright/test'
-import { loginAsOrganizer } from './helpers'
+import { eventIdBySlug, loginAsAdmin, signUpForEvent } from './helpers'
 
 const EVENT_SLUG = 'e2e-waitlist-event'
-const EVENT_TITLE = 'E2E Waitlist Event'
 
-async function registerParticipant(page: import('@playwright/test').Page, name: string, email: string) {
-  await page.goto(`/events/${EVENT_SLUG}`)
-  await page.getByRole('button', { name: 'Register', exact: true }).click()
-  await page.getByPlaceholder('Juan Dela Cruz').fill(name)
-  await page.getByPlaceholder('juan@email.com').fill(email)
-  await page.getByPlaceholder('••••••••').fill('password123')
-  await page.getByRole('button', { name: 'Create Account & Continue' }).click()
+async function registerParticipant(page: import('@playwright/test').Page, name: string, email: string, { direct = false } = {}) {
+  await signUpForEvent(page, EVENT_SLUG, name, email, { direct })
   await page.getByRole('button', { name: 'Complete Registration' }).click()
 }
 
@@ -35,15 +29,18 @@ test('registering over capacity auto-waitlists, and the organizer can promote', 
   await expect(firstPage.getByText("You're in!")).toBeVisible()
   await expect(firstPage.getByText('Your spot is confirmed.')).toBeVisible()
 
-  // ...the second is over capacity and lands on the waitlist.
-  await registerParticipant(secondPage, secondName, `capacity-second-${suffix}@example.com`)
+  // ...the second is over capacity and lands on the waitlist. The event page
+  // itself now says "Event is full" and offers no Register button, so this goes
+  // straight to the registration URL - the only way onto the waitlist today.
+  await secondPage.goto(`/events/${EVENT_SLUG}`)
+  await expect(secondPage.getByText('Event is full')).toBeVisible()
+  await registerParticipant(secondPage, secondName, `capacity-second-${suffix}@example.com`, { direct: true })
   await expect(secondPage.getByText("You're on the waitlist")).toBeVisible()
   await secondPage.screenshot({ path: 'e2e/screenshots/30-participant-waitlisted.png', fullPage: true })
 
   // Organizer sees the waitlisted guest flagged in the guest list.
-  await loginAsOrganizer(orgPage)
-  await orgPage.goto('/organizer/events')
-  await orgPage.locator('tr', { hasText: EVENT_TITLE }).getByRole('button', { name: 'Manage' }).click()
+  await loginAsAdmin(orgPage)
+  await orgPage.goto(`/organizer/events/${await eventIdBySlug(EVENT_SLUG)}`)
   await orgPage.getByRole('button', { name: /^guests/i }).click()
   await expect(orgPage.getByText('1 waitlisted')).toBeVisible()
 

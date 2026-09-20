@@ -1,90 +1,67 @@
-import { execFile } from 'node:child_process'
-import { promisify } from 'node:util'
-import path from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { tinker } from './helpers'
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
-
-const execFileAsync = promisify(execFile)
-
-// Seeded events (Backend/database/seeders/DatabaseSeeder.php) carry fixed
-// 2025 dates, so they eventually fall into the past and stop being
-// registerable. This creates (or refreshes) a dedicated, always-future,
-// approved event so registration tests don't rot with the calendar.
+// The seeded demo events (Backend/database/seeders/DatabaseSeeder.php) carry
+// fixed 2025 dates, so they sit in the past and can't be registered for. This
+// creates dedicated, always-future, approved events so the registration specs
+// don't rot with the calendar. The scratch database is rebuilt from zero on
+// every run (see serve-backend.mjs), so plain creates are enough.
 const TINKER_SCRIPT = `
-$u = App\\Models\\Organizer::first();
-App\\Models\\Event::updateOrCreate(
-  ['slug' => 'e2e-fixture-event'],
-  [
-    'title' => 'E2E Fixture Event',
-    'type' => 'Meetup',
-    'is_private' => false,
-    'description' => 'Fixture event for Playwright e2e tests.',
-    'venue' => 'Test Venue',
-    'location' => 'Test City',
-    'date' => now()->addDays(30)->toDateString(),
-    'start_time' => '10:00',
-    'end_time' => '12:00',
-    'organized_by' => 'E2E Tester',
-    'industry' => 'Technology',
-    'capacity' => 100,
-    'status' => 'approved',
-    'feedback_enabled' => true,
-    'pricing' => 'free',
-    'price' => 0,
-    'allow_walk_ins' => true,
-    'socials' => [],
-    'custom_fields' => [],
-    'feedback_questions' => [
-      ['id' => 'q1', 'label' => 'Check-in experience', 'type' => 'rating', 'required' => true],
-      ['id' => 'q2', 'label' => 'Event organization', 'type' => 'rating', 'required' => true],
-      ['id' => 'q3', 'label' => 'Content quality', 'type' => 'rating', 'required' => true],
-      ['id' => 'q4', 'label' => 'Venue & facilities', 'type' => 'rating', 'required' => true],
-      ['id' => 'q5', 'label' => 'Overall satisfaction', 'type' => 'rating', 'required' => true],
-      ['id' => 'fq1', 'label' => 'What is one thing we could improve?', 'type' => 'text', 'required' => true],
-    ],
-    'tags' => [],
-    'organizer_id' => $u->id,
-  ]
-);
+$admin = App\\Models\\Organizer::where('email', 'admin@techhub.ph')->firstOrFail();
 
-App\\Models\\Event::updateOrCreate(
-  ['slug' => 'e2e-waitlist-event'],
-  [
-    'title' => 'E2E Waitlist Event',
-    'type' => 'Meetup',
-    'is_private' => false,
-    'description' => 'Capacity-1 fixture for Playwright waitlist tests.',
-    'venue' => 'Test Venue',
-    'location' => 'Test City',
-    'date' => now()->addDays(30)->toDateString(),
-    'start_time' => '10:00',
-    'end_time' => '12:00',
-    'organized_by' => 'E2E Tester',
-    'industry' => 'Technology',
-    'capacity' => 1,
-    'status' => 'approved',
-    'feedback_enabled' => true,
-    'pricing' => 'free',
-    'price' => 0,
-    'allow_walk_ins' => true,
-    'socials' => [],
-    'custom_fields' => [],
-    'tags' => [],
-    'organizer_id' => $u->id,
-  ]
-);
+$base = [
+  'type' => 'Meetup',
+  'is_private' => false,
+  'venue' => 'Test Venue',
+  'location' => 'Test City',
+  'date' => now()->addDays(30)->toDateString(),
+  'start_time' => '10:00',
+  'end_time' => '12:00',
+  'organized_by' => 'E2E Tester',
+  'industry' => 'Technology',
+  'status' => 'approved',
+  'feedback_enabled' => true,
+  'pricing' => 'free',
+  'price' => 0,
+  'allow_walk_ins' => true,
+  'socials' => [],
+  'custom_fields' => [],
+  'tags' => [],
+  'organizer_id' => $admin->id,
+];
 
-// Capacity-1 waitlist assertions only hold with an exact registration
-// count, so this fixture gets wiped clean on every run rather than
-// accumulating registrations like the general-purpose fixture above.
-\$waitlistEvent = App\\Models\\Event::where('slug', 'e2e-waitlist-event')->first();
-if (\$waitlistEvent) {
-  \$waitlistEvent->registrations()->delete();
-}
+$fixture = App\\Models\\Event::create($base + [
+  'slug' => 'e2e-fixture-event',
+  'title' => 'E2E Fixture Event',
+  'description' => 'Fixture event for Playwright e2e tests.',
+  'capacity' => 100,
+  'feedback_questions' => [
+    ['id' => 'q1', 'label' => 'Check-in experience', 'type' => 'rating', 'required' => true],
+    ['id' => 'q2', 'label' => 'Event organization', 'type' => 'rating', 'required' => true],
+    ['id' => 'q3', 'label' => 'Content quality', 'type' => 'rating', 'required' => true],
+    ['id' => 'q4', 'label' => 'Venue & facilities', 'type' => 'rating', 'required' => true],
+    ['id' => 'q5', 'label' => 'Overall satisfaction', 'type' => 'rating', 'required' => true],
+    ['id' => 'fq1', 'label' => 'What is one thing we could improve?', 'type' => 'text', 'required' => true],
+  ],
+]);
+
+// Own event for the check-in -> completed -> feedback journey: completing it
+// closes registration, so it can't share the general-purpose fixture above.
+App\\Models\\Event::create($base + [
+  'slug' => 'e2e-feedback-event',
+  'title' => 'E2E Feedback Event',
+  'description' => 'Fixture event for the check-in and feedback e2e journey.',
+  'capacity' => 100,
+  'feedback_questions' => $fixture->feedback_questions,
+]);
+
+App\\Models\\Event::create($base + [
+  'slug' => 'e2e-waitlist-event',
+  'title' => 'E2E Waitlist Event',
+  'description' => 'Capacity-1 fixture for Playwright waitlist tests.',
+  'capacity' => 1,
+]);
 `
 
 export default async function globalSetup() {
-  const backendDir = path.resolve(__dirname, '../../Backend')
-  await execFileAsync('php', ['artisan', 'tinker', '--execute', TINKER_SCRIPT], { cwd: backendDir })
+  tinker(TINKER_SCRIPT)
 }
