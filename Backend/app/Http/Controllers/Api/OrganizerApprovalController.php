@@ -3,10 +3,13 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Mail\ApplicationDecisionMail;
 use App\Models\Organization;
 use App\Models\Organizer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 
 /**
  * Admin-mediated organizer approval - a prospective organizer meets with the
@@ -66,6 +69,8 @@ class OrganizerApprovalController extends Controller
             'create_organization' => ['sometimes', 'boolean'],
         ]);
 
+        $alreadyApproved = $user->approval_status === 'approved';
+
         DB::transaction(function () use ($request, $user, $data) {
             // None of these are mass-assignable (see Organizer::$fillable) -
             // same reason role/email_verified_at get forceFill'd everywhere
@@ -93,12 +98,19 @@ class OrganizerApprovalController extends Controller
             }
         });
 
-        return response()->json($user->fresh('requestedOrganization'));
+        $user = $user->fresh('requestedOrganization');
+        if (! $alreadyApproved) {
+            $this->emailApprovalDecision($user);
+        }
+
+        return response()->json($user);
     }
 
     public function reject(Request $request, Organizer $user)
     {
         $this->authorizeAdmin($request);
+
+        $alreadyRejected = $user->approval_status === 'rejected';
 
         $user->forceFill([
             'approval_status' => 'rejected',
@@ -106,7 +118,47 @@ class OrganizerApprovalController extends Controller
             'approved_by' => $request->user()->id,
         ])->save();
 
+        if (! $alreadyRejected) {
+            $this->emailRejectionDecision($user);
+        }
+
         return response()->json($user);
+    }
+
+    /**
+     * Tells the applicant they're in - and, if approving also put them in an
+     * organization (the one they picked, or one the admin just created for
+     * them), which one and in what role, since that's the first thing they'd
+     * otherwise have to go and find out. Never allowed to fail the approval
+     * itself: a broken mail config is logged, not thrown.
+     */
+    private function emailApprovalDecision(Organizer $applicant): void
+    {
+        try {
+            $organization = $applicant->requestedOrganization;
+            $role = $organization ? ($organization->isOwner($applicant) ? 'owner' : 'member') : null;
+            $frontend = rtrim(config('services.frontend.url'), '/');
+
+            Mail::to($applicant->email)->queue(new ApplicationDecisionMail(
+                $applicant->name,
+                'organizer account',
+                true,
+                ['Organization' => $organization ? "{$organization->name} ({$role})" : null],
+                "{$frontend}/login",
+                'Log in to QRMeets',
+            ));
+        } catch (\Throwable $e) {
+            Log::error('Failed to queue organizer approval email', ['organizer_id' => $applicant->id, 'error' => $e->getMessage()]);
+        }
+    }
+
+    private function emailRejectionDecision(Organizer $applicant): void
+    {
+        try {
+            Mail::to($applicant->email)->queue(new ApplicationDecisionMail($applicant->name, 'organizer account', false));
+        } catch (\Throwable $e) {
+            Log::error('Failed to queue organizer rejection email', ['organizer_id' => $applicant->id, 'error' => $e->getMessage()]);
+        }
     }
 
     private function authorizeAdmin(Request $request): void

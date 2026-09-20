@@ -544,6 +544,98 @@ class EventTest extends TestCase
         $this->assertSame($admin->id, $rejected->reviewed_by);
     }
 
+    public function test_approving_an_event_emails_its_organizer_with_a_link_to_it(): void
+    {
+        Mail::fake();
+        $organizer = $this->makeUser('organizer@example.com');
+        $admin = $this->makeUser('admin@example.com');
+        $admin->forceFill(['role' => 'admin'])->save();
+        $event = Event::create(['title' => 'Tech Meetup', 'status' => 'pending', 'organizer_id' => $organizer->id, 'slug' => 'tech-meetup', 'venue' => 'Innovation Hub', 'date' => '2026-10-10']);
+
+        Sanctum::actingAs($admin);
+        $this->postJson("/api/events/{$event->id}/approve")->assertOk();
+
+        Mail::assertQueued(\App\Mail\ApplicationDecisionMail::class, fn ($mail) => $mail->hasTo('organizer@example.com')
+            && $mail->approved === true
+            && $mail->applicationFor === 'event "Tech Meetup"'
+            && str_ends_with($mail->actionUrl, '/events/tech-meetup')
+            && $mail->details['Venue'] === 'Innovation Hub'
+            && $mail->details['Date'] === 'October 10, 2026');
+    }
+
+    public function test_rejecting_an_event_emails_its_organizer_without_a_link(): void
+    {
+        Mail::fake();
+        $organizer = $this->makeUser('organizer@example.com');
+        $admin = $this->makeUser('admin@example.com');
+        $admin->forceFill(['role' => 'admin'])->save();
+        $event = Event::create(['title' => 'Tech Meetup', 'status' => 'pending', 'organizer_id' => $organizer->id, 'slug' => 'tech-meetup']);
+
+        Sanctum::actingAs($admin);
+        $this->postJson("/api/events/{$event->id}/reject")->assertOk();
+
+        Mail::assertQueued(\App\Mail\ApplicationDecisionMail::class, fn ($mail) => $mail->hasTo('organizer@example.com') && $mail->approved === false);
+
+        (new \App\Mail\ApplicationDecisionMail('Ana', 'event "Tech Meetup"', false, [], 'https://example.test/events/tech-meetup', 'View your event'))
+            ->assertSeeInHtml("We weren't able to approve", false)
+            ->assertDontSeeInHtml('View your event');
+    }
+
+    public function test_the_approval_link_for_a_private_event_carries_its_access_token(): void
+    {
+        Mail::fake();
+        $organizer = $this->makeUser('organizer@example.com');
+        $admin = $this->makeUser('admin@example.com');
+        $admin->forceFill(['role' => 'admin'])->save();
+        $event = Event::create(['title' => 'Secret', 'status' => 'pending', 'organizer_id' => $organizer->id, 'slug' => 'secret', 'is_private' => true, 'private_link' => 'abc123']);
+
+        Sanctum::actingAs($admin);
+        $this->postJson("/api/events/{$event->id}/approve")->assertOk();
+
+        Mail::assertQueued(\App\Mail\ApplicationDecisionMail::class, fn ($mail) => str_ends_with($mail->actionUrl, '/events/secret?access=abc123'));
+    }
+
+    public function test_an_admin_deciding_on_their_own_event_is_not_emailed(): void
+    {
+        Mail::fake();
+        $admin = $this->makeUser('admin@example.com');
+        $admin->forceFill(['role' => 'admin'])->save();
+        $event = Event::create(['title' => 'Mine', 'status' => 'pending', 'organizer_id' => $admin->id, 'slug' => 'mine-x']);
+
+        Sanctum::actingAs($admin);
+        $this->postJson("/api/events/{$event->id}/approve")->assertOk();
+
+        Mail::assertNotQueued(\App\Mail\ApplicationDecisionMail::class);
+    }
+
+    public function test_a_legacy_event_with_no_organizer_is_decided_without_emailing_anyone(): void
+    {
+        Mail::fake();
+        $admin = $this->makeUser('admin@example.com');
+        $admin->forceFill(['role' => 'admin'])->save();
+        $event = Event::create(['title' => 'Legacy', 'status' => 'pending', 'slug' => 'legacy-x']);
+
+        Sanctum::actingAs($admin);
+        $this->postJson("/api/events/{$event->id}/approve")->assertOk();
+
+        Mail::assertNotQueued(\App\Mail\ApplicationDecisionMail::class);
+    }
+
+    public function test_approving_the_same_event_twice_only_emails_once(): void
+    {
+        Mail::fake();
+        $organizer = $this->makeUser('organizer@example.com');
+        $admin = $this->makeUser('admin@example.com');
+        $admin->forceFill(['role' => 'admin'])->save();
+        $event = Event::create(['title' => 'Tech Meetup', 'status' => 'pending', 'organizer_id' => $organizer->id, 'slug' => 'tech-meetup']);
+
+        Sanctum::actingAs($admin);
+        $this->postJson("/api/events/{$event->id}/approve")->assertOk();
+        $this->postJson("/api/events/{$event->id}/approve")->assertOk();
+
+        Mail::assertQueued(\App\Mail\ApplicationDecisionMail::class, 1);
+    }
+
     /** status moves on (approved -> completed), but the fact it was approved must not disappear from the history. */
     public function test_an_approval_stays_in_the_history_after_the_event_completes(): void
     {

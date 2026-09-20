@@ -168,6 +168,15 @@ class OrganizerAuthTest extends TestCase
         (new ApplicationReceivedMail('Ana Reyes', 'organizer account'))->assertSeeInHtml('02-8123-4567');
     }
 
+    /** An applicant who didn't pick an organization must not get an empty "Organization:" line. */
+    public function test_the_acknowledgment_email_skips_rows_with_no_value(): void
+    {
+        $mail = new ApplicationReceivedMail('Ana Reyes', 'organizer account', ['Contact number' => '0917 123 4567', 'Organization' => null]);
+
+        $mail->assertSeeInHtml('Contact number:');
+        $mail->assertDontSeeInHtml('Organization:');
+    }
+
     public function test_the_acknowledgment_email_omits_the_contact_line_when_no_number_exists(): void
     {
         (new ApplicationReceivedMail('Ana Reyes', 'organizer account'))

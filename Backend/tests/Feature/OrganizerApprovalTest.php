@@ -2,8 +2,10 @@
 
 namespace Tests\Feature;
 
+use App\Mail\ApplicationDecisionMail;
 use App\Models\Organizer;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Mail;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -175,6 +177,94 @@ class OrganizerApprovalTest extends TestCase
         $this->assertSame($admin->name, $history->json('0.approver.name'));
         $this->assertNotContains($pending->email, collect($history->json())->pluck('email')->all());
         $this->assertNotContains($admin->email, collect($history->json())->pluck('email')->all());
+    }
+
+    public function test_approving_an_organizer_emails_them_with_a_way_to_log_in(): void
+    {
+        Mail::fake();
+        $applicant = $this->makeVerifiedUnapprovedOrganizer('ana@example.com');
+
+        Sanctum::actingAs($this->makeAdmin());
+        $this->postJson("/api/organizers/{$applicant->id}/approve")->assertOk();
+
+        Mail::assertQueued(ApplicationDecisionMail::class, fn ($mail) => $mail->hasTo('ana@example.com')
+            && $mail->approved === true
+            && $mail->applicationFor === 'organizer account'
+            && str_ends_with($mail->actionUrl, '/login'));
+    }
+
+    public function test_the_approval_email_says_which_organization_they_were_added_to_and_as_what(): void
+    {
+        Mail::fake();
+        $applicant = $this->makeVerifiedUnapprovedOrganizer('ana@example.com');
+        $applicant->forceFill(['requested_organization_name' => 'Brand New Club', 'requested_organization_address' => '12 Rizal St'])->save();
+
+        Sanctum::actingAs($this->makeAdmin());
+        $this->postJson("/api/organizers/{$applicant->id}/approve", ['createOrganization' => true])->assertOk();
+
+        Mail::assertQueued(ApplicationDecisionMail::class, fn ($mail) => ($mail->details['Organization'] ?? null) === 'Brand New Club (owner)');
+    }
+
+    public function test_the_approval_email_names_an_existing_organization_they_joined_as_a_member(): void
+    {
+        Mail::fake();
+        $existing = \App\Models\Organization::create(['name' => 'Acme', 'slug' => 'acme']);
+        $applicant = $this->makeVerifiedUnapprovedOrganizer('ana@example.com');
+        $applicant->forceFill(['requested_organization_id' => $existing->id])->save();
+
+        Sanctum::actingAs($this->makeAdmin());
+        $this->postJson("/api/organizers/{$applicant->id}/approve")->assertOk();
+
+        Mail::assertQueued(ApplicationDecisionMail::class, fn ($mail) => ($mail->details['Organization'] ?? null) === 'Acme (member)');
+    }
+
+    public function test_rejecting_an_organizer_emails_them_and_gives_the_admins_number(): void
+    {
+        Mail::fake();
+        $admin = $this->makeAdmin();
+        $admin->forceFill(['contact_number' => '0999 888 7777'])->save();
+        $applicant = $this->makeVerifiedUnapprovedOrganizer('dan@example.com');
+
+        Sanctum::actingAs($admin);
+        $this->postJson("/api/organizers/{$applicant->id}/reject")->assertOk();
+
+        Mail::assertQueued(ApplicationDecisionMail::class, function ($mail) {
+            return $mail->hasTo('dan@example.com') && $mail->approved === false;
+        });
+
+        // Rendered for real: a rejection points them at a person, and never
+        // offers a "log in" button they can't use.
+        $rejection = new ApplicationDecisionMail('Dan', 'organizer account', false, [], 'https://example.test/login', 'Log in to QRMeets');
+        // escape: false - the template holds a literal apostrophe, and the
+        // helper would otherwise look for its HTML-escaped form.
+        $rejection->assertSeeInHtml("We weren't able to approve your application", false);
+        $rejection->assertSeeInHtml('0999 888 7777');
+        $rejection->assertDontSeeInHtml('Log in to QRMeets');
+    }
+
+    public function test_an_approval_email_renders_the_call_to_action_and_omits_the_contact_line(): void
+    {
+        $admin = $this->makeAdmin();
+        $admin->forceFill(['contact_number' => '0999 888 7777'])->save();
+
+        $approval = new ApplicationDecisionMail('Ana', 'organizer account', true, ['Organization' => 'Acme (member)'], 'https://example.test/login', 'Log in to QRMeets');
+
+        $approval->assertSeeInHtml('has been approved');
+        $approval->assertSeeInHtml('Acme (member)');
+        $approval->assertSeeInHtml('Log in to QRMeets');
+        $approval->assertDontSeeInHtml('0999 888 7777');
+    }
+
+    public function test_deciding_on_the_same_application_twice_does_not_email_twice(): void
+    {
+        Mail::fake();
+        $applicant = $this->makeVerifiedUnapprovedOrganizer('ana@example.com');
+
+        Sanctum::actingAs($this->makeAdmin());
+        $this->postJson("/api/organizers/{$applicant->id}/approve")->assertOk();
+        $this->postJson("/api/organizers/{$applicant->id}/approve")->assertOk();
+
+        Mail::assertQueued(ApplicationDecisionMail::class, 1);
     }
 
     public function test_only_an_admin_can_read_the_approval_history(): void

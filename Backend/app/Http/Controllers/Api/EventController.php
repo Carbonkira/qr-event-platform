@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Mail\ApplicationDecisionMail;
 use App\Mail\ApplicationReceivedMail;
 use App\Mail\EventCancelledMail;
 use App\Mail\EventSubmittedForApprovalMail;
@@ -351,6 +352,8 @@ class EventController extends Controller
      */
     private function recordReview(Event $event, Request $request, string $decision): Event
     {
+        $alreadyDecided = $event->review_decision === $decision;
+
         $event->forceFill([
             'status' => $decision,
             'review_decision' => $decision,
@@ -358,7 +361,48 @@ class EventController extends Controller
             'reviewed_by' => $request->user()->id,
         ])->save();
 
+        // Only on a real change - approving an already-approved event (a
+        // double-click, a retried request) shouldn't email anyone twice.
+        if (! $alreadyDecided) {
+            $this->emailEventDecision($event, $request->user(), $decision === 'approved');
+        }
+
         return $event;
+    }
+
+    /**
+     * Tells whoever created the event that the admin decided on it - the
+     * other half of acknowledgeEventApplication(). Skipped when there's no
+     * owner to tell (a legacy event) or when the admin is deciding on their
+     * own event. Like every email here, never allowed to fail the request.
+     */
+    private function emailEventDecision(Event $event, Organizer $reviewer, bool $approved): void
+    {
+        $organizer = $event->organizer;
+        if (! $organizer || $organizer->is($reviewer)) {
+            return;
+        }
+
+        try {
+            $frontend = rtrim(config('services.frontend.url'), '/');
+            // A private event is only reachable with its access token, so the
+            // link has to carry it or "View your event" would dead-end.
+            $link = "{$frontend}/events/{$event->slug}".($event->is_private && $event->private_link ? "?access={$event->private_link}" : '');
+
+            Mail::to($organizer->email)->queue(new ApplicationDecisionMail(
+                $organizer->name,
+                "event \"{$event->title}\"",
+                $approved,
+                [
+                    'Date' => $event->date ? \Carbon\Carbon::parse($event->date)->format('F j, Y') : null,
+                    'Venue' => $event->venue,
+                ],
+                $link,
+                'View your event',
+            ));
+        } catch (\Throwable $e) {
+            Log::error('Failed to queue event decision email', ['event_id' => $event->id, 'error' => $e->getMessage()]);
+        }
     }
 
     /**

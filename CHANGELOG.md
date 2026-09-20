@@ -30,6 +30,7 @@ All notable changes to QRMeets. Newest first.
 ### Emails
 - Applicants get "We have received your application for your [organizer account / event]. You can contact us here [admin number]" as soon as they apply.
 - The admin is emailed for each new organizer application (before, only for events). The Approvals badge counts both.
+- Applicants are emailed when the admin decides. An approved organizer is told which organization they were added to (and as owner or member) with a log-in button. An approved event links straight to its page. A rejection includes the admin's number instead of a button. Each decision is emailed once, and an admin deciding on their own event isn't emailed.
 
 ### Security
 - **Pass links:** anyone could step through registration numbers and see other people's names and QR codes. Every pass link now carries a private token. Links already emailed keep working.
@@ -44,5 +45,4 @@ All notable changes to QRMeets. Newest first.
 
 ### Known follow-ups
 - QR code values are still sequential. Scanning one needs an approved organizer login, and the exposure through pass links is closed.
-- Applicants aren't emailed when their application is approved or rejected.
 - The paper's ERD, Data Dictionary and System Design still describe a single account type.
