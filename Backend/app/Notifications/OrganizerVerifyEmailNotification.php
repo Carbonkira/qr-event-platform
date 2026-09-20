@@ -12,7 +12,8 @@ use Illuminate\Support\Facades\URL;
  * Organizer and Participant can't share Laravel's default 'verification.verify'
  * named route - the same numeric id can exist in both tables at once, so the
  * link has to say which table to check. Otherwise identical to Laravel's own
- * VerifyEmail (queued for the same reason as the old VerifyEmailNotification).
+ * VerifyEmail, except queued - sent inline it would hang the signup request
+ * whenever the mail provider is slow or unreachable.
  */
 class OrganizerVerifyEmailNotification extends BaseVerifyEmail implements ShouldQueue
 {

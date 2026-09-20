@@ -25,7 +25,7 @@ use Laravel\Sanctum\HasApiTokens;
  * to meet with the system admin before this flips to 'approved'. Neither
  * `role` nor `approval_status` is mass-assignable - both are only ever set
  * via forceFill() (OrganizerApprovalController, seeders/tests, or the
- * accounts:split-users backfill's grandfathering).
+ * one-time grandfathering of accounts that existed before approval did).
  */
 class Organizer extends Authenticatable implements MustVerifyEmail
 {

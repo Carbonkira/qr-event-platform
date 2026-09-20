@@ -13,23 +13,18 @@ return [
 
     // Sanctum registers its own 'sanctum' guard driver at boot time (used by
     // the 'auth:sanctum' middleware alias on protected API routes); it does
-    // not need an explicit entry here.
+    // not need an explicit entry here. The 'web' guard is never actually used
+    // (this is a token-only API) - Laravel just needs one to exist, so it's
+    // pointed at organizers now that the old single-account 'users' provider
+    // is gone.
     'guards' => [
         'web' => [
             'driver' => 'session',
-            'provider' => 'users',
+            'provider' => 'organizers',
         ],
     ],
 
     'providers' => [
-        // Legacy - App\Models\User now points at the renamed
-        // legacy_users_backup table (see accounts:split-users), kept only
-        // as a rollback source. Nothing in the running app resolves the
-        // 'web' guard (see bootstrap/app.php), so this is harmless deadweight.
-        'users' => [
-            'driver' => 'eloquent',
-            'model' => App\Models\User::class,
-        ],
         'organizers' => [
             'driver' => 'eloquent',
             'model' => App\Models\Organizer::class,

@@ -76,9 +76,9 @@ class ParticipantAuthTest extends TestCase
     }
 
     /**
-     * Same id can validly exist in both tables at once (see
-     * SplitUsersIntoAccounts) - an Organizer's credentials must still never
-     * work against the participant login endpoint.
+     * Same id can validly exist in both tables at once (someone who both
+     * hosts and attends has one account of each type) - an Organizer's
+     * credentials must still never work against the participant login endpoint.
      */
     public function test_an_organizer_account_cannot_log_in_through_the_participant_endpoint(): void
     {
@@ -140,8 +140,8 @@ class ParticipantAuthTest extends TestCase
 
     /**
      * The same email is allowed to exist in *both* tables at once (a dual
-     * organizer+participant account, see SplitUsersIntoAccounts) - only
-     * uniqueness *within* participants is enforced.
+     * organizer+participant account) - only uniqueness *within* participants
+     * is enforced.
      */
     public function test_can_update_email_to_one_already_taken_by_an_organizer_account(): void
     {

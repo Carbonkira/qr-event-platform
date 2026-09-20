@@ -19,7 +19,7 @@ class InviteFlowTest extends TestCase
     private function makeUser(string $email = 'user@example.com'): Organizer
     {
         $user = Organizer::create(['name' => 'Test User', 'email' => $email, 'password' => bcrypt('password123')]);
-        // Neither is mass-assignable (see User::$fillable).
+        // Neither is mass-assignable (see Organizer::$fillable).
         $user->forceFill(['email_verified_at' => now(), 'approval_status' => 'approved'])->save();
 
         return $user;

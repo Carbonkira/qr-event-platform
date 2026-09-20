@@ -10,10 +10,10 @@ use Illuminate\Notifications\Notification;
 /**
  * Points at the SPA's own reset-password page rather than Laravel's default
  * (a named 'password.reset' web route, which doesn't exist in this
- * API-only app) - see User::sendPasswordResetNotification().
+ * API-only app) - see Organizer/Participant::sendPasswordResetNotification().
  *
- * ShouldQueue matters here for the same reason as VerifyEmailNotification -
- * without it this sends inline during the forgot-password request, so a
+ * ShouldQueue matters here for the same reason as the email-verification
+ * notifications - without it this sends inline during the forgot-password request, so a
  * slow/unreachable SMTP endpoint hangs that request instead of just
  * delaying an already-queued job.
  */
