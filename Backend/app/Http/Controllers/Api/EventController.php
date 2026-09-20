@@ -556,24 +556,10 @@ class EventController extends Controller
         return response()->json($task);
     }
 
-    /**
-     * Any member (owner or member role) of an event's organization can edit,
-     * delete, or submit it - not just whoever originally created it, since a
-     * co-officer in the same club should be able to pick up a teammate's
-     * event. Events with no organization (legacy rows from before this
-     * existed) stay editable by anyone rather than becoming permanently locked.
-     * An admin bypasses this entirely - they manage every organization's
-     * events regardless of personal membership (see also store() below).
-     */
+    /** The rule itself lives in Organizer::canManageEvent(), shared with payment verification and check-in scanning. */
     private function authorizeOrgMember(Request $request, Event $event): void
     {
-        abort_if(
-            ! $request->user()->isAdmin()
-                && $event->organization_id !== null
-                && ! $request->user()->organizations()->where('organizations.id', $event->organization_id)->exists(),
-            403,
-            'Only a member of this event\'s organization can do that.'
-        );
+        abort_unless($request->user()->canManageEvent($event), 403, 'Only a member of this event\'s organization can do that.');
     }
 
     /**

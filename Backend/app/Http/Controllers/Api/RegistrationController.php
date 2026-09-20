@@ -9,6 +9,7 @@ use App\Mail\PaymentVerifiedMail;
 use App\Mail\RegistrationConfirmedMail;
 use App\Models\Event;
 use App\Models\Registration;
+use App\Services\QrCodes;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
@@ -127,21 +128,17 @@ class RegistrationController extends Controller
     }
 
     /**
-     * Ports the mock's addRegistration() exactly (App.jsx:100-105): QR code
-     * format is "QR-E{eventNum}-{P|WI}{seq}", where eventNum is the event's
-     * id zero-padded to 3 digits and seq is a 1-based, per-event,
-     * per-registration-type-agnostic running count (the mock counts *all*
-     * registrations for the event, walk-in or not, so P and WI sequences
-     * share one counter here too).
+     * The sequence in a QR code is a 1-based, per-event, per-registration-
+     * type-agnostic running count (the mock this was ported from counted
+     * *all* registrations for the event, walk-in or not, so P and WI
+     * sequences share one counter here too). The code's format - including
+     * the random tail that makes it unguessable - lives in App\Services\QrCodes.
      */
     private function createRegistration(Event $event, array $data, Request $request, array $overrides): Registration
     {
         $isWalkIn = $overrides['is_walk_in'] ?? false;
 
-        $seq = $this->nextSequence($event);
-        $eventNum = str_pad((string) $event->id, 3, '0', STR_PAD_LEFT);
-        $prefix = $isWalkIn ? 'WI' : 'P';
-        $qrCode = sprintf('QR-E%s-%s%s', $eventNum, $prefix, str_pad((string) $seq, 3, '0', STR_PAD_LEFT));
+        $qrCode = QrCodes::generate($event->id, $isWalkIn, $this->nextSequence($event));
 
         $paymentRef = $data['payment_ref'] ?? null;
 
@@ -194,7 +191,7 @@ class RegistrationController extends Controller
     {
         $maxSeq = $event->registrations()
             ->pluck('qr_code')
-            ->map(fn ($code) => (int) substr($code, -3))
+            ->map(fn ($code) => QrCodes::sequenceOf($code))
             ->max();
 
         return ($maxSeq ?? 0) + 1;
@@ -477,20 +474,9 @@ class RegistrationController extends Controller
         return response()->json($registration);
     }
 
-    /**
-     * Same rule and the same "events with no organization stay open" carve-out
-     * as EventController::authorizeOrgMember - kept as its own copy here
-     * rather than a shared trait since that controller's version is private
-     * and this is the only other place that currently needs it.
-     */
+    /** The rule itself lives in Organizer::canManageEvent(), shared with event editing and check-in scanning. */
     private function authorizeOrgMember(Request $request, Event $event): void
     {
-        abort_if(
-            ! $request->user()->isAdmin()
-                && $event->organization_id !== null
-                && ! $request->user()->organizations()->where('organizations.id', $event->organization_id)->exists(),
-            403,
-            'Only a member of this event\'s organization can do that.'
-        );
+        abort_unless($request->user()->canManageEvent($event), 403, 'Only a member of this event\'s organization can do that.');
     }
 }

@@ -66,6 +66,20 @@ class Organizer extends Authenticatable implements MustVerifyEmail
         return $this->approval_status === 'approved';
     }
 
+    /**
+     * The one rule for "may this organizer run this event": an admin always
+     * can; any member of the event's organization can (not just whoever
+     * created it - a co-officer should be able to pick up a teammate's
+     * event); and a legacy event with no organization is anyone's to manage
+     * rather than being permanently locked.
+     */
+    public function canManageEvent(Event $event): bool
+    {
+        return $this->isAdmin()
+            || $event->organization_id === null
+            || $this->organizations()->where('organizations.id', $event->organization_id)->exists();
+    }
+
     public function events(): HasMany
     {
         return $this->hasMany(Event::class, 'organizer_id');

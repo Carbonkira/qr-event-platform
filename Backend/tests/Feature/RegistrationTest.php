@@ -380,6 +380,61 @@ class RegistrationTest extends TestCase
         $this->assertSame(1, Registration::where('qr_code', $fourth->json('qrCode'))->count());
     }
 
+    /**
+     * "QR-E012-P034" could be guessed by anyone who knew the format (event 1,
+     * registration 1, 2, 3...). New codes end in a random part so they can't.
+     */
+    public function test_new_qr_codes_end_in_an_unguessable_random_part(): void
+    {
+        Mail::fake();
+        $event = $this->makeEvent();
+        Sanctum::actingAs($this->makeUser('org@example.com'));
+
+        $first = $this->postJson("/api/events/{$event->id}/registrations", ['name' => 'First', 'email' => 'first@example.com'])->assertCreated()->json('qrCode');
+        $second = $this->postJson("/api/events/{$event->id}/registrations", ['name' => 'Second', 'email' => 'second@example.com'])->assertCreated()->json('qrCode');
+
+        $this->assertMatchesRegularExpression('/^QR-E\d{3}-P001-[A-HJ-NP-Z2-9]{8}$/', $first);
+        $this->assertMatchesRegularExpression('/^QR-E\d{3}-P002-[A-HJ-NP-Z2-9]{8}$/', $second);
+        // Same event, consecutive numbers - the secret tail is what differs.
+        $this->assertNotSame(substr($first, -8), substr($second, -8));
+    }
+
+    public function test_walk_in_qr_codes_are_marked_and_also_carry_the_random_part(): void
+    {
+        Mail::fake();
+        $event = $this->makeEvent();
+
+        $code = $this->postJson("/api/events/{$event->id}/walk-in", ['name' => 'Walk In', 'email' => 'walkin@example.com'])->assertCreated()->json('qrCode');
+
+        $this->assertMatchesRegularExpression('/^QR-E\d{3}-WI001-[A-HJ-NP-Z2-9]{8}$/', $code);
+    }
+
+    public function test_the_next_sequence_number_is_read_correctly_from_old_and_new_format_codes(): void
+    {
+        Mail::fake();
+        $event = $this->makeEvent();
+        // One code from before the random part existed, one after, and one
+        // that follows no format at all (a hand-made fixture).
+        $event->registrations()->create(['name' => 'Old', 'email' => 'old@example.com', 'qr_code' => 'QR-E001-P005']);
+        $event->registrations()->create(['name' => 'New', 'email' => 'new@example.com', 'qr_code' => 'QR-E001-P007-ABCDEFGH']);
+        $event->registrations()->create(['name' => 'Odd', 'email' => 'odd@example.com', 'qr_code' => 'QR-EXISTING']);
+        Sanctum::actingAs($this->makeUser('org@example.com'));
+
+        $code = $this->postJson("/api/events/{$event->id}/registrations", ['name' => 'Next', 'email' => 'next@example.com'])->assertCreated()->json('qrCode');
+
+        $this->assertMatchesRegularExpression('/^QR-E\d{3}-P008-/', $code);
+    }
+
+    public function test_qr_code_sequence_parsing(): void
+    {
+        $this->assertSame(34, \App\Services\QrCodes::sequenceOf('QR-E012-P034'));
+        $this->assertSame(34, \App\Services\QrCodes::sequenceOf('QR-E012-P034-7HQ2XK9M'));
+        $this->assertSame(1, \App\Services\QrCodes::sequenceOf('QR-E003-WI001'));
+        $this->assertSame(1, \App\Services\QrCodes::sequenceOf('QR-E003-WI001-ZZZZ2222'));
+        // More than 999 registrations no longer breaks the running count.
+        $this->assertSame(1204, \App\Services\QrCodes::sequenceOf('QR-E003-P1204-ABCDEFGH'));
+    }
+
     public function test_registrations_are_waitlisted_once_the_event_is_full(): void
     {
         Mail::fake();

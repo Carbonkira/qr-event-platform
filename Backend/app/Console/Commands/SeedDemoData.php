@@ -7,6 +7,7 @@ use App\Models\Feedback;
 use App\Models\Organization;
 use App\Models\Organizer;
 use App\Models\Registration;
+use App\Services\QrCodes;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Hash;
 
@@ -149,13 +150,12 @@ class SeedDemoData extends Command
             );
             $event->registrations()->delete();
 
-            $eventNum = str_pad((string) $event->id, 3, '0', STR_PAD_LEFT);
             for ($n = 1; $n <= $spec['attendeeCount']; $n++) {
                 $attended = $n <= $spec['attendedCount'];
                 $registration = $event->registrations()->create([
                     'name' => $names[($i * 10 + $n) % count($names)].($n > count($names) ? " {$n}" : ''),
                     'email' => 'attendee'.$n.'.demo'.$event->id.'@example.com',
-                    'qr_code' => sprintf('QR-E%s-P%s', $eventNum, str_pad((string) $n, 3, '0', STR_PAD_LEFT)),
+                    'qr_code' => QrCodes::generate($event->id, false, $n),
                     'attended' => $attended,
                     'check_in_time' => $attended ? now()->subDays($spec['daysAgo'])->setTime(10, random_int(0, 30)) : null,
                     'feedback_submitted' => false,

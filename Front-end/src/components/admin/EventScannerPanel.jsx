@@ -147,7 +147,7 @@ export default function EventScannerPanel({ eventId, checkedInCount, totalCount,
           <p className="font-bold text-[14px] mb-3">Manual entry</p>
           <p className="text-[12px] text-slate-500 mb-3">Type or paste the QR code value if scanning isn't available.</p>
           <form onSubmit={handleManualSubmit} className="flex gap-2">
-            <div className="flex-1"><Input icon={Hash} value={manualCode} onChange={e => setManualCode(e.target.value)} placeholder="e.g. QR-E1-P004" /></div>
+            <div className="flex-1"><Input icon={Hash} value={manualCode} onChange={e => setManualCode(e.target.value)} placeholder="e.g. QR-E001-P004-7HQ2XK9M" /></div>
             <Btn type="submit" loading={checking}>Check In</Btn>
           </form>
         </Card>
