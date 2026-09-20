@@ -428,7 +428,12 @@ class RegistrationController extends Controller
             'event_id' => $registration->event_id,
             'attended' => $registration->attended,
             'feedback_submitted' => $registration->feedback_submitted,
-            'event' => $registration->event()->select('id', 'title', 'slug', 'date', 'start_time', 'end_time', 'venue', 'status', 'feedback_enabled')->first(),
+            // feedback_questions rides along because the pass page hands this
+            // event straight to the feedback form - without it the form only
+            // knows the five default ratings and silently drops whatever
+            // extra questions the organizer added. (Public on the event
+            // page already, so nothing new is exposed.)
+            'event' => $registration->event()->select('id', 'title', 'slug', 'date', 'start_time', 'end_time', 'venue', 'status', 'feedback_enabled', 'feedback_questions')->first(),
         ];
     }
 

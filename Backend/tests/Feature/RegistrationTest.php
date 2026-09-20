@@ -70,6 +70,30 @@ class RegistrationTest extends TestCase
         $this->assertTrue($response->json('attended'));
     }
 
+    /**
+     * The pass page hands this event straight to the feedback form, so if the
+     * organizer's own questions aren't in it the form falls back to the five
+     * default ratings and their extra questions are never asked.
+     */
+    public function test_the_pass_endpoint_carries_the_events_feedback_questions(): void
+    {
+        $questions = [
+            ['id' => 'q1', 'label' => 'Check-in experience', 'type' => 'rating', 'required' => true],
+            ['id' => 'fq1', 'label' => 'What is one thing we could improve?', 'type' => 'text', 'required' => true],
+        ];
+        $event = $this->makeEvent(['feedback_questions' => $questions]);
+        $registration = $event->registrations()->create(['name' => 'Attendee', 'email' => 'attendee@example.com', 'qr_code' => 'QR-1']);
+
+        $this->getJson("/api/registrations/{$registration->id}?token={$registration->pass_token}")
+            ->assertOk()
+            ->assertJsonPath('event.feedbackQuestions.1.label', 'What is one thing we could improve?');
+
+        // The email lookup shares the same payload.
+        $this->getJson('/api/pass/lookup?email=attendee@example.com')
+            ->assertOk()
+            ->assertJsonPath('0.event.feedbackQuestions.1.id', 'fq1');
+    }
+
     public function test_the_registration_endpoint_requires_the_correct_pass_token(): void
     {
         // The id alone is a plain sequential integer - anyone can iterate
