@@ -52,6 +52,5 @@ All notable changes to QRMeets. Newest first.
 
 ### Known follow-ups
 - An event that is full shows "Event is full" with no button, so the waitlist can only be reached by a direct registration link. Organizers can still see and promote waitlisted guests.
-- A pending or rejected organizer sees nothing in the app explaining why they can't host yet. They only have the emails.
 - The old shared accounts table (kept as `legacy_users_backup` after the split) is still in the database. It is meant to be dropped in a later release, after a backup.
 - The paper's ERD, Data Dictionary and System Design still describe a single account type.
