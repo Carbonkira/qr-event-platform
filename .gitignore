@@ -1,6 +1,9 @@
 # not part of the application because we used gemini
 .claude/
 
+# docker-compose.yml override - see .env.docker.example
+.env
+
 # OS/editor cruft
 .DS_Store
 Thumbs.db

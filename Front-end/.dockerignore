@@ -1,0 +1,8 @@
+node_modules
+dist
+test-results
+e2e
+.env
+.env.*
+!.env.example
+.git

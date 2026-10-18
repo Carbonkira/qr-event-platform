@@ -1,0 +1,132 @@
+# Local, self-contained copy of the whole system (frontend + backend +
+# queue/scheduler worker + Postgres) for demoing without depending on the
+# live Railway/Vercel deployments being up. Zero-config: `docker compose up
+# --build` works out of the box with sensible demo defaults baked in below;
+# the handful of ${VAR:-} entries are optional overrides (real email/AI
+# during a live demo) read from a .env file next to this one, see
+# .env.docker.example.
+#
+# First run, after the containers are up:
+#   docker compose exec backend php artisan demo:seed
+# logs in as demo@qrmeets.net / Demo12345! (admin, pre-approved, pre-seeded
+# with mock events) - see Backend/app/Console/Commands/SeedDemoData.php.
+#
+# Frontend: http://localhost:5173
+# Backend API: http://localhost:8000/api
+
+x-backend-env: &backend-env
+  APP_NAME: QRMeets
+  APP_ENV: local
+  APP_KEY: "base64:bNgUHgdEhy9OHRW9DG1Hht5VrigAYOmSRP2fo/VSNII="
+  APP_DEBUG: "true"
+  APP_URL: http://localhost:8000
+  APP_LOCALE: en
+  APP_FALLBACK_LOCALE: en
+  LOG_CHANNEL: stack
+  LOG_LEVEL: debug
+  PORT: 8000
+  DB_CONNECTION: pgsql
+  DB_HOST: db
+  DB_PORT: 5432
+  DB_DATABASE: qr_event_platform
+  DB_USERNAME: postgres
+  DB_PASSWORD: postgres
+  SESSION_DRIVER: file
+  SESSION_LIFETIME: 120
+  CACHE_STORE: file
+  QUEUE_CONNECTION: database
+  FILESYSTEM_DISK: local
+  FILESYSTEM_PUBLIC_DRIVER: local
+  SANCTUM_STATEFUL_DOMAINS: localhost:5173
+  FRONTEND_URL: http://localhost:5173
+  SANCTUM_EXPIRATION: 43200
+  # Logs to storage/logs/laravel.log instead of sending real mail by
+  # default - fine for a demo (the seeded admin account is pre-verified,
+  # so you never need to read it) - set MAIL_MAILER=resend in .env for
+  # real delivery during a live defense.
+  MAIL_MAILER: ${MAIL_MAILER:-log}
+  RESEND_API_KEY: ${RESEND_API_KEY:-}
+  MAIL_HOST: ${MAIL_HOST:-}
+  MAIL_PORT: ${MAIL_PORT:-587}
+  MAIL_USERNAME: ${MAIL_USERNAME:-}
+  MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+  MAIL_FROM_ADDRESS: ${MAIL_FROM_ADDRESS:-no-reply@qrmeets.net}
+  MAIL_FROM_NAME: QRMeets
+  ADMIN_CONTACT_NUMBER: ${ADMIN_CONTACT_NUMBER:-}
+  ADMIN_CONTACT_EMAIL: ${ADMIN_CONTACT_EMAIL:-}
+  # Blank is fine - the description-generator and feedback-summary features
+  # degrade to a clean 503 instead of crashing. Set in .env for a live demo.
+  GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+  GEMINI_MODEL: gemini-3.6-flash
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: qr_event_platform
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # One-shot: runs the migrations exactly once, then exits. backend and
+  # worker both wait on this finishing successfully instead of each running
+  # `migrate --force` themselves - they start at roughly the same moment
+  # (both only wait on db's healthcheck), and running the same migration
+  # set from two containers at once isn't safe: confirmed in testing, the
+  # second one hit "column already exists" mid-migration and crashed
+  # outright. Backend's own entrypoint.sh still calls migrate --force too;
+  # that's fine, it's a no-op once this has already run.
+  migrate:
+    build:
+      context: ./Backend
+    depends_on:
+      db:
+        condition: service_healthy
+    environment: *backend-env
+    command: ["php", "artisan", "migrate", "--force"]
+
+  backend:
+    build:
+      context: ./Backend
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    environment: *backend-env
+    ports:
+      - "8000:8000"
+    volumes:
+      - backend_storage:/app/storage/app/public
+
+  # Queued emails (verification, confirmations, decisions) and scheduled
+  # jobs (reminders, auto-completing past events) only run here - the
+  # backend service's own entrypoint just serves HTTP, nothing processes
+  # the queue without this.
+  worker:
+    build:
+      context: ./Backend
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    environment: *backend-env
+    command: ["/worker-start.sh"]
+
+  frontend:
+    build:
+      context: ./Front-end
+      args:
+        VITE_API_URL: http://localhost:8000/api
+        VITE_GOOGLE_MAPS_API_KEY: ${VITE_GOOGLE_MAPS_API_KEY:-}
+    depends_on:
+      - backend
+    ports:
+      - "5173:80"
+
+volumes:
+  db_data:
+  backend_storage:
